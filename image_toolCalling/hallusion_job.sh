@@ -5,17 +5,17 @@ FRACTION=0.30          # 0.30 for 30% subset, 1.0 for full dataset
 SEED=42
 MAX_TOKENS=16384
 REPO="/iopsstor/scratch/cscs/raghavthind/code/hallusionbench_repo/image_toolCalling"
-OUT_DIR="/iopsstor/scratch/cscs/raghavthind/hallusionbench/results_tool"
+OUT_DIR="/iopsstor/scratch/cscs/raghavthind/hallusionbench/results_normal"
 LOG_DIR="/iopsstor/scratch/cscs/raghavthind/hallusionbench/logs"
 # ─────────────────────────────────────────────────────────────────────────────
 
 #SBATCH --account=a0174
 #SBATCH --partition=normal
-#SBATCH --time=08:00:00
+#SBATCH --time=05:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --job-name=hallusion-tool-gemma4
-#SBATCH --output=/iopsstor/scratch/cscs/raghavthind/hallusionbench/logs/tool_%j.log
+#SBATCH --job-name=hallusion-normal-gemma4
+#SBATCH --output=/iopsstor/scratch/cscs/raghavthind/hallusionbench/logs/normal_%j.log
 
 mkdir -p "$OUT_DIR" "$LOG_DIR"
 
@@ -48,11 +48,11 @@ for i in \$(seq 1 60); do
   sleep 5
 done
 
-python \$REPO/run_eval_tool.py \
+python \$REPO/run_eval.py \
   --port 30000 \
   --fraction \$FRACTION \
   --seed \$SEED \
-  --out \$OUT_DIR/tool_results.jsonl
+  --out \$OUT_DIR/raw_results.jsonl
 
 kill \$VLM_PID 2>/dev/null
 echo 'Done.'

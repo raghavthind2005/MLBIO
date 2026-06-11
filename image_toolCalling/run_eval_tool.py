@@ -155,11 +155,11 @@ def run_sample(
 
     b64_original = encode_image(img_path) if img_path else None
 
-    # Append per-question tool nudge — reminds model the tool exists for this specific question
+    # Encouraging but neutral — does not hint at editing or test structure
     question_with_nudge = (
         question
-        + "\n\nNote: if any visual detail is ambiguous or contradicts your expectation, "
-        "use LOOK_AGAIN: full before answering."
+        + "\n\nYou are encouraged to use LOOK_AGAIN: full during your reasoning "
+        "if re-examining the image would help you answer with more confidence."
     )
 
     # Initial messages

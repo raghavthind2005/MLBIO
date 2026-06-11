@@ -164,8 +164,8 @@ def build_messages(sample: dict) -> list[dict]:
 
     question_with_nudge = (
         sample.get("question", "")
-        + "\n\nNote: if any visual detail is ambiguous or contradicts your expectation, "
-          "use LOOK_AGAIN: full before answering."
+        + "\n\nYou are encouraged to use LOOK_AGAIN: full during your reasoning "
+          "if re-examining the image would help you answer with more confidence."
     )
 
     messages: list[dict] = [
