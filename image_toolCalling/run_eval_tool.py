@@ -273,12 +273,15 @@ def run_sample(
     pred              = parse_answer(final_answer)
     all_thinking_chars = sum(len(t) for t in thinking_per_stage)
 
+    final_prompt_tokens = stages[-1]["prompt_tokens"] if stages else None
+
     return {
         # model output
         "model_prediction":        pred,
         "answer_text":             final_answer,
         "thinking_per_stage":      thinking_per_stage,
         "all_thinking_chars":      all_thinking_chars,
+        "thinking_chars":          all_thinking_chars,  # alias for analyze.py compatibility
 
         # tool use
         "n_tool_calls":            n_tool_calls,
@@ -288,7 +291,10 @@ def run_sample(
         # token accounting
         "stages":                  stages,
         "total_completion_tokens": total_completion_tokens,
-        "final_prompt_tokens":     stages[-1]["prompt_tokens"] if stages else None,
+        "final_prompt_tokens":     final_prompt_tokens,
+        "visual_token_ratio_approx": (
+            total_image_tok / final_prompt_tokens if final_prompt_tokens else None
+        ),
 
         # timing
         "inference_time_s": round(elapsed, 3),
