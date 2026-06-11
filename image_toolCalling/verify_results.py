@@ -78,9 +78,15 @@ def check_fields(records: list[dict], required: list[str], label: str) -> None:
 
 
 def verify_normal(records: list[dict]) -> None:
+    errors  = [r for r in records if "error" in r]
+    records = [r for r in records if "error" not in r]
     scored  = [r for r in records if r.get("is_correct") is not None]
     failed  = [r for r in records if r.get("is_correct") is None]
     correct = sum(r["is_correct"] for r in scored)
+    if errors:
+        print(f"  Error records   : {len(errors)} (skipped)")
+        for e in errors[:3]:
+            print(f"    {e.get('sample_id','?')}: {str(e.get('error',''))[:80]}")
 
     print(f"  Total records   : {len(records)}")
     print(f"  Scored          : {len(scored)}  ({correct} correct = {correct/len(scored):.3f})")
@@ -107,11 +113,17 @@ def verify_normal(records: list[dict]) -> None:
 
 
 def verify_tool(records: list[dict]) -> None:
+    errors  = [r for r in records if "error" in r]
+    records = [r for r in records if "error" not in r]
     scored      = [r for r in records if r.get("is_correct") is not None]
     failed      = [r for r in records if r.get("is_correct") is None]
     correct     = sum(r["is_correct"] for r in scored)
     tool_users  = [r for r in records if r.get("n_tool_calls", 0) > 0]
     total_calls = sum(r.get("n_tool_calls", 0) for r in records)
+    if errors:
+        print(f"  Error records   : {len(errors)} (skipped)")
+        for e in errors[:3]:
+            print(f"    {e.get('sample_id','?')}: {str(e.get('error',''))[:80]}")
 
     print(f"  Total records   : {len(records)}")
     print(f"  Scored          : {len(scored)}  ({correct} correct = {correct/len(scored):.3f})")
@@ -121,10 +133,10 @@ def verify_tool(records: list[dict]) -> None:
 
     by_vi = defaultdict(lambda: [0, 0, 0])
     for r in scored:
-        by_vi[r["visual_input"]][0] += r["is_correct"]
-        by_vi[r["visual_input"]][1] += 1
+        by_vi[r.get("visual_input", "?")][0] += r["is_correct"]
+        by_vi[r.get("visual_input", "?")][1] += 1
     for r in records:
-        by_vi[r["visual_input"]][2] += r.get("n_tool_calls", 0)
+        by_vi[r.get("visual_input", "?")][2] += r.get("n_tool_calls", 0)
     print(f"  By visual_input : " +
           "  ".join(f"vi={k}: {c}/{t}={c/t:.3f} (tc={tc})" for k,(c,t,tc) in sorted(by_vi.items())))
 
@@ -192,14 +204,78 @@ def verify_tool(records: list[dict]) -> None:
                   f"think={r.get('all_thinking_chars',0)}ch  calls={tc_info}")
 
 
+FORCED_REQUIRED = TOOL_REQUIRED + [
+    "answer_turn0", "pred_turn0", "answer_changed",
+    "thinking_turn0_chars", "thinking_turn1_chars",
+]
+
+
+def verify_forced(records: list[dict]) -> None:
+    errors  = [r for r in records if "error" in r]
+    records = [r for r in records if "error" not in r]
+    scored  = [r for r in records if r.get("is_correct") is not None]
+    failed  = [r for r in records if r.get("is_correct") is None]
+    correct = sum(r["is_correct"] for r in scored)
+    changed = [r for r in scored if r.get("answer_changed") is True]
+
+    if errors:
+        print(f"  Error records   : {len(errors)} (skipped)")
+
+    print(f"  Total records   : {len(records)}")
+    print(f"  Scored          : {len(scored)}  ({correct} correct = {correct/len(scored):.3f})")
+    print(f"  Parse failures  : {len(failed)}")
+
+    by_vi = defaultdict(lambda: [0, 0])
+    for r in scored:
+        by_vi[r.get("visual_input","?")][0] += r["is_correct"]
+        by_vi[r.get("visual_input","?")][1] += 1
+    print(f"  By visual_input : " +
+          "  ".join(f"vi={k}: {c}/{t}={c/t:.3f}" for k,(c,t) in sorted(by_vi.items())))
+
+    # Answer change analysis
+    wrong_to_right = sum(1 for r in scored
+                         if r.get("answer_changed") and r["is_correct"] == 1
+                         and r.get("pred_turn0") == "0")
+    right_to_wrong = sum(1 for r in scored
+                         if r.get("answer_changed") and r["is_correct"] == 0
+                         and r.get("pred_turn0") == "1")
+    print(f"  Answer changed  : {len(changed)}/{len(scored)} = {len(changed)/len(scored):.2f}")
+    print(f"    wrong→right (↑): {wrong_to_right}")
+    print(f"    right→wrong (↓): {right_to_wrong}")
+    print(f"    neutral change : {len(changed) - wrong_to_right - right_to_wrong}")
+
+    # Token verification
+    wrong_tok = [r for r in records
+                 if r.get("total_image_tokens") != 512 and r.get("image_path")]
+    if wrong_tok:
+        print(f"  [!] total_image_tokens != 512 in {len(wrong_tok)} records")
+    else:
+        print(f"  total_image_tokens  : all 512 ✓")
+
+    wrong_stages = [r for r in records if len(r.get("stages", [])) != 2]
+    if wrong_stages:
+        print(f"  [!] stages length != 2 in {len(wrong_stages)} records")
+    else:
+        print(f"  stages length       : all 2 ✓")
+
+    avg_t0 = sum(r.get("thinking_turn0_chars", 0) for r in records) / len(records)
+    avg_t1 = sum(r.get("thinking_turn1_chars", 0) for r in records) / len(records)
+    print(f"  Avg thinking t0 : {avg_t0:.0f} chars")
+    print(f"  Avg thinking t1 : {avg_t1:.0f} chars")
+
+    check_fields(records, FORCED_REQUIRED, "forced")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--normal", default=None)
     ap.add_argument("--tool",   default=None)
+    ap.add_argument("--forced", default=None)
     args = ap.parse_args()
 
     normal_path = Path(args.normal) if args.normal else SCRIPT_DIR / "results_normal" / "raw_results.jsonl"
     tool_path   = Path(args.tool)   if args.tool   else SCRIPT_DIR / "results_tool"   / "tool_results.jsonl"
+    forced_path = Path(args.forced) if args.forced else SCRIPT_DIR / "results_forced" / "forced_results.jsonl"
 
     print("=" * 60)
     print(f"NORMAL RUN: {normal_path}")
@@ -217,6 +293,15 @@ def main() -> None:
         verify_tool(load(tool_path))
     else:
         print(f"  [!] File not found: {tool_path}")
+
+    print()
+    print("=" * 60)
+    print(f"FORCED RUN: {forced_path}")
+    print("=" * 60)
+    if forced_path.exists():
+        verify_forced(load(forced_path))
+    else:
+        print(f"  [!] File not found (not yet run): {forced_path}")
 
 
 if __name__ == "__main__":
