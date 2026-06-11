@@ -109,6 +109,22 @@ def get_image_token_id(processor) -> int:
     raise RuntimeError("Could not find image token ID.")
 
 
+def get_token_id(tokenizer, token_str: str) -> int | None:
+    """Robustly resolve a special token's id across tokenizer variants."""
+    tid = tokenizer.convert_tokens_to_ids(token_str)
+    if tid is not None and tid != tokenizer.unk_token_id:
+        return tid
+    # added-tokens table (special tokens often live here)
+    enc = getattr(tokenizer, "added_tokens_encoder", None) or {}
+    if token_str in enc:
+        return enc[token_str]
+    # last resort: encode literal, accept only if it maps to a single token
+    ids = tokenizer.encode(token_str, add_special_tokens=False)
+    if len(ids) == 1:
+        return ids[0]
+    return None
+
+
 # ─── Image helpers ────────────────────────────────────────────────────────────
 
 def open_crop(img_path: str, region: str = "full") -> Image.Image:
@@ -248,11 +264,8 @@ def identify_token_groups(
       output           — all model-generation positions (all assistant turns)
     """
     tok = processor.tokenizer
-    try:
-        sot = tok.convert_tokens_to_ids("<start_of_turn>")
-        sot_valid = sot != tok.unk_token_id
-    except Exception:
-        sot_valid = False
+    sot = get_token_id(tok, "<start_of_turn>")
+    sot_valid = sot is not None
 
     # All image token positions, grouped by contiguous run
     visual_groups = find_visual_groups(ids, image_token_id)
@@ -374,7 +387,8 @@ def extract_attention(
 
     if DIAGNOSE:
         vg = {k: len(v) for k, v in groups.items() if k.startswith("visual_turn")}
-        print(f"\n  [diagnose] seq_len={seq_len} roles={groups.get('_roles')}")
+        sot_id = get_token_id(processor.tokenizer, "<start_of_turn>")
+        print(f"\n  [diagnose] seq_len={seq_len} sot_id={sot_id} roles={groups.get('_roles')}")
         print(f"  [diagnose] visual_groups={vg} system={len(groups.get('system',[]))} "
               f"instruction={len(groups.get('instruction',[]))} output={n_output}")
 
