@@ -1,4 +1,12 @@
 #!/bin/bash
+#SBATCH --account=a0174
+#SBATCH --partition=normal
+#SBATCH --time=05:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --job-name=hallusion-normal-gemma4
+#SBATCH --output=/iopsstor/scratch/cscs/raghavthind/hallusionbench/logs/normal_%j.log
+
 # ─── Config — change these for different runs ─────────────────────────────────
 MODEL_PATH="/capstor/store/cscs/swissai/a0174/models/gemma-4-31B-it"
 FRACTION=0.30          # 0.30 for 30% subset, 1.0 for full dataset
@@ -8,14 +16,6 @@ REPO="/iopsstor/scratch/cscs/raghavthind/code/hallusionbench_repo/image_toolCall
 OUT_DIR="/iopsstor/scratch/cscs/raghavthind/hallusionbench/results_normal"
 LOG_DIR="/iopsstor/scratch/cscs/raghavthind/hallusionbench/logs"
 # ─────────────────────────────────────────────────────────────────────────────
-
-#SBATCH --account=a0174
-#SBATCH --partition=normal
-#SBATCH --time=05:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --job-name=hallusion-normal-gemma4
-#SBATCH --output=/iopsstor/scratch/cscs/raghavthind/hallusionbench/logs/normal_%j.log
 
 mkdir -p "$OUT_DIR" "$LOG_DIR"
 
