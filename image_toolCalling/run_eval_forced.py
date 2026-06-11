@@ -412,3 +412,7 @@ def main() -> None:
         print(f"  neutral change : {n_changed - n_changed_correct - n_changed_wrong}")
     if not args.dry_run:
         print(f"Results       : {out_path}")
+
+
+if __name__ == "__main__":
+    main()
