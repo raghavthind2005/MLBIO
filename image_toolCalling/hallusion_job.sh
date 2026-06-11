@@ -22,6 +22,7 @@ mkdir -p "$OUT_DIR" "$LOG_DIR"
 srun --nodes=1 --ntasks=1 \
   --environment=$HOME/toml/sglang_gemma4.toml bash -c "
 MODEL_PATH='$MODEL_PATH'
+MAX_TOKENS='$MAX_TOKENS'
 FRACTION='$FRACTION'
 SEED='$SEED'
 REPO='$REPO'
@@ -52,6 +53,7 @@ python \$REPO/run_eval.py \
   --port 30000 \
   --fraction \$FRACTION \
   --seed \$SEED \
+  --max-tokens \$MAX_TOKENS \
   --out \$OUT_DIR/raw_results.jsonl
 
 kill \$VLM_PID 2>/dev/null

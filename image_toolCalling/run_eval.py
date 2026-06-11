@@ -29,7 +29,7 @@ IMG_BASE   = DATA_DIR / "data"
 DEFAULT_PORT     = 30000
 DEFAULT_FRACTION = 0.30
 DEFAULT_SEED     = 42
-MAX_NEW_TOKENS   = 2048
+MAX_NEW_TOKENS   = 16384
 
 SYSTEM_PROMPT = (
     "You are a helpful visual question answering assistant. "
@@ -75,7 +75,7 @@ def stratified_sample(data: list, fraction: float, seed: int) -> list:
 
 
 def call_model(
-    url: str, model: str, question: str, img_path: Path | None
+    url: str, model: str, question: str, img_path: Path | None, max_tokens: int = MAX_NEW_TOKENS
 ) -> tuple[dict, float]:
     content = []
     if img_path is not None:
@@ -90,8 +90,10 @@ def call_model(
             {"role": "user",   "content": content},
         ],
         "chat_template_kwargs": {"enable_thinking": True},
-        "max_tokens": MAX_NEW_TOKENS,
-        "temperature": 0.0,
+        "max_tokens": max_tokens,
+        "temperature": 1.0,
+        "top_k": 64,
+        "top_p": 0.95,
     }
 
     t0 = time.time()
@@ -105,12 +107,14 @@ def call_model(
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port",     type=int,   default=DEFAULT_PORT)
-    ap.add_argument("--model",    default=None, help="Model name (auto-detected if omitted)")
-    ap.add_argument("--fraction", type=float, default=DEFAULT_FRACTION)
-    ap.add_argument("--seed",     type=int,   default=DEFAULT_SEED)
-    ap.add_argument("--out",      default=None)
+    ap.add_argument("--port",       type=int,   default=DEFAULT_PORT)
+    ap.add_argument("--model",      default=None, help="Model name (auto-detected if omitted)")
+    ap.add_argument("--fraction",   type=float, default=DEFAULT_FRACTION)
+    ap.add_argument("--seed",       type=int,   default=DEFAULT_SEED)
+    ap.add_argument("--max-tokens", type=int,   default=MAX_NEW_TOKENS)
+    ap.add_argument("--out",        default=None)
     args = ap.parse_args()
+    MAX_NEW_TOKENS_RUN = args.max_tokens
 
     base_url = f"http://localhost:{args.port}"
     chat_url = f"{base_url}/v1/chat/completions"
@@ -150,7 +154,7 @@ def main() -> None:
 
             try:
                 img_path = Path(sample["image_path"]) if sample["image_path"] else None
-                resp, elapsed = call_model(chat_url, model_name, sample["question"], img_path)
+                resp, elapsed = call_model(chat_url, model_name, sample["question"], img_path, MAX_NEW_TOKENS_RUN)
 
                 msg      = resp["choices"][0]["message"]
                 thinking = (msg.get("reasoning_content") or "").strip()

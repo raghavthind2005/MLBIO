@@ -143,6 +143,7 @@ def run_sample(
     model: str,
     question: str,
     img_path: Path | None,
+    max_tokens: int = MAX_NEW_TOKENS,
     verbose: bool = False,
 ) -> dict:
     """
@@ -186,7 +187,7 @@ def run_sample(
             "model":  model,
             "messages": messages,
             "chat_template_kwargs": {"enable_thinking": True},
-            "max_tokens":  MAX_NEW_TOKENS,
+            "max_tokens":  max_tokens,
             "temperature": 1.0,
             "top_k": 64,
             "top_p": 0.95,
@@ -301,12 +302,13 @@ def run_sample(
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port",     type=int,   default=DEFAULT_PORT)
-    ap.add_argument("--model",    default=None)
-    ap.add_argument("--fraction", type=float, default=DEFAULT_FRACTION)
-    ap.add_argument("--seed",     type=int,   default=DEFAULT_SEED)
-    ap.add_argument("--out",      default=None)
-    ap.add_argument("--dry-run",  type=int,   default=0, metavar="N",
+    ap.add_argument("--port",       type=int,   default=DEFAULT_PORT)
+    ap.add_argument("--model",      default=None)
+    ap.add_argument("--fraction",   type=float, default=DEFAULT_FRACTION)
+    ap.add_argument("--seed",       type=int,   default=DEFAULT_SEED)
+    ap.add_argument("--max-tokens", type=int,   default=MAX_NEW_TOKENS)
+    ap.add_argument("--out",        default=None)
+    ap.add_argument("--dry-run",    type=int,   default=0, metavar="N",
                     help="Run N samples (preferring edited images) with verbose "
                          "output for verification. Does NOT write results.")
     args = ap.parse_args()
@@ -360,6 +362,7 @@ def main() -> None:
                 img_path = Path(sample["image_path"]) if sample["image_path"] else None
                 result   = run_sample(
                     chat_url, model_name, sample["question"], img_path,
+                    max_tokens=args.max_tokens,
                     verbose=bool(args.dry_run),
                 )
 
