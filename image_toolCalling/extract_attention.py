@@ -83,7 +83,7 @@ def load_model_and_processor(model_path: str):
     print("Loading model (bf16, eager attn)...")
     model = AutoModelForImageTextToText.from_pretrained(
         model_path,
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         device_map="auto",
         attn_implementation="eager",   # required — flash-attn doesn't return weights
     )
