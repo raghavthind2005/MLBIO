@@ -37,6 +37,8 @@ from PIL import Image
 
 MODEL_PATH = "/capstor/store/cscs/swissai/a0174/models/gemma-4-31B-it"
 
+DIAGNOSE = False   # set via --diagnose; prints role/group structure per sample
+
 # Must match the prompts used during inference
 SYSTEM_PROMPT_NORMAL = (
     "You are a helpful visual question answering assistant. "
@@ -248,7 +250,6 @@ def identify_token_groups(
     tok = processor.tokenizer
     try:
         sot = tok.convert_tokens_to_ids("<start_of_turn>")
-        eot = tok.convert_tokens_to_ids("<end_of_turn>")
         sot_valid = sot != tok.unk_token_id
     except Exception:
         sot_valid = False
@@ -262,47 +263,51 @@ def identify_token_groups(
         result[f"visual_turn{gi}"] = grp
 
     if sot_valid:
-        turn_starts  = [i for i, t in enumerate(ids) if t == sot]
-        # Heuristic: "model" turns are those NOT directly following image tokens
-        # We label every other turn as model output starting from turn index 2
-        # Typical structure: [system, user, model, user, model, ...]
-        # → turns 0,1 = input; turns 2,4,... = model output
-        model_turn_indices = [
-            i for i, ts in enumerate(turn_starts)
-            if i >= 2 and i % 2 == 0
-        ]
-        if not model_turn_indices and len(turn_starts) >= 2:
-            # Fallback: last turn is the model output
-            model_turn_indices = [len(turn_starts) - 1]
+        turn_starts = [i for i, t in enumerate(ids) if t == sot]
 
-        if len(turn_starts) >= 2:
-            result["system"] = list(range(turn_starts[0], turn_starts[1]))
-        else:
-            result["system"] = list(range(0, turn_starts[0] if turn_starts else 0))
+        # Determine each turn's ROLE by decoding the token(s) right after
+        # <start_of_turn>. Gemma's template folds the system prompt into the
+        # first *user* turn (there is no separate system turn), so parity-based
+        # detection is wrong — we read the role token directly instead.
+        # Structure: <start_of_turn>user\n ... <end_of_turn>\n<start_of_turn>model\n ...
+        def role_of(ts: int) -> str:
+            # decode the ~3 tokens following <start_of_turn>
+            snippet = tok.decode(ids[ts + 1: ts + 4]).strip().lower()
+            if snippet.startswith("model"):
+                return "model"
+            if snippet.startswith("user"):
+                return "user"
+            return "unknown"
 
-        # Instruction = all user-turn tokens minus image tokens
-        user_turn_ends = (
-            [turn_starts[i] for i in range(1, len(turn_starts)) if i % 2 == 0]
-            + [turn_starts[model_turn_indices[0]]] if model_turn_indices else []
-        )
+        roles = [role_of(ts) for ts in turn_starts]
+
+        def turn_span(i: int) -> range:
+            start = turn_starts[i]
+            end   = turn_starts[i + 1] if i + 1 < len(turn_starts) else len(ids)
+            return range(start, end)
+
+        # system = everything before the first <start_of_turn> (BOS etc.) — small.
+        result["system"] = list(range(0, turn_starts[0] if turn_starts else 0))
+
+        # instruction = all USER-turn tokens minus image tokens
         user_range = set()
-        for i, ts in enumerate(turn_starts):
-            if i % 2 == 1:  # user turns (1, 3, 5, ...)
-                end = turn_starts[i+1] if i+1 < len(turn_starts) else len(ids)
-                user_range.update(range(ts, end))
+        for i, r in enumerate(roles):
+            if r == "user":
+                user_range.update(turn_span(i))
         result["instruction"] = sorted(user_range - all_visual)
 
-        # Output = all model turns
+        # output = all MODEL-turn tokens (the generations we score attention from)
         output_set = set()
-        for i, ts in enumerate(turn_starts):
-            if i % 2 == 0 and i >= 2:  # model turns
-                end = turn_starts[i+1] if i+1 < len(turn_starts) else len(ids)
-                output_set.update(range(ts, end))
+        for i, r in enumerate(roles):
+            if r == "model":
+                output_set.update(turn_span(i))
         if not output_set:
-            # Fallback: last N tokens
-            result["output"] = list(range(len(ids) - 100, len(ids)))
+            # Fallback: last 100 tokens
+            result["output"] = list(range(max(0, len(ids) - 100), len(ids)))
         else:
             result["output"] = sorted(output_set)
+
+        result["_roles"] = roles  # diagnostic
 
     else:
         # Heuristic: system = before first image, output = after last image
@@ -366,6 +371,12 @@ def extract_attention(
     if n_output == 0:
         print("  skip (no output positions)")
         return None
+
+    if DIAGNOSE:
+        vg = {k: len(v) for k, v in groups.items() if k.startswith("visual_turn")}
+        print(f"\n  [diagnose] seq_len={seq_len} roles={groups.get('_roles')}")
+        print(f"  [diagnose] visual_groups={vg} system={len(groups.get('system',[]))} "
+              f"instruction={len(groups.get('instruction',[]))} output={n_output}")
 
     # Identify all visual groups (turn0, turn1, ...)
     visual_group_keys = sorted(k for k in groups if k.startswith("visual_turn"))
@@ -467,7 +478,12 @@ def main() -> None:
     ap.add_argument("--out",         default=None)
     ap.add_argument("--max-samples", type=int, default=None)
     ap.add_argument("--max-seq-len", type=int, default=4096)
+    ap.add_argument("--diagnose", action="store_true",
+                    help="Print per-sample role/group structure for verification")
     args = ap.parse_args()
+
+    global DIAGNOSE
+    DIAGNOSE = args.diagnose
 
     script_dir   = Path(__file__).parent
     results_path = (Path(args.results) if args.results
