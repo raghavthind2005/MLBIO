@@ -215,6 +215,7 @@ def run_sample(
 
     pred0  = parse_answer(answer0)
     pred1  = parse_answer(final_answer)
+    truncated = any(s["finish_reason"] == "length" for s in (stage0, stage1))
 
     return {
         # model output
@@ -222,6 +223,7 @@ def run_sample(
         "answer_text":             final_answer,
         "answer_turn0":            answer0,
         "pred_turn0":              pred0,
+        "pred_turn1":              pred1,
         "answer_changed":          (pred0 != pred1) if (pred0 and pred1) else None,
 
         # thinking
@@ -230,6 +232,15 @@ def run_sample(
         "thinking_turn1_chars":    len(thinking1),
         "all_thinking_chars":      all_thinking,
         "thinking_chars":          all_thinking,   # alias for analyze.py
+
+        # per-turn token counts (convenience — also in stages)
+        "comp_tokens_turn0":       comp_tok0,
+        "comp_tokens_turn1":       comp_tok1,
+
+        # budget / truncation
+        "truncated":               truncated,
+        "finish_turn0":            finish0,
+        "finish_turn1":            finish1,
 
         # forced re-examination always counts as 1 tool call for extract_attention compat
         "n_tool_calls":            1 if img_path else 0,
@@ -303,7 +314,9 @@ def main() -> None:
     out_path = Path(args.out) if args.out else out_dir / "forced_results.jsonl"
 
     n_correct = n_total = n_parse_fail = 0
-    n_changed = n_changed_correct = n_changed_wrong = 0
+    n_correct_turn0 = n_total_turn0 = 0
+    n_changed = n_wrong_to_right = n_right_to_wrong = 0
+    n_truncated = 0
 
     fout = open(out_path, "w") if not args.dry_run else None
 
@@ -321,8 +334,23 @@ def main() -> None:
                     verbose=bool(args.dry_run),
                 )
 
-                pred       = result["model_prediction"]
-                is_correct = int(pred == sample["gt_answer"]) if pred is not None else None
+                gt         = sample["gt_answer"]
+                pred0      = result["pred_turn0"]
+                pred1      = result["model_prediction"]
+                is_correct       = int(pred1 == gt) if pred1 is not None else None
+                is_correct_turn0 = int(pred0 == gt) if pred0 is not None else None
+
+                # change_type: transition from turn0 → turn1 correctness
+                if is_correct_turn0 is None or is_correct is None:
+                    change_type = None                 # unparseable on one side
+                elif is_correct_turn0 == 1 and is_correct == 1:
+                    change_type = "right_right"
+                elif is_correct_turn0 == 1 and is_correct == 0:
+                    change_type = "right_wrong"        # re-exam HURT
+                elif is_correct_turn0 == 0 and is_correct == 1:
+                    change_type = "wrong_right"        # re-exam HELPED
+                else:
+                    change_type = "wrong_wrong"
 
                 record = {
                     "sample_id":   (f"{sample['category']}_{sample['set_id']}_"
@@ -334,9 +362,11 @@ def main() -> None:
                     "question_id": sample["question_id"],
                     "visual_input":sample["visual_input"],
                     "question":    sample["question"],
-                    "gt_answer":   sample["gt_answer"],
+                    "gt_answer":   gt,
                     "image_path":  str(img_path) if img_path else None,
-                    "is_correct":  is_correct,
+                    "is_correct":        is_correct,         # turn1 (final)
+                    "is_correct_turn0":  is_correct_turn0,   # before re-examination
+                    "change_type":       change_type,
                     **result,
                 }
 
@@ -344,26 +374,27 @@ def main() -> None:
                     fout.write(json.dumps(record) + "\n")
                     fout.flush()
 
+                if result["truncated"]:
+                    n_truncated += 1
+                if is_correct_turn0 is not None:
+                    n_correct_turn0 += is_correct_turn0
+                    n_total_turn0   += 1
                 if is_correct is not None:
                     n_correct += is_correct
                     n_total   += 1
-                    if result["answer_changed"] is True:
-                        n_changed += 1
-                        if is_correct == 1 and result["pred_turn0"] == "0":
-                            n_changed_correct += 1   # wrong→right
-                        elif is_correct == 0 and result["pred_turn0"] == "1":
-                            n_changed_wrong   += 1   # right→wrong
+                    if change_type == "wrong_right":
+                        n_changed += 1; n_wrong_to_right += 1
+                    elif change_type == "right_wrong":
+                        n_changed += 1; n_right_to_wrong += 1
                 else:
                     n_parse_fail += 1
 
                 sym = "✓" if is_correct else ("✗" if is_correct == 0 else "?")
-                chg = "↑" if (result["answer_changed"] and is_correct == 1
-                               and result["pred_turn0"] == "0") else (
-                      "↓" if (result["answer_changed"] and is_correct == 0
-                               and result["pred_turn0"] == "1") else (
-                      "~" if result["answer_changed"] else " "))
+                chg = ("↑" if change_type == "wrong_right" else
+                       "↓" if change_type == "right_wrong" else " ")
+                trunc = "T" if result["truncated"] else " "
                 print(
-                    f"{sym}{chg} "
+                    f"{sym}{chg}{trunc} "
                     f"t0={result['thinking_turn0_chars']:5d}ch "
                     f"t1={result['thinking_turn1_chars']:5d}ch "
                     f"img={result['total_image_tokens']}tok "
@@ -376,9 +407,9 @@ def main() -> None:
                     assert result["n_tool_calls"] == 1
                     assert len(result["stages"]) == 2
                     assert len(result["thinking_per_stage"]) == 2
-                    print(f"  turn0_answer={result['answer_turn0']!r}  "
-                          f"final_answer={result['answer_text']!r}  "
-                          f"changed={result['answer_changed']}")
+                    print(f"  turn0: pred={result['pred_turn0']!r} correct={is_correct_turn0}  "
+                          f"turn1: pred={result['model_prediction']!r} correct={is_correct}  "
+                          f"change={change_type}")
                     print(f"  stages: "
                           + "  ".join(f"t{s['turn']}: p={s['prompt_tokens']} "
                                       f"c={s['completion_tokens']} fin={s['finish_reason']}"
@@ -403,13 +434,17 @@ def main() -> None:
             fout.close()
 
     print("\n" + "─" * 60)
+    if n_total_turn0 > 0:
+        print(f"qAcc turn0    : {n_correct_turn0}/{n_total_turn0} = {n_correct_turn0/n_total_turn0:.4f}  (before re-examination)")
     if n_total > 0:
-        print(f"qAcc          : {n_correct}/{n_total} = {n_correct/n_total:.4f}")
+        print(f"qAcc turn1    : {n_correct}/{n_total} = {n_correct/n_total:.4f}  (after forced re-examination)")
+        delta = (n_correct/n_total) - (n_correct_turn0/n_total_turn0 if n_total_turn0 else 0)
+        print(f"  Δ accuracy   : {delta:+.4f}")
         print(f"parse failures: {n_parse_fail}")
+        print(f"truncated     : {n_truncated}  (hit token ceiling)")
         print(f"answer changed: {n_changed}/{n_total} = {n_changed/n_total:.2f}")
-        print(f"  wrong→right (↑): {n_changed_correct}")
-        print(f"  right→wrong (↓): {n_changed_wrong}")
-        print(f"  neutral change : {n_changed - n_changed_correct - n_changed_wrong}")
+        print(f"  wrong→right (↑, helped): {n_wrong_to_right}")
+        print(f"  right→wrong (↓, hurt)  : {n_right_to_wrong}")
     if not args.dry_run:
         print(f"Results       : {out_path}")
 

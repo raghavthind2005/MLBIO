@@ -205,8 +205,11 @@ def verify_tool(records: list[dict]) -> None:
 
 
 FORCED_REQUIRED = TOOL_REQUIRED + [
-    "answer_turn0", "pred_turn0", "answer_changed",
+    "answer_turn0", "pred_turn0", "pred_turn1", "answer_changed",
+    "is_correct_turn0", "change_type",
     "thinking_turn0_chars", "thinking_turn1_chars",
+    "comp_tokens_turn0", "comp_tokens_turn1",
+    "truncated", "finish_turn0", "finish_turn1",
 ]
 
 
@@ -232,17 +235,32 @@ def verify_forced(records: list[dict]) -> None:
     print(f"  By visual_input : " +
           "  ".join(f"vi={k}: {c}/{t}={c/t:.3f}" for k,(c,t) in sorted(by_vi.items())))
 
-    # Answer change analysis
-    wrong_to_right = sum(1 for r in scored
-                         if r.get("answer_changed") and r["is_correct"] == 1
-                         and r.get("pred_turn0") == "0")
-    right_to_wrong = sum(1 for r in scored
-                         if r.get("answer_changed") and r["is_correct"] == 0
-                         and r.get("pred_turn0") == "1")
-    print(f"  Answer changed  : {len(changed)}/{len(scored)} = {len(changed)/len(scored):.2f}")
-    print(f"    wrong→right (↑): {wrong_to_right}")
-    print(f"    right→wrong (↓): {right_to_wrong}")
-    print(f"    neutral change : {len(changed) - wrong_to_right - right_to_wrong}")
+    # Turn-0 vs turn-1 accuracy (the core comparison)
+    scored0 = [r for r in records if r.get("is_correct_turn0") is not None]
+    correct0 = sum(r["is_correct_turn0"] for r in scored0)
+    if scored0:
+        acc0 = correct0 / len(scored0)
+        acc1 = correct / len(scored)
+        print(f"  qAcc turn0      : {correct0}/{len(scored0)} = {acc0:.3f}  (before re-exam)")
+        print(f"  qAcc turn1      : {correct}/{len(scored)} = {acc1:.3f}  (after re-exam)")
+        print(f"  Δ accuracy      : {acc1 - acc0:+.3f}")
+
+    # Transition breakdown via change_type
+    ct = defaultdict(int)
+    for r in scored:
+        ct[r.get("change_type", "?")] += 1
+    print(f"  Transitions     : " +
+          "  ".join(f"{k}={v}" for k, v in sorted(ct.items())))
+    print(f"    wrong→right (↑, helped): {ct.get('wrong_right', 0)}")
+    print(f"    right→wrong (↓, hurt)  : {ct.get('right_wrong', 0)}")
+
+    # Truncation / budget check
+    truncated = [r for r in records if r.get("truncated")]
+    print(f"  Truncated       : {len(truncated)}/{len(records)} (hit token ceiling)")
+    if truncated:
+        for r in truncated[:5]:
+            print(f"    {r['sample_id']}: t0_fin={r.get('finish_turn0')} t1_fin={r.get('finish_turn1')} "
+                  f"t1_comp={r.get('comp_tokens_turn1')}")
 
     # Token verification
     wrong_tok = [r for r in records
