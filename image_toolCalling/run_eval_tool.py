@@ -349,7 +349,7 @@ def main() -> None:
     out_dir.mkdir(exist_ok=True)
     out_path = Path(args.out) if args.out else out_dir / "tool_results.jsonl"
 
-    n_correct = n_total = n_tool_uses = n_parse_fail = 0
+    n_correct = n_total = n_tool_uses = n_parse_fail = n_samples_with_tools = 0
 
     fout = open(out_path, "w") if not args.dry_run else None
 
@@ -394,6 +394,8 @@ def main() -> None:
                     n_correct   += is_correct
                     n_total     += 1
                     n_tool_uses += result["n_tool_calls"]
+                    if result["n_tool_calls"] > 0:
+                        n_samples_with_tools += 1
                 else:
                     n_parse_fail += 1
 
@@ -448,7 +450,7 @@ def main() -> None:
     if n_total:
         print(f"qAcc          : {n_correct}/{n_total} = {n_correct/n_total:.4f}")
         print(f"tool calls    : {n_tool_uses} total, {n_tool_uses/n_total:.2f} avg/sample")
-        print(f"  samples w/ tool use : {sum(1 for _ in range(n_total))}")
+        print(f"  samples w/ tool use : {n_samples_with_tools}/{n_total} = {n_samples_with_tools/n_total:.2f}")
     print(f"parse failures: {n_parse_fail}")
     if not args.dry_run:
         print(f"Results       : {out_path}")
