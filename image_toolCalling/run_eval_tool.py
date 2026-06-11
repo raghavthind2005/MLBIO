@@ -107,11 +107,12 @@ def encode_image(path: Path, region: str = "full") -> str:
 
 def parse_answer(text: str) -> str | None:
     """Return '1' (Yes) / '0' (No) / None if unparseable."""
+    import re
     t = text.strip().lower()
     if t.startswith("yes"):  return "1"
     if t.startswith("no"):   return "0"
-    if "yes" in t[:50]:      return "1"
-    if "no"  in t[:50]:      return "0"
+    if re.search(r'\byes\b', t): return "1"
+    if re.search(r'\bno\b',  t): return "0"
     return None
 
 

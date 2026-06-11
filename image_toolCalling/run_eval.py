@@ -48,15 +48,16 @@ def encode_image(path: Path) -> str:
 
 def parse_answer(text: str) -> str | None:
     """Return '1' (Yes) or '0' (No), or None if unparseable."""
+    import re
     t = text.strip().lower()
     if t.startswith("yes"):
         return "1"
     if t.startswith("no"):
         return "0"
-    first50 = t[:50]
-    if "yes" in first50:
+    # Search full text for standalone yes/no (handles verbose answers)
+    if re.search(r'\byes\b', t):
         return "1"
-    if "no" in first50:
+    if re.search(r'\bno\b', t):
         return "0"
     return None
 
