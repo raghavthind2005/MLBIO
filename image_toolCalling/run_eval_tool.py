@@ -155,12 +155,19 @@ def run_sample(
 
     b64_original = encode_image(img_path) if img_path else None
 
+    # Append per-question tool nudge — reminds model the tool exists for this specific question
+    question_with_nudge = (
+        question
+        + "\n\nNote: if any visual detail is ambiguous or contradicts your expectation, "
+        "use LOOK_AGAIN: full before answering."
+    )
+
     # Initial messages
     user_content: list | str
     if b64_original:
-        user_content = [image_content(b64_original), {"type": "text", "text": question}]
+        user_content = [image_content(b64_original), {"type": "text", "text": question_with_nudge}]
     else:
-        user_content = question
+        user_content = question_with_nudge
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
