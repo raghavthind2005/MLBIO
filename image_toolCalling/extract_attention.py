@@ -118,11 +118,41 @@ def get_token_id(tokenizer, token_str: str) -> int | None:
     enc = getattr(tokenizer, "added_tokens_encoder", None) or {}
     if token_str in enc:
         return enc[token_str]
+    # added_tokens_decoder maps id -> AddedToken; scan it
+    dec = getattr(tokenizer, "added_tokens_decoder", None) or {}
+    for tid, atok in dec.items():
+        if str(atok) == token_str:
+            return tid
     # last resort: encode literal, accept only if it maps to a single token
     ids = tokenizer.encode(token_str, add_special_tokens=False)
     if len(ids) == 1:
         return ids[0]
     return None
+
+
+def find_delim_positions(ids: list[int], tokenizer, delim: str = "<start_of_turn>"):
+    """
+    Return (positions, token_id) of a delimiter in the sequence.
+    Tries id-based lookup first; if that fails, decodes each *distinct* token id
+    present in the sequence and matches on the decoded string. Robust to
+    tokenizers where convert_tokens_to_ids can't resolve the special token.
+    """
+    tid = get_token_id(tokenizer, delim)
+    if tid is not None:
+        return [i for i, t in enumerate(ids) if t == tid], tid
+    # decode-based fallback (cache per distinct id; sequence has few specials)
+    cache: dict[int, str] = {}
+    positions: list[int] = []
+    found_id = None
+    for i, t in enumerate(ids):
+        s = cache.get(t)
+        if s is None:
+            s = tokenizer.decode([t])
+            cache[t] = s
+        if s.strip() == delim:
+            positions.append(i)
+            found_id = t
+    return positions, found_id
 
 
 # ─── Image helpers ────────────────────────────────────────────────────────────
@@ -264,8 +294,8 @@ def identify_token_groups(
       output           — all model-generation positions (all assistant turns)
     """
     tok = processor.tokenizer
-    sot = get_token_id(tok, "<start_of_turn>")
-    sot_valid = sot is not None
+    turn_starts, sot = find_delim_positions(ids, tok, "<start_of_turn>")
+    sot_valid = len(turn_starts) > 0
 
     # All image token positions, grouped by contiguous run
     visual_groups = find_visual_groups(ids, image_token_id)
@@ -276,7 +306,6 @@ def identify_token_groups(
         result[f"visual_turn{gi}"] = grp
 
     if sot_valid:
-        turn_starts = [i for i, t in enumerate(ids) if t == sot]
 
         # Determine each turn's ROLE by decoding the token(s) right after
         # <start_of_turn>. Gemma's template folds the system prompt into the
@@ -387,8 +416,9 @@ def extract_attention(
 
     if DIAGNOSE:
         vg = {k: len(v) for k, v in groups.items() if k.startswith("visual_turn")}
-        sot_id = get_token_id(processor.tokenizer, "<start_of_turn>")
-        print(f"\n  [diagnose] seq_len={seq_len} sot_id={sot_id} roles={groups.get('_roles')}")
+        _pos, sot_id = find_delim_positions(ids, processor.tokenizer, "<start_of_turn>")
+        print(f"\n  [diagnose] seq_len={seq_len} sot_id={sot_id} n_delims={len(_pos)} "
+              f"roles={groups.get('_roles')}")
         print(f"  [diagnose] visual_groups={vg} system={len(groups.get('system',[]))} "
               f"instruction={len(groups.get('instruction',[]))} output={n_output}")
 
