@@ -29,6 +29,7 @@ Requires sglang stopped first (need the GPU memory).
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -465,27 +466,66 @@ def extract_attention(
         for gname, pos in all_named_groups.items()
     }
 
-    # Forward pass with attention
+    # Forward pass — capture attention per-layer via hooks to BOUND memory.
+    # output_attentions=True makes each language self-attn module return weights;
+    # a forward hook reduces them immediately on the layer's own GPU and returns
+    # None for the weights, so the full [layers, heads, seq, seq] tensor is never
+    # accumulated or gathered onto GPU 0 (which caused OOM on long sequences).
     inputs_dev = {k: v.to(device) for k, v in inputs.items() if torch.is_tensor(v)}
-    outputs    = model(**inputs_dev, output_attentions=True, return_dict=True)
-    attentions = outputs.attentions
-    n_layers   = len(attentions)
+    out_idx    = np.array(output_pos, dtype=int)
 
-    # [n_layers, n_output] per group — reduce layer by layer to save memory
+    # Language-model decoder self-attn modules only (exclude vision/audio towers,
+    # whose sequence dims differ from the language output positions).
+    def _layer_idx(name: str) -> int:
+        m = re.search(r"layers\.(\d+)\.", name)
+        return int(m.group(1)) if m else -1
+
+    attn_modules = [
+        (name, mod) for name, mod in model.named_modules()
+        if name.endswith(".self_attn") and "layers." in name
+        and "vision" not in name.lower() and "audio" not in name.lower()
+    ]
+    attn_modules.sort(key=lambda x: _layer_idx(x[0]))
+    n_layers = len(attn_modules)
+
+    captured: dict[int, dict] = {}
+
+    def make_hook(layer_idx: int):
+        def hook(module, inp, out):
+            if not isinstance(out, tuple) or len(out) < 2 or out[1] is None:
+                return out
+            w  = out[1]                          # [batch, heads, q, kv]
+            wm = w[0].mean(dim=0)                # [q, kv] mean over heads (layer GPU)
+            idx = torch.as_tensor(out_idx, device=wm.device)
+            rows = wm.index_select(0, idx).float().cpu().numpy()  # [n_output, kv]
+            captured[layer_idx] = {
+                gname: (rows[:, cols].sum(axis=1) if cols.size
+                        else np.zeros(len(out_idx), dtype=np.float32))
+                for gname, cols in group_arrays.items()
+            }
+            # drop the weights so nothing large propagates / gathers to GPU 0
+            return (out[0], None) + tuple(out[2:])
+        return hook
+
+    handles = [m.register_forward_hook(make_hook(i)) for i, (_, m) in enumerate(attn_modules)]
+    try:
+        model(**inputs_dev, output_attentions=True, return_dict=True)
+    finally:
+        for h in handles:
+            h.remove()
+    torch.cuda.empty_cache()
+
+    # [n_layers, n_output] per group
     per_layer_per_pos = {
         g: np.zeros((n_layers, n_output), dtype=np.float32)
         for g in group_arrays
     }
-
-    out_idx = np.array(output_pos, dtype=int)
-    for li, attn_layer in enumerate(attentions):
-        attn_np  = attn_layer[0].mean(dim=0).float().cpu().numpy()  # [seq, seq]
-        out_rows = attn_np[out_idx, :]                               # [n_output, seq]
-        for gname, cols in group_arrays.items():
-            if cols.size > 0:
-                per_layer_per_pos[gname][li] = out_rows[:, cols].sum(axis=1)
-        del attn_layer
-        torch.cuda.empty_cache()
+    for li in range(n_layers):
+        layer_res = captured.get(li)
+        if layer_res is None:
+            continue
+        for gname in group_arrays:
+            per_layer_per_pos[gname][li] = layer_res[gname]
 
     # ── Summarise ─────────────────────────────────────────────────────────────
     def thirds(arr: np.ndarray) -> dict:
