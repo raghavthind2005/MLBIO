@@ -332,17 +332,17 @@ def identify_token_groups(
     if sot_valid:
 
         # Determine each turn's ROLE by decoding the token(s) right after
-        # <start_of_turn>. Gemma's template folds the system prompt into the
-        # first *user* turn (there is no separate system turn), so parity-based
-        # detection is wrong — we read the role token directly instead.
-        # Structure: <start_of_turn>user\n ... <end_of_turn>\n<start_of_turn>model\n ...
+        # We read the role token right after each start-of-turn delimiter.
+        # This Gemma-4 has distinct system/user/model turns:
+        #   <|turn>system\n ... <turn|><|turn>user\n ...<|turn>model\n ...
         def role_of(ts: int) -> str:
-            # decode the ~3 tokens following <start_of_turn>
             snippet = tok.decode(ids[ts + 1: ts + 4]).strip().lower()
             if snippet.startswith("model"):
                 return "model"
             if snippet.startswith("user"):
                 return "user"
+            if snippet.startswith("system"):
+                return "system"
             return "unknown"
 
         roles = [role_of(ts) for ts in turn_starts]
@@ -352,8 +352,12 @@ def identify_token_groups(
             end   = turn_starts[i + 1] if i + 1 < len(turn_starts) else len(ids)
             return range(start, end)
 
-        # system = everything before the first <start_of_turn> (BOS etc.) — small.
-        result["system"] = list(range(0, turn_starts[0] if turn_starts else 0))
+        # system = leading tokens (BOS) + any explicit system-role turn, minus images
+        system_range = set(range(0, turn_starts[0] if turn_starts else 0))
+        for i, r in enumerate(roles):
+            if r in ("system", "unknown"):
+                system_range.update(turn_span(i))
+        result["system"] = sorted(system_range - all_visual)
 
         # instruction = all USER-turn tokens minus image tokens
         user_range = set()
