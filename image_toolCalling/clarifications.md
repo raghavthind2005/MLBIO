@@ -55,38 +55,71 @@ Q1 = shortest reasoning chain, Q4 = longest.
 
 ## Example questions per quartile (Standard run, by reasoning length)
 
-One representative example per quartile, showing how questions that elicit longer
-reasoning are the ones the model talks itself out of. All examples are *wrong*
-predictions except where noted, to illustrate the failure mode.
+Concrete examples ordered by reasoning length, with the actual HallusionBench images.
+For the wrong cases we show the **original** image (model answers correctly) beside the
+**edited** image for the *same* question (model fails) — the only thing that changed is the
+picture, and the model ignores the change in favour of its prior. Images live in
+[`examples_illustration/`](examples_illustration/).
 
-**Q1 — shortest reasoning (204–615 ch, 93.8% acc).** Simple perceptual checks; the
-model answers quickly and usually correctly.
-> *"Are two circles in the image different color? Yes or No"* (illusion, gt=No)
-> Short chains; the few misses are classic illusions where the prior fires instantly.
+### Q1 — shortest reasoning (~219 ch, correct): perception is trusted
 
-**Q2 — (617–904 ch, 83.1% acc).** Prior starts to override perception.
-> *"According to the image, is Key West the southernmost point of Florida?"* (map, gt=No
-> — the image shows otherwise, but "Key West = southernmost" is a strong prior) → predicted Yes.
+The model reads the text and answers directly — short chains stay grounded.
 
-**Q3 — (906–1434 ch, 87.5% acc).** Longer deliberation on visual details, still drifting.
-> *"Is the vertical line in the middle actually curved?"* (illusion, gt=Yes) → predicted No.
-> The model reasons about geometry but trusts the expected/"straight" prior over the figure.
+<img src="examples_illustration/Q1_cheesecake.png" width="260">
 
-**Q4 — longest reasoning (1445–13562 ch, 69.2% acc).** The model often *reads the image
-correctly, then argues itself back to the prior.* Clearest case:
-> *"According to the text in this image, is this poster for the TV series Reply 1988?"*
-> (OCR, gt=**No**) → predicted **Yes**, after 6,573 characters of reasoning.
->
-> The model correctly transcribes the Korean text and even verifies it character-by-character:
-> *"The text in the image: 보-내-주-세-요 (5 characters)… '응답하라' (4 characters). It is
-> definitely 보내주세요 [‘please send’], not 응답하라 [‘Reply’]."* — i.e. the poster text does
-> **not** say Reply 1988. Then it overrides its own correct perception:
-> *"Regardless, the image is definitively from the series Reply 1988… Most AI benchmarks
-> want the answer that aligns with the most prominent subject… I'll go with Yes."*
+> *"According to the text given in the image, is this a Washington style cheesecake?"*
+> (OCR, gt=**Yes**) → **Yes ✓**. Full reasoning: *"The text says 'Washington Style
+> Cheesecake'. Therefore, the answer is Yes."* (219 characters.)
 
-This is "think longer, see less" in a single trace: the longer the chain, the more room the
-model has to reason *away* from what the pixels say and back toward the linguistic prior —
-consistent with the −38% decay in visual attention from early to late reasoning.
+### Q2 — medium reasoning (~846 ch, wrong): prior overrides the edited image
+
+<table><tr>
+<td align="center"><b>Original (vi=1) → Yes ✓</b><br><img src="examples_illustration/Q2_original.png" width="240"></td>
+<td align="center"><b>Edited (vi=2) → Yes ✗ (gt=No)</b><br><img src="examples_illustration/Q2_edited.png" width="240"></td>
+</tr></table>
+
+> *"According to the image, is Key West the southernmost point of Florida?"* (map)
+> On the **edited** map, **Miami** is placed at the very bottom — below Key West — so the
+> correct answer is **No**. The model instead concludes *"the label 'KEY WEST' is at the
+> lowest point of Florida… the answer is Yes"*, falling back on the real-world prior
+> (Key West *is* southernmost in reality) rather than reading the altered map.
+
+### Q3 — longer reasoning (~1434 ch, wrong): defaults to the expected percept
+
+<table><tr>
+<td align="center"><b>Original (vi=1) → No ✓</b><br><img src="examples_illustration/Q3_original.png" width="220"></td>
+<td align="center"><b>Edited (vi=2) → No ✗ (gt=Yes)</b><br><img src="examples_illustration/Q3_edited.png" width="220"></td>
+</tr></table>
+
+> *"Is the vertical line in the middle actually curved?"* (illusion). In the **edited**
+> image the dividing line is genuinely curved (faintly, embedded in noise), so the answer
+> is **Yes** — but the model deliberates for 1,434 characters and concludes *"the line…
+> is straight, not curved… the answer is No"*, defaulting to the expected "straight"
+> percept it cannot clearly extract from the image.
+
+### Q4 — longest reasoning (~6573 ch, wrong): reads correctly, then overrides
+
+The clearest case — and a direct contrast with Q1 (same OCR-edit task, opposite outcome,
+the only difference being chain length).
+
+<table><tr>
+<td align="center"><b>Original (vi=1) → Yes ✓</b><br><img src="examples_illustration/Q4_original.png" width="200"></td>
+<td align="center"><b>Edited (vi=2) → Yes ✗ (gt=No)</b><br><img src="examples_illustration/Q4_edited.png" width="200"></td>
+</tr></table>
+
+> *"According to the text in this image, is this poster for the TV series Reply 1988?"* (OCR)
+> The **original** title reads "응답하라 1988" (*Reply 1988*) → correctly **Yes**. The
+> **edited** poster changes the title to "보내주세요 1988" (*Please send 1988*), so the answer
+> is **No**. The model **transcribes the edit correctly** and even verifies it
+> character-by-character — *"보-내-주-세-요 (5 characters)… '응답하라' (4 characters). It is
+> definitely 보내주세요, not 응답하라"* — then **overrides its own perception**:
+> *"Regardless, the image is definitively from the series Reply 1988… I'll go with Yes."*
+
+**Takeaway from the examples.** Q1 and Q4 are the *same* kind of task (read edited text on
+an image), yet Q1 (219 ch) stays grounded and Q4 (6,573 ch) fails — the model reads the
+text correctly and then argues its way back to the prior. The longer the chain, the more
+room to reason *away* from the pixels, mirroring the −38% decay in visual attention from
+early to late reasoning.
 
 ## Notes
 
