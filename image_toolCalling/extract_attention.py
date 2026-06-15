@@ -592,6 +592,9 @@ def main() -> None:
     ap.add_argument("--max-seq-len", type=int, default=4096)
     ap.add_argument("--diagnose", action="store_true",
                     help="Print per-sample role/group structure for verification")
+    ap.add_argument("--skip-existing", action="store_true",
+                    help="Append mode: skip sample_ids already in --out, process "
+                         "only the missing ones (e.g. samples OOM-skipped earlier).")
     args = ap.parse_args()
 
     global DIAGNOSE
@@ -610,6 +613,20 @@ def main() -> None:
             if "error" not in rec and rec.get("answer_text") is not None:
                 samples.append(rec)
 
+    # Resume: skip sample_ids already present in the output file
+    done_ids: set = set()
+    if args.skip_existing and out_path.exists():
+        with open(out_path) as f:
+            for line in f:
+                try:
+                    done_ids.add(json.loads(line)["sample_id"])
+                except Exception:
+                    pass
+        before = len(samples)
+        samples = [s for s in samples if s["sample_id"] not in done_ids]
+        print(f"--skip-existing: {len(done_ids)} already done, "
+              f"{len(samples)} remaining (of {before})")
+
     if args.max_samples:
         samples = samples[:args.max_samples]
 
@@ -624,7 +641,8 @@ def main() -> None:
     out_path.parent.mkdir(exist_ok=True)
     n_done = n_skip = 0
 
-    with open(out_path, "w") as fout:
+    write_mode = "a" if args.skip_existing else "w"
+    with open(out_path, write_mode) as fout:
         for i, sample in enumerate(samples):
             tag = (f"[{i+1:3d}/{len(samples)}] {sample['sample_id']}"
                    f"  tool={'y' if is_tool_sample(sample) else 'n'}")
