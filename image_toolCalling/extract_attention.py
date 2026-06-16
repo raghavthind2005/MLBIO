@@ -62,6 +62,13 @@ a specific region you cannot verify from memory.
 
 After all reasoning, answer ONLY with the single word Yes or No."""
 
+# Re-think control (run_eval_rethink.py): turn-1 user prompt, NO image re-injected.
+# Must match run_eval_rethink.py::REEXAMINE_TEXT exactly for faithful reconstruction.
+REEXAMINE_TEXT_RETHINK = (
+    "Re-examine carefully before giving your final answer.\n\n"
+    "Answer ONLY with the single word 'Yes' or 'No'."
+)
+
 REGION_BOXES = {
     "top-left":     (0.0, 0.0, 0.5, 0.5),
     "top-right":    (0.5, 0.0, 1.0, 0.5),
@@ -195,6 +202,18 @@ def is_tool_sample(sample: dict) -> bool:
     return "thinking_per_stage" in sample and sample.get("n_tool_calls", 0) > 0
 
 
+def is_rethink_sample(sample: dict) -> bool:
+    """Rethink control: 2-turn (think again) with NO image re-injection.
+
+    Distinguished from a normal single-turn sample by having two thinking stages,
+    and from a tool/forced sample by n_tool_calls == 0 (no image was re-injected).
+    """
+    return (
+        len(sample.get("thinking_per_stage") or []) >= 2
+        and sample.get("n_tool_calls", 0) == 0
+    )
+
+
 def build_messages(sample: dict) -> list[dict]:
     """
     Reconstruct the full conversation as messages for teacher-forcing.
@@ -213,6 +232,27 @@ def build_messages(sample: dict) -> list[dict]:
         if path:
             return [img_msg(path, region), text_msg(text)]
         return text
+
+    # ── Rethink: 2-turn, image only in turn 0, NO re-injection ────────────────
+    # [system][user: image+Q][assistant: think0+ans0][user: text-only][assistant: think1+ans1]
+    # One visual group (turn0). Two model turns — turn1 reasoning attends back to the
+    # now-distant turn0 image, which is exactly the "see less" measurement we want.
+    if is_rethink_sample(sample):
+        thinking = sample.get("thinking_per_stage", ["", ""])
+        think0   = thinking[0] if len(thinking) > 0 else ""
+        think1   = thinking[1] if len(thinking) > 1 else ""
+        answer0  = sample.get("answer_turn0", "")
+        answer1  = sample.get("answer_text", "")
+        question = sample.get("question", "")
+        return [
+            {"role": "system", "content": SYSTEM_PROMPT_NORMAL},
+            {"role": "user",   "content": user_content(question, img_path)},
+            {"role": "assistant", "content":
+                f"<think>\n{think0}\n</think>\n{answer0}" if think0 else answer0},
+            {"role": "user",   "content": REEXAMINE_TEXT_RETHINK},  # text only, no image
+            {"role": "assistant", "content":
+                f"<think>\n{think1}\n</think>\n{answer1}" if think1 else answer1},
+        ]
 
     # ── Normal single-turn ────────────────────────────────────────────────────
     if not is_tool_sample(sample):
@@ -369,14 +409,19 @@ def identify_token_groups(
 
         # output = all MODEL-turn tokens (the generations we score attention from)
         output_set = set()
+        output_turns: list[list[int]] = []   # one sorted position list per model turn
         for i, r in enumerate(roles):
             if r == "model":
-                output_set.update(turn_span(i))
+                span = sorted(turn_span(i))
+                output_set.update(span)
+                output_turns.append(span)
         if not output_set:
             # Fallback: last 100 tokens
-            result["output"] = list(range(max(0, len(ids) - 100), len(ids)))
+            result["output"]       = list(range(max(0, len(ids) - 100), len(ids)))
+            result["output_turns"] = [result["output"]]
         else:
-            result["output"] = sorted(output_set)
+            result["output"]       = sorted(output_set)
+            result["output_turns"] = output_turns
 
         result["_roles"] = roles  # diagnostic
 
@@ -387,6 +432,7 @@ def identify_token_groups(
         result["system"]      = list(range(0, first_vis))
         result["instruction"] = []
         result["output"]      = list(range(last_vis + 1, len(ids)))
+        result["output_turns"] = [result["output"]]
 
     return result
 
@@ -442,6 +488,13 @@ def extract_attention(
     if n_output == 0:
         print("  skip (no output positions)")
         return None
+
+    # Split index between the first model turn (turn 0) and later turns, within the
+    # sorted `output` array. For rethink this separates turn-0 reasoning from the
+    # text-only turn-1 reasoning so we can measure attention to the single image
+    # from each turn independently. Single-turn samples → all output is turn 0.
+    output_turns   = groups.get("output_turns", [output_pos])
+    n_output_turn0 = len(output_turns[0]) if output_turns else n_output
 
     if DIAGNOSE:
         vg = {k: len(v) for k, v in groups.items() if k.startswith("visual_turn")}
@@ -552,6 +605,8 @@ def extract_attention(
         "seq_len":          seq_len,
         "n_layers":         n_layers,
         "n_output_tokens":  n_output,
+        "n_output_turn0":   n_output_turn0,
+        "n_output_turns":   len(output_turns),
         "n_visual_groups":  len(visual_group_keys),
         "n_visual_tokens_per_group": [
             len(groups.get(k, [])) for k in visual_group_keys
@@ -572,10 +627,23 @@ def extract_attention(
         combined_visual = sum(
             per_layer_per_pos[k] for k in visual_group_keys
         )
+        per_pos_visual = combined_visual.mean(axis=0)          # [n_output]
         result["attn_visual_mean"]        = float(combined_visual.mean())
-        result["attn_visual_per_pos"]     = combined_visual.mean(axis=0).tolist()
+        result["attn_visual_per_pos"]     = per_pos_visual.tolist()
         result["attn_visual_per_layer"]   = combined_visual.mean(axis=1).tolist()
-        result["attn_visual_by_thirds"]   = thirds(combined_visual.mean(axis=0))
+        result["attn_visual_by_thirds"]   = thirds(per_pos_visual)
+
+        # Per-output-turn split of attention to the image group(s). For rethink this
+        # is the key signal: turn-0 reasoning vs turn-1 reasoning attention to the
+        # (single, turn-0) image. attn_visual_turn1_output is "see less" quantified.
+        t0_slice = per_pos_visual[:n_output_turn0]
+        t1_slice = per_pos_visual[n_output_turn0:]
+        result["attn_visual_output_turn0"] = (
+            float(t0_slice.mean()) if t0_slice.size else None
+        )
+        result["attn_visual_output_turn1"] = (
+            float(t1_slice.mean()) if t1_slice.size else None
+        )
 
     return result
 
