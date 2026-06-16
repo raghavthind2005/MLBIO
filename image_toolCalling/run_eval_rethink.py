@@ -56,7 +56,7 @@ SYSTEM_PROMPT = (
 # Mirrors the forced prompt but points at the reasoning instead of the image,
 # so the only difference from run_eval_forced.py is the absence of image tokens.
 REEXAMINE_TEXT = (
-    "Reconsider your reasoning above carefully before giving your final answer.\n\n"
+    "Re-examine carefully before giving your final answer.\n\n"
     "Answer ONLY with the single word 'Yes' or 'No'."
 )
 
