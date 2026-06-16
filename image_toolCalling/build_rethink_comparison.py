@@ -500,13 +500,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default=str(SCRIPT_DIR / "rethink_comparison.html"))
+    ap.add_argument("--out",     default=str(SCRIPT_DIR / "rethink_comparison.html"))
+    ap.add_argument("--forced",  default=str(FORCED_PATH))
+    ap.add_argument("--rethink", default=str(RETHINK_PATH))
+    ap.add_argument("--normal",  default=str(NORMAL_PATH))
     args = ap.parse_args()
 
     print("Loading data…")
-    forced  = load(FORCED_PATH)
-    rethink = load(RETHINK_PATH)
-    normal  = load(NORMAL_PATH) if NORMAL_PATH.exists() else []
+    forced  = load(Path(args.forced))
+    rethink = load(Path(args.rethink))
+    normal  = load(Path(args.normal)) if Path(args.normal).exists() else []
 
     def acc(recs, key):
         vals = [r[key] for r in recs if r.get(key) is not None]
