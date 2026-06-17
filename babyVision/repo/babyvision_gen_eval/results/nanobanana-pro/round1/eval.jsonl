@@ -1,0 +1,280 @@
+{"taskId": 434, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 362, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 431, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 438, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 441, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 445, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 448, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 454, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 457, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 458, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 462, "type": "Fine-grained Discrimination", "subtype": "Find the same", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 464, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 465, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 467, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 469, "type": "Fine-grained Discrimination", "subtype": "Find the same", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 476, "type": "Fine-grained Discrimination", "subtype": "Find the same", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 479, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 480, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 481, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 484, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 487, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 494, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 502, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 501, "type": "Spatial Perception", "subtype": "Paper Folding", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 504, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 505, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 507, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 509, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 512, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 514, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 522, "type": "Fine-grained Discrimination", "subtype": "Find the same", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 524, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 525, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 526, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 527, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 534, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 535, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 537, "type": "Visual Pattern Recognition", "subtype": "Mirroring Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 540, "type": "Visual Pattern Recognition", "subtype": "Rotation Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 548, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 553, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 559, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 562, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 621, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 625, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 626, "type": "Fine-grained Discrimination", "subtype": "Find the same", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 631, "type": "Visual Pattern Recognition", "subtype": "Rotation Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 633, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 635, "type": "Fine-grained Discrimination", "subtype": "Find the same", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 637, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 638, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 639, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 640, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 642, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 645, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 651, "type": "Fine-grained Discrimination", "subtype": "Find the same", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 652, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 664, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 657, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 666, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 676, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 669, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 693, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 684, "type": "Visual Pattern Recognition", "subtype": "Rotation Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 694, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 695, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 696, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 699, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 708, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 711, "type": "Fine-grained Discrimination", "subtype": "Find the same", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 713, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 718, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 720, "type": "Fine-grained Discrimination", "subtype": "Find the same", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 721, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 765, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 770, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 790, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 779, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 792, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 817, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 799, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 819, "type": "Visual Pattern Recognition", "subtype": "Mirroring Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 876, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 879, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 893, "type": "Spatial Perception", "subtype": "Paper Folding", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 910, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 982, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 983, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 984, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 986, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 988, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 1217, "type": "Spatial Perception", "subtype": "Paper Folding", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 1293, "type": "Visual Pattern Recognition", "subtype": "Logic Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 1306, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 1651, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 1662, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 1974, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 1594, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 2065, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 2353, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 2492, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 3234, "type": "Spatial Perception", "subtype": "Paper Folding", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 3240, "type": "Spatial Perception", "subtype": "Paper Folding", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 3691, "type": "Visual Pattern Recognition", "subtype": "Mirroring Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 3777, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 3782, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 3838, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 3992, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 3993, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 3995, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4026, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 2004, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4077, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4064, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4097, "type": "Visual Pattern Recognition", "subtype": "Overlay Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4104, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4133, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4142, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4148, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4146, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4152, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4173, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4180, "type": "Visual Pattern Recognition", "subtype": "Rotation Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4181, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4188, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4190, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4327, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4330, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4332, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4337, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4352, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4375, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4386, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4391, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4399, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4405, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4415, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4420, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4453, "type": "Spatial Perception", "subtype": "Count 3D blocks", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4456, "type": "Spatial Perception", "subtype": "Count 3D blocks", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4457, "type": "Spatial Perception", "subtype": "Count 3D blocks", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4458, "type": "Spatial Perception", "subtype": "Count 3D blocks", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4460, "type": "Spatial Perception", "subtype": "Count 3D blocks", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4534, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4536, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4537, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4540, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4552, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4553, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4554, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4556, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4558, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4560, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4561, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4562, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4564, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4566, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4568, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4571, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 4712, "type": "Fine-grained Discrimination", "subtype": "2D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4735, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4759, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4760, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4994, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4996, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 4998, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5001, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5004, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5006, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5008, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5009, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5011, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5013, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5020, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5018, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5022, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5073, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5074, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5081, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5082, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5083, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5084, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5085, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5086, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5119, "type": "Fine-grained Discrimination", "subtype": "Count Clusters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5152, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5156, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5161, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5164, "type": "Visual Tracking", "subtype": "Connect the lines", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5270, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5271, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5274, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5275, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5276, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5277, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5293, "type": "Visual Pattern Recognition", "subtype": "Rotation Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5308, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5320, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5340, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5388, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5399, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5449, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5432, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5519, "type": "Visual Pattern Recognition", "subtype": "Rotation Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5525, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5531, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5565, "type": "Visual Pattern Recognition", "subtype": "Rotation Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5638, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5639, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5640, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5694, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5781, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5695, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5786, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6131, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6136, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 6134, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6137, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6164, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6161, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6165, "type": "Fine-grained Discrimination", "subtype": "Find the different", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6280, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6273, "type": "Fine-grained Discrimination", "subtype": "Find the same components", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6344, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6378, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6430, "type": "Spatial Perception", "subtype": "3D Pattern Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6455, "type": "Visual Pattern Recognition", "subtype": "Rotation Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6462, "type": "Visual Pattern Recognition", "subtype": "Rotation Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6467, "type": "Spatial Perception", "subtype": "3D Cube Unfold", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6534, "type": "Fine-grained Discrimination", "subtype": "Count Clusters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6555, "type": "Fine-grained Discrimination", "subtype": "Count Clusters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6557, "type": "Fine-grained Discrimination", "subtype": "Count Clusters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6556, "type": "Fine-grained Discrimination", "subtype": "Count Clusters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 7568, "type": "Fine-grained Discrimination", "subtype": "Find the same", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 7858, "type": "Fine-grained Discrimination", "subtype": "Pattern and Color Completion", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 8326, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 8327, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 8328, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 8329, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 8330, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 8331, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 8339, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 8332, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 8340, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 8341, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 8342, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 8343, "type": "Visual Tracking", "subtype": "Metro map", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 447, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 542, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 520, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 543, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 544, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 545, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 665, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 886, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 888, "type": "Spatial Perception", "subtype": "3D Views", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5023, "type": "Fine-grained Discrimination", "subtype": "Find the shadow", "autoEval": false, "error": "Generated image not found for task 5023", "response": null, "missing_generation": true}
+{"taskId": 1298, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 1587, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5124, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5127, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5128, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5130, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5131, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5133, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5136, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5139, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5140, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5142, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5143, "type": "Visual Tracking", "subtype": "Maze", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5378, "type": "Fine-grained Discrimination", "subtype": "Count Clusters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5455, "type": "Fine-grained Discrimination", "subtype": "Count Clusters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5490, "type": "Fine-grained Discrimination", "subtype": "Count Clusters", "autoEval": true, "error": null, "response": "True"}
+{"taskId": 5492, "type": "Fine-grained Discrimination", "subtype": "Count Clusters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5505, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 5507, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6435, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6436, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6466, "type": "Fine-grained Discrimination", "subtype": "Count Same Patterns", "autoEval": false, "error": null, "response": "False"}
+{"taskId": 6509, "type": "Visual Tracking", "subtype": "Recognize numbers and letters", "autoEval": false, "error": null, "response": "False"}

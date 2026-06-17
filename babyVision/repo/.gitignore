@@ -1,0 +1,13 @@
+# Ignore jsonl files
+
+# But keep files in content/ folder
+!data/
+!data/**
+!babyvision_gen_eval/generated/nanobanana-pro/round1/
+!babyvision_gen_eval/generated/nanobanana-pro/round1/**
+
+# remove all claude cache files in all folders
+**/.claude/
+
+# remove all __pycache__ folders in all folders
+**/__pycache__/

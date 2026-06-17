@@ -1,0 +1,1843 @@
+{
+  "generated_at": "2026-01-10T16:04:10.670137",
+  "total_tasks": 280,
+  "note": "Accuracy = correct / total_tasks. Missing generations are treated as incorrect.",
+  "models": {
+    "nanobanana-pro": {
+      "num_rounds": 3,
+      "mean_accuracy": 0.18333333333333335,
+      "std_accuracy": 0.021821789023599245,
+      "round_accuracies": [
+        0.16428571428571428,
+        0.17857142857142858,
+        0.20714285714285716
+      ],
+      "type_accuracies": {
+        "Visual Pattern Recognition": {
+          "mean": 0.2280701754385965,
+          "std": 0.09962997097895218
+        },
+        "Spatial Perception": {
+          "mean": 0.12994350282485875,
+          "std": 0.059523467530241465
+        },
+        "Fine-grained Discrimination": {
+          "mean": 0.24479166666666666,
+          "std": 0.018042195912175808
+        },
+        "Visual Tracking": {
+          "mean": 0.06666666666666667,
+          "std": 0.02099455524325912
+        }
+      },
+      "rounds": {
+        "round1": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 46,
+            "incorrect": 234,
+            "missing_gen": 1,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.16428571428571428
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 7,
+                "total": 38,
+                "accuracy": 0.18421052631578946
+              },
+              "Spatial Perception": {
+                "correct": 4,
+                "total": 59,
+                "accuracy": 0.06779661016949153
+              },
+              "Fine-grained Discrimination": {
+                "correct": 30,
+                "total": 128,
+                "accuracy": 0.234375
+              },
+              "Visual Tracking": {
+                "correct": 5,
+                "total": 55,
+                "accuracy": 0.09090909090909091
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 3,
+                "total": 15,
+                "accuracy": 0.2
+              },
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 2,
+                "total": 11,
+                "accuracy": 0.18181818181818182
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 2,
+                "total": 19,
+                "accuracy": 0.10526315789473684
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 5,
+                "total": 16,
+                "accuracy": 0.3125
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 1,
+                "total": 18,
+                "accuracy": 0.05555555555555555
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 4,
+                "total": 19,
+                "accuracy": 0.21052631578947367
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 0,
+                "total": 10,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 0,
+                "total": 5,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 4,
+                "total": 13,
+                "accuracy": 0.3076923076923077
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 0,
+                "total": 3,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 2,
+                "total": 9,
+                "accuracy": 0.2222222222222222
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 4,
+                "total": 16,
+                "accuracy": 0.25
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 1,
+                "total": 5,
+                "accuracy": 0.2
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 11,
+                "total": 31,
+                "accuracy": 0.3548387096774194
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 1,
+                "total": 14,
+                "accuracy": 0.07142857142857142
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 1,
+                "total": 9,
+                "accuracy": 0.1111111111111111
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 2,
+                "total": 12,
+                "accuracy": 0.16666666666666666
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 3,
+                "total": 13,
+                "accuracy": 0.23076923076923078
+              }
+            }
+          }
+        },
+        "round2": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 50,
+            "incorrect": 230,
+            "missing_gen": 1,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.17857142857142858
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 6,
+                "total": 38,
+                "accuracy": 0.15789473684210525
+              },
+              "Spatial Perception": {
+                "correct": 11,
+                "total": 59,
+                "accuracy": 0.1864406779661017
+              },
+              "Fine-grained Discrimination": {
+                "correct": 30,
+                "total": 128,
+                "accuracy": 0.234375
+              },
+              "Visual Tracking": {
+                "correct": 3,
+                "total": 55,
+                "accuracy": 0.05454545454545454
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 4,
+                "total": 11,
+                "accuracy": 0.36363636363636365
+              },
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 1,
+                "total": 15,
+                "accuracy": 0.06666666666666667
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 6,
+                "total": 19,
+                "accuracy": 0.3157894736842105
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 6,
+                "total": 16,
+                "accuracy": 0.375
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 1,
+                "total": 18,
+                "accuracy": 0.05555555555555555
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 6,
+                "total": 19,
+                "accuracy": 0.3157894736842105
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 1,
+                "total": 10,
+                "accuracy": 0.1
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 2,
+                "total": 5,
+                "accuracy": 0.4
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 3,
+                "total": 13,
+                "accuracy": 0.23076923076923078
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 0,
+                "total": 3,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 1,
+                "total": 9,
+                "accuracy": 0.1111111111111111
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 3,
+                "total": 16,
+                "accuracy": 0.1875
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 2,
+                "total": 5,
+                "accuracy": 0.4
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 7,
+                "total": 31,
+                "accuracy": 0.22580645161290322
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 2,
+                "total": 14,
+                "accuracy": 0.14285714285714285
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 2,
+                "total": 9,
+                "accuracy": 0.2222222222222222
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 1,
+                "total": 12,
+                "accuracy": 0.08333333333333333
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 2,
+                "total": 13,
+                "accuracy": 0.15384615384615385
+              }
+            }
+          }
+        },
+        "round3": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 58,
+            "incorrect": 222,
+            "missing_gen": 1,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.20714285714285716
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 13,
+                "total": 38,
+                "accuracy": 0.34210526315789475
+              },
+              "Spatial Perception": {
+                "correct": 8,
+                "total": 59,
+                "accuracy": 0.13559322033898305
+              },
+              "Fine-grained Discrimination": {
+                "correct": 34,
+                "total": 128,
+                "accuracy": 0.265625
+              },
+              "Visual Tracking": {
+                "correct": 3,
+                "total": 55,
+                "accuracy": 0.05454545454545454
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 4,
+                "total": 11,
+                "accuracy": 0.36363636363636365
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 4,
+                "total": 19,
+                "accuracy": 0.21052631578947367
+              },
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 7,
+                "total": 15,
+                "accuracy": 0.4666666666666667
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 6,
+                "total": 16,
+                "accuracy": 0.375
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 1,
+                "total": 18,
+                "accuracy": 0.05555555555555555
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 4,
+                "total": 19,
+                "accuracy": 0.21052631578947367
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 0,
+                "total": 10,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 1,
+                "total": 5,
+                "accuracy": 0.2
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 0,
+                "total": 3,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 5,
+                "total": 13,
+                "accuracy": 0.38461538461538464
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 2,
+                "total": 9,
+                "accuracy": 0.2222222222222222
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 4,
+                "total": 16,
+                "accuracy": 0.25
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 1,
+                "total": 12,
+                "accuracy": 0.08333333333333333
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 1,
+                "total": 5,
+                "accuracy": 0.2
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 11,
+                "total": 31,
+                "accuracy": 0.3548387096774194
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 1,
+                "total": 14,
+                "accuracy": 0.07142857142857142
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 3,
+                "total": 9,
+                "accuracy": 0.3333333333333333
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 1,
+                "total": 12,
+                "accuracy": 0.08333333333333333
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 2,
+                "total": 13,
+                "accuracy": 0.15384615384615385
+              }
+            }
+          }
+        }
+      }
+    },
+    "nanobanana": {
+      "num_rounds": 3,
+      "mean_accuracy": 0.08452380952380951,
+      "std_accuracy": 0.014433756729740649,
+      "round_accuracies": [
+        0.08214285714285714,
+        0.1,
+        0.07142857142857142
+      ],
+      "type_accuracies": {
+        "Spatial Perception": {
+          "mean": 0.20903954802259886,
+          "std": 0.04892798891437506
+        },
+        "Visual Pattern Recognition": {
+          "mean": 0.10526315789473684,
+          "std": 0.02631578947368421
+        },
+        "Fine-grained Discrimination": {
+          "mean": 0.057291666666666664,
+          "std": 0.023867581744561668
+        },
+        "Visual Tracking": {
+          "mean": 0.0,
+          "std": 0.0
+        }
+      },
+      "rounds": {
+        "round1": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 23,
+            "incorrect": 257,
+            "missing_gen": 1,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.08214285714285714
+          },
+          "breakdown": {
+            "by_type": {
+              "Spatial Perception": {
+                "correct": 14,
+                "total": 59,
+                "accuracy": 0.23728813559322035
+              },
+              "Visual Pattern Recognition": {
+                "correct": 5,
+                "total": 38,
+                "accuracy": 0.13157894736842105
+              },
+              "Fine-grained Discrimination": {
+                "correct": 4,
+                "total": 128,
+                "accuracy": 0.03125
+              },
+              "Visual Tracking": {
+                "correct": 0,
+                "total": 55,
+                "accuracy": 0.0
+              }
+            },
+            "by_subtype": {
+              "Spatial Perception/3D Views": {
+                "correct": 3,
+                "total": 19,
+                "accuracy": 0.15789473684210525
+              },
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 0,
+                "total": 15,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 3,
+                "total": 11,
+                "accuracy": 0.2727272727272727
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 0,
+                "total": 16,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 5,
+                "total": 18,
+                "accuracy": 0.2777777777777778
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 2,
+                "total": 19,
+                "accuracy": 0.10526315789473684
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 0,
+                "total": 10,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 1,
+                "total": 5,
+                "accuracy": 0.2
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 0,
+                "total": 3,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 2,
+                "total": 9,
+                "accuracy": 0.2222222222222222
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 1,
+                "total": 16,
+                "accuracy": 0.0625
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 2,
+                "total": 12,
+                "accuracy": 0.16666666666666666
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 3,
+                "total": 5,
+                "accuracy": 0.6
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 0,
+                "total": 31,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 0,
+                "total": 14,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 1,
+                "total": 9,
+                "accuracy": 0.1111111111111111
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              }
+            }
+          }
+        },
+        "round2": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 28,
+            "incorrect": 252,
+            "missing_gen": 1,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.1
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 4,
+                "total": 38,
+                "accuracy": 0.10526315789473684
+              },
+              "Spatial Perception": {
+                "correct": 14,
+                "total": 59,
+                "accuracy": 0.23728813559322035
+              },
+              "Fine-grained Discrimination": {
+                "correct": 10,
+                "total": 128,
+                "accuracy": 0.078125
+              },
+              "Visual Tracking": {
+                "correct": 0,
+                "total": 55,
+                "accuracy": 0.0
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 1,
+                "total": 15,
+                "accuracy": 0.06666666666666667
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 5,
+                "total": 19,
+                "accuracy": 0.2631578947368421
+              },
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 1,
+                "total": 11,
+                "accuracy": 0.09090909090909091
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 1,
+                "total": 16,
+                "accuracy": 0.0625
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 3,
+                "total": 18,
+                "accuracy": 0.16666666666666666
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 4,
+                "total": 19,
+                "accuracy": 0.21052631578947367
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 1,
+                "total": 10,
+                "accuracy": 0.1
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 1,
+                "total": 5,
+                "accuracy": 0.2
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 1,
+                "total": 3,
+                "accuracy": 0.3333333333333333
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 1,
+                "total": 9,
+                "accuracy": 0.1111111111111111
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 3,
+                "total": 16,
+                "accuracy": 0.1875
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 2,
+                "total": 12,
+                "accuracy": 0.16666666666666666
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 3,
+                "total": 5,
+                "accuracy": 0.6
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 0,
+                "total": 31,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 0,
+                "total": 14,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 1,
+                "total": 9,
+                "accuracy": 0.1111111111111111
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              }
+            }
+          }
+        },
+        "round3": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 20,
+            "incorrect": 260,
+            "missing_gen": 1,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.07142857142857142
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 3,
+                "total": 38,
+                "accuracy": 0.07894736842105263
+              },
+              "Spatial Perception": {
+                "correct": 9,
+                "total": 59,
+                "accuracy": 0.15254237288135594
+              },
+              "Fine-grained Discrimination": {
+                "correct": 8,
+                "total": 128,
+                "accuracy": 0.0625
+              },
+              "Visual Tracking": {
+                "correct": 0,
+                "total": 55,
+                "accuracy": 0.0
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 1,
+                "total": 11,
+                "accuracy": 0.09090909090909091
+              },
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 1,
+                "total": 15,
+                "accuracy": 0.06666666666666667
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 1,
+                "total": 19,
+                "accuracy": 0.05263157894736842
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 2,
+                "total": 16,
+                "accuracy": 0.125
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 3,
+                "total": 18,
+                "accuracy": 0.16666666666666666
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 3,
+                "total": 19,
+                "accuracy": 0.15789473684210525
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 0,
+                "total": 10,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 0,
+                "total": 5,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 0,
+                "total": 3,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 1,
+                "total": 9,
+                "accuracy": 0.1111111111111111
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 2,
+                "total": 16,
+                "accuracy": 0.125
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 2,
+                "total": 12,
+                "accuracy": 0.16666666666666666
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 3,
+                "total": 5,
+                "accuracy": 0.6
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 0,
+                "total": 31,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 0,
+                "total": 14,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 1,
+                "total": 9,
+                "accuracy": 0.1111111111111111
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              }
+            }
+          }
+        }
+      }
+    },
+    "gpt-image-1.5": {
+      "num_rounds": 3,
+      "mean_accuracy": 0.09761904761904762,
+      "std_accuracy": 0.010309826235529035,
+      "round_accuracies": [
+        0.08571428571428572,
+        0.10357142857142858,
+        0.10357142857142858
+      ],
+      "type_accuracies": {
+        "Visual Pattern Recognition": {
+          "mean": 0.16666666666666666,
+          "std": 0.05478068419647717
+        },
+        "Spatial Perception": {
+          "mean": 0.12429378531073447,
+          "std": 0.02589025816359232
+        },
+        "Fine-grained Discrimination": {
+          "mean": 0.09635416666666667,
+          "std": 0.011933790872280834
+        },
+        "Visual Tracking": {
+          "mean": 0.024242424242424242,
+          "std": 0.01049727762162956
+        }
+      },
+      "rounds": {
+        "round1": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 24,
+            "incorrect": 255,
+            "missing_gen": 1,
+            "api_errors": 1,
+            "not_in_results": 0,
+            "accuracy": 0.08571428571428572
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 4,
+                "total": 38,
+                "accuracy": 0.10526315789473684
+              },
+              "Spatial Perception": {
+                "correct": 6,
+                "total": 59,
+                "accuracy": 0.1016949152542373
+              },
+              "Fine-grained Discrimination": {
+                "correct": 12,
+                "total": 128,
+                "accuracy": 0.09375
+              },
+              "Visual Tracking": {
+                "correct": 2,
+                "total": 55,
+                "accuracy": 0.03636363636363636
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 0,
+                "total": 11,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 3,
+                "total": 19,
+                "accuracy": 0.15789473684210525
+              },
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 1,
+                "total": 15,
+                "accuracy": 0.06666666666666667
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 0,
+                "total": 16,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 3,
+                "total": 19,
+                "accuracy": 0.15789473684210525
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 2,
+                "total": 18,
+                "accuracy": 0.1111111111111111
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 0,
+                "total": 10,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 0,
+                "total": 5,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 1,
+                "total": 3,
+                "accuracy": 0.3333333333333333
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 2,
+                "total": 13,
+                "accuracy": 0.15384615384615385
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 2,
+                "total": 9,
+                "accuracy": 0.2222222222222222
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 5,
+                "total": 16,
+                "accuracy": 0.3125
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 1,
+                "total": 5,
+                "accuracy": 0.2
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 0,
+                "total": 31,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 2,
+                "total": 14,
+                "accuracy": 0.14285714285714285
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 0,
+                "total": 9,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 1,
+                "total": 12,
+                "accuracy": 0.08333333333333333
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 1,
+                "total": 13,
+                "accuracy": 0.07692307692307693
+              }
+            }
+          }
+        },
+        "round2": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 29,
+            "incorrect": 251,
+            "missing_gen": 1,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.10357142857142858
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 7,
+                "total": 38,
+                "accuracy": 0.18421052631578946
+              },
+              "Spatial Perception": {
+                "correct": 7,
+                "total": 59,
+                "accuracy": 0.11864406779661017
+              },
+              "Fine-grained Discrimination": {
+                "correct": 14,
+                "total": 128,
+                "accuracy": 0.109375
+              },
+              "Visual Tracking": {
+                "correct": 1,
+                "total": 55,
+                "accuracy": 0.01818181818181818
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 2,
+                "total": 11,
+                "accuracy": 0.18181818181818182
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 3,
+                "total": 19,
+                "accuracy": 0.15789473684210525
+              },
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 1,
+                "total": 15,
+                "accuracy": 0.06666666666666667
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 3,
+                "total": 16,
+                "accuracy": 0.1875
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 3,
+                "total": 18,
+                "accuracy": 0.16666666666666666
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 2,
+                "total": 19,
+                "accuracy": 0.10526315789473684
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 1,
+                "total": 10,
+                "accuracy": 0.1
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 0,
+                "total": 5,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 1,
+                "total": 13,
+                "accuracy": 0.07692307692307693
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 1,
+                "total": 3,
+                "accuracy": 0.3333333333333333
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 3,
+                "total": 9,
+                "accuracy": 0.3333333333333333
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 5,
+                "total": 16,
+                "accuracy": 0.3125
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 1,
+                "total": 5,
+                "accuracy": 0.2
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 0,
+                "total": 31,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 1,
+                "total": 14,
+                "accuracy": 0.07142857142857142
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 1,
+                "total": 9,
+                "accuracy": 0.1111111111111111
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 1,
+                "total": 12,
+                "accuracy": 0.08333333333333333
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              }
+            }
+          }
+        },
+        "round3": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 29,
+            "incorrect": 251,
+            "missing_gen": 1,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.10357142857142858
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 8,
+                "total": 38,
+                "accuracy": 0.21052631578947367
+              },
+              "Spatial Perception": {
+                "correct": 9,
+                "total": 59,
+                "accuracy": 0.15254237288135594
+              },
+              "Fine-grained Discrimination": {
+                "correct": 11,
+                "total": 128,
+                "accuracy": 0.0859375
+              },
+              "Visual Tracking": {
+                "correct": 1,
+                "total": 55,
+                "accuracy": 0.01818181818181818
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 2,
+                "total": 11,
+                "accuracy": 0.18181818181818182
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 4,
+                "total": 19,
+                "accuracy": 0.21052631578947367
+              },
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 2,
+                "total": 15,
+                "accuracy": 0.13333333333333333
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 3,
+                "total": 16,
+                "accuracy": 0.1875
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 3,
+                "total": 18,
+                "accuracy": 0.16666666666666666
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 2,
+                "total": 19,
+                "accuracy": 0.10526315789473684
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 0,
+                "total": 10,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 1,
+                "total": 5,
+                "accuracy": 0.2
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 1,
+                "total": 13,
+                "accuracy": 0.07692307692307693
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 2,
+                "total": 3,
+                "accuracy": 0.6666666666666666
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 2,
+                "total": 9,
+                "accuracy": 0.2222222222222222
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 5,
+                "total": 16,
+                "accuracy": 0.3125
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 1,
+                "total": 5,
+                "accuracy": 0.2
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 0,
+                "total": 31,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 0,
+                "total": 14,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 0,
+                "total": 9,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 1,
+                "total": 13,
+                "accuracy": 0.07692307692307693
+              }
+            }
+          }
+        }
+      }
+    },
+    "qwen-image-edit-2511": {
+      "num_rounds": 3,
+      "mean_accuracy": 0.047619047619047616,
+      "std_accuracy": 0.0074345214266647594,
+      "round_accuracies": [
+        0.039285714285714285,
+        0.05357142857142857,
+        0.05
+      ],
+      "type_accuracies": {
+        "Visual Pattern Recognition": {
+          "mean": 0.07894736842105263,
+          "std": 0.02631578947368421
+        },
+        "Spatial Perception": {
+          "mean": 0.07344632768361582,
+          "std": 0.03528247456722259
+        },
+        "Fine-grained Discrimination": {
+          "mean": 0.046875,
+          "std": 0.0078125
+        },
+        "Visual Tracking": {
+          "mean": 0.0,
+          "std": 0.0
+        }
+      },
+      "rounds": {
+        "round1": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 11,
+            "incorrect": 269,
+            "missing_gen": 2,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.039285714285714285
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 4,
+                "total": 38,
+                "accuracy": 0.10526315789473684
+              },
+              "Spatial Perception": {
+                "correct": 2,
+                "total": 59,
+                "accuracy": 0.03389830508474576
+              },
+              "Fine-grained Discrimination": {
+                "correct": 5,
+                "total": 128,
+                "accuracy": 0.0390625
+              },
+              "Visual Tracking": {
+                "correct": 0,
+                "total": 55,
+                "accuracy": 0.0
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 3,
+                "total": 11,
+                "accuracy": 0.2727272727272727
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 1,
+                "total": 19,
+                "accuracy": 0.05263157894736842
+              },
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 0,
+                "total": 15,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 0,
+                "total": 16,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 1,
+                "total": 18,
+                "accuracy": 0.05555555555555555
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 1,
+                "total": 19,
+                "accuracy": 0.05263157894736842
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 0,
+                "total": 10,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 0,
+                "total": 5,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 1,
+                "total": 3,
+                "accuracy": 0.3333333333333333
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 0,
+                "total": 9,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 2,
+                "total": 16,
+                "accuracy": 0.125
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 0,
+                "total": 5,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 0,
+                "total": 31,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 1,
+                "total": 14,
+                "accuracy": 0.07142857142857142
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 1,
+                "total": 9,
+                "accuracy": 0.1111111111111111
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              }
+            }
+          }
+        },
+        "round2": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 15,
+            "incorrect": 265,
+            "missing_gen": 2,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.05357142857142857
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 2,
+                "total": 38,
+                "accuracy": 0.05263157894736842
+              },
+              "Spatial Perception": {
+                "correct": 6,
+                "total": 59,
+                "accuracy": 0.1016949152542373
+              },
+              "Fine-grained Discrimination": {
+                "correct": 7,
+                "total": 128,
+                "accuracy": 0.0546875
+              },
+              "Visual Tracking": {
+                "correct": 0,
+                "total": 55,
+                "accuracy": 0.0
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 0,
+                "total": 11,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 3,
+                "total": 19,
+                "accuracy": 0.15789473684210525
+              },
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 0,
+                "total": 15,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 3,
+                "total": 19,
+                "accuracy": 0.15789473684210525
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 1,
+                "total": 16,
+                "accuracy": 0.0625
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 0,
+                "total": 10,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 3,
+                "total": 18,
+                "accuracy": 0.16666666666666666
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 0,
+                "total": 5,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 0,
+                "total": 3,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 2,
+                "total": 9,
+                "accuracy": 0.2222222222222222
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 2,
+                "total": 16,
+                "accuracy": 0.125
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 0,
+                "total": 5,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 0,
+                "total": 31,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 0,
+                "total": 14,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 1,
+                "total": 9,
+                "accuracy": 0.1111111111111111
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              }
+            }
+          }
+        },
+        "round3": {
+          "overall": {
+            "total": 280,
+            "evaluated": 280,
+            "correct": 14,
+            "incorrect": 266,
+            "missing_gen": 2,
+            "api_errors": 0,
+            "not_in_results": 0,
+            "accuracy": 0.05
+          },
+          "breakdown": {
+            "by_type": {
+              "Visual Pattern Recognition": {
+                "correct": 3,
+                "total": 38,
+                "accuracy": 0.07894736842105263
+              },
+              "Spatial Perception": {
+                "correct": 5,
+                "total": 59,
+                "accuracy": 0.0847457627118644
+              },
+              "Fine-grained Discrimination": {
+                "correct": 6,
+                "total": 128,
+                "accuracy": 0.046875
+              },
+              "Visual Tracking": {
+                "correct": 0,
+                "total": 55,
+                "accuracy": 0.0
+              }
+            },
+            "by_subtype": {
+              "Visual Pattern Recognition/Logic Patterns": {
+                "correct": 1,
+                "total": 11,
+                "accuracy": 0.09090909090909091
+              },
+              "Spatial Perception/3D Views": {
+                "correct": 2,
+                "total": 19,
+                "accuracy": 0.10526315789473684
+              },
+              "Visual Pattern Recognition/Overlay Patterns": {
+                "correct": 0,
+                "total": 15,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the different": {
+                "correct": 0,
+                "total": 16,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Pattern Completion": {
+                "correct": 3,
+                "total": 18,
+                "accuracy": 0.16666666666666666
+              },
+              "Fine-grained Discrimination/2D Pattern Completion": {
+                "correct": 4,
+                "total": 19,
+                "accuracy": 0.21052631578947367
+              },
+              "Fine-grained Discrimination/Find the same": {
+                "correct": 0,
+                "total": 10,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Paper Folding": {
+                "correct": 0,
+                "total": 5,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Find the same components": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Mirroring Patterns": {
+                "correct": 0,
+                "total": 3,
+                "accuracy": 0.0
+              },
+              "Visual Pattern Recognition/Rotation Patterns": {
+                "correct": 2,
+                "total": 9,
+                "accuracy": 0.2222222222222222
+              },
+              "Fine-grained Discrimination/Pattern and Color Completion": {
+                "correct": 0,
+                "total": 16,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Maze": {
+                "correct": 0,
+                "total": 18,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Connect the lines": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/3D Cube Unfold": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Spatial Perception/Count 3D blocks": {
+                "correct": 0,
+                "total": 5,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Count Same Patterns": {
+                "correct": 2,
+                "total": 31,
+                "accuracy": 0.06451612903225806
+              },
+              "Fine-grained Discrimination/Find the shadow": {
+                "correct": 0,
+                "total": 14,
+                "accuracy": 0.0
+              },
+              "Fine-grained Discrimination/Count Clusters": {
+                "correct": 0,
+                "total": 9,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Metro map": {
+                "correct": 0,
+                "total": 12,
+                "accuracy": 0.0
+              },
+              "Visual Tracking/Recognize numbers and letters": {
+                "correct": 0,
+                "total": 13,
+                "accuracy": 0.0
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
