@@ -1,0 +1,31 @@
+ATTENTION COMPUTATION NOTES
+===========================
+
+Gemma-4-31B-it (bfloat16, eager attention) runs a single teacher-forcing forward
+pass over the full reconstructed conversation. A hook on every language-model
+decoder self-attention layer captures weights [1, heads, q, kv], averages over
+heads, extracts the output (assistant) token rows, and sums weights across each
+token group of interest (visual, system, instruction) — giving the fraction of
+each output position's attention budget allocated to that group. Values are then
+averaged across all 60 decoder layers. The hook discards the full weight matrix
+immediately to avoid OOM.
+
+Visual tokens are contiguous runs of <image_soft_token> in the flat sequence
+(~240–276 per image for this benchmark). Turn boundaries are identified via
+<|turn> delimiters with role labels (system/user/model).
+
+For rethink, the sequence is: [system][user: image+Q][assistant: think0+ans0]
+[user: text-only re-examine][assistant: think1+ans1]. Output positions are split
+at the model-turn boundary into turn-0 and turn-1 halves. attn_visual_output_turn0
+and attn_visual_output_turn1 are the mean visual attention over each half —
+quantifying how much each reasoning pass attended to the single shared image.
+
+The decay curves interpolate each sample's per-position visual attention to 20
+bins on a [0,1] relative axis, then average across samples. For rethink, the two
+turns are interpolated separately.
+
+Measurement note: forced t0 (0.097) slightly exceeds rethink t0 (0.086) despite
+turn-0 being structurally identical in both. Forced lacks an explicit turn boundary,
+so turn-0 positions are inferred as those with zero attention to the re-injected
+image — small numerical non-zeros can misclassify a few positions, biasing the
+estimate upward. Not a real behavioral difference.

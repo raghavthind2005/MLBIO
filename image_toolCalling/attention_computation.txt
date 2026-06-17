@@ -1,0 +1,123 @@
+ATTENTION COMPUTATION — extract_attention.py
+============================================
+
+MODEL
+-----
+Gemma-4-31B-it loaded in bfloat16 with device_map="auto" across 4 GPUs.
+attn_implementation ="eager" — required because flash-attn does not return attention weights.
+The model runs in eval mode with no gradient computation.
+
+
+WHAT IS MEASURED
+----------------
+For each sample, attention is measured from every output token (all model/assistant
+turn positions) back to each named token group (visual, system, instruction).
+
+"Attention from position i to group G" = sum of softmax attention weights from
+position i to every token in G. Since a full softmax row sums to 1.0, this sum
+is the fraction of position i's total attention budget allocated to group G.
+
+This is computed at every decoder self-attention layer (60 layers) and then
+averaged across all layers to produce one value per (output position, group) pair.
+
+
+FORWARD PASS
+------------
+The full conversation is reconstructed from the saved JSONL and tokenized into
+a single flat sequence. The model runs one forward pass over this full sequence
+(teacher-forcing — no generation). output_attentions = True is passed.
+
+Forward hooks are registered on every language-model decoder self-attention module.
+Vision tower layers (names containing "vision") are excluded — their sequence
+dimension does not align with language output positions.
+
+At each layer's self-attention module the hook:
+  1. Receives attention weights w, shape [1, n_heads, q_len, kv_len]
+  2. Averages over heads: wm = w[0].mean(dim=0)  →  shape [q_len, kv_len]
+  3. Extracts only output positions: rows = wm[out_idx, :]  →  shape [n_output, kv_len]
+  4. For each named group G with token column indices cols:
+       captured[layer][G] = rows[:, cols].sum(axis=1)  →  shape [n_output]
+  5. Sets the returned attention weights to None to prevent OOM on long sequences.
+
+After the forward pass, per_layer_per_pos[G] has shape [n_layers, n_output].
+
+
+TOKEN GROUPS
+------------
+Visual tokens: all contiguous runs of image_soft_token (<image_soft_token>) in the
+flat token sequence. Each contiguous run is one visual group (visual_turn0,
+visual_turn1, ...). For rethink there is exactly one group (visual_turn0) because
+no image is re-injected.
+
+System tokens: tokens belonging to the system-role turn, identified by the
+<|turn> start-of-turn delimiter followed by "system".
+
+Instruction tokens: tokens belonging to user-role turns, excluding image tokens.
+
+Output tokens: tokens belonging to model-role turns (all assistant turns combined).
+Turn boundaries are identified by <|turn> delimiters with "model" role labels.
+
+
+SUMMARISATION
+-------------
+attn_visual_per_pos  [n_output]:
+  per_layer_per_pos["visual_turn0"].mean(axis=0)
+  = mean over all n_layers of the per-position visual attention sum.
+  One value per output token position.
+
+attn_visual_mean  [scalar]:
+  per_layer_per_pos["visual_turn0"].mean()
+  = mean over all layers AND all output positions.
+
+attn_visual_output_turn0  [scalar]:  (rethink only)
+  attn_visual_per_pos[:n_output_turn0].mean()
+  = mean over output positions belonging to the first model turn (turn-0 thinking
+    + answer). n_output_turn0 is the token count of the first model turn, identified
+    by the first <|turn>model boundary.
+
+attn_visual_output_turn1  [scalar]:  (rethink only)
+  attn_visual_per_pos[n_output_turn0:].mean()
+  = mean over output positions belonging to the second model turn (turn-1 thinking
+    + answer).
+
+
+RETHINK SEQUENCE STRUCTURE
+---------------------------
+The reconstructed conversation fed to the model:
+
+  [system prompt]
+  [user: image tokens + question text]
+  [assistant: <think>\n{thinking_turn0}\n</think>\n{answer_turn0}]
+  [user: "Re-examine carefully before giving your final answer. Answer ONLY with Yes or No."]
+  [assistant: <think>\n{thinking_turn1}\n</think>\n{answer_turn1}]
+
+
+DECAY CURVE (plot 4 in rethink_comparison.html)
+------------------------------------------------
+Source field: attn_visual_per_pos  (shape [n_output], layer-mean, not turn-split)
+
+For rethink, the output sequence is split at n_output_turn0 into two segments.
+Each segment is independently interpolated to 20 evenly-spaced bins via np.interp,
+mapping its internal position axis from [0, 1]. The curve shown is the mean across
+all samples.
+
+For normal (single-pass), the full output sequence is interpolated to 20 bins.
+The x-axis represents relative position within the reasoning pass (0 = first output
+token, 1 = last), not absolute token index.
+
+
+FORCED TURN-0 ATTENTION (note on measurement difference)
+---------------------------------------------------------
+Forced samples do not store n_output_turn0 (it is None). The forced turn-0 and
+turn-1 split in build_rethink_comparison.py is computed by a heuristic:
+
+  seg1 = output positions where attn_visual_turn1_per_pos > 1e-9
+  seg0 = all remaining output positions
+
+Because the re-injected image (visual_turn1) is causally inaccessible to turn-0
+output positions (causal mask), only turn-1 positions have nonzero attention to it.
+This correctly identifies the turn boundary but introduces small imprecision — any
+turn-0 position with a tiny numerical non-zero value for visual_turn1 attention
+would be misclassified as turn-1. This is the source of the ~0.011 difference
+between forced t0 (0.097) and rethink t0 (0.086), not a real behavioral difference.
+Turn-0 is structurally identical in both conditions.
