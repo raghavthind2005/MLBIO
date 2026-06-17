@@ -61,6 +61,12 @@ n_enumeration_steps (for counting tasks), final_answer_changed_from_midtrace (di
 ### G. Timing
 `inference_time_s, tokens_per_second`.
 
+⚠️ **Phase 2 TODO — extract exact n_image_tokens:** Phase 1 saves `n_image_tokens_approx=260`
+(verified ~258-262 in smoke test). Phase 2 must replace this with the exact count from the HF
+processor/tokenizer for each image, since the patch count is resolution-dependent and needed for
+correct spatial attention heatmap mapping. Compute as: tokenize the image with HF processor,
+count tokens with `image_token_id=258880`.
+
 ### Free cross-pass signals (no extra cost — keep all 3 passes intact, do NOT pre-aggregate)
 Per question across the 3 passes: **answer flip-rate / agreement, majority vote, reasoning-length
 variance, confidence variance**. Paper reports only std of accuracy; per-question instability is
