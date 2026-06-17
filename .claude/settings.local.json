@@ -3,7 +3,28 @@
     "allow": [
       "WebSearch",
       "Bash(xargs ls -la)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(mkdir /Users/ragha/Documents/MLBIO/image_toolCalling)",
+      "Bash(brew install *)",
+      "Bash(pdftotext /Users/ragha/Documents/MLBIO/papers/MoreThinking\\\\\\(Benchmark\\\\\\).pdf -)",
+      "Bash(pdftotext /Users/ragha/Documents/MLBIO/papers/FromSeeingToThinking.pdf -)",
+      "Bash(pdftotext /Users/ragha/Documents/MLBIO/papers/VisionSR1.pdf -)",
+      "Bash(pdftotext /Users/ragha/Documents/MLBIO/papers/VALR.pdf -)",
+      "Bash(pdftotext /Users/ragha/Documents/MLBIO/papers/VERO.pdf -)",
+      "Bash(pdftotext /Users/ragha/Documents/MLBIO/papers/MoreThought\\\\\\(Baseline\\\\\\).pdf -)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:huggingface.co)",
+      "WebFetch(domain:arxiv.org)",
+      "Bash(conda info *)",
+      "Bash(python3 -c \"import huggingface_hub; print\\(huggingface_hub.__version__\\)\")",
+      "Bash(/opt/homebrew/Caskroom/miniconda/base/bin/conda info *)",
+      "Bash(/opt/homebrew/Caskroom/miniconda/base/envs/llmsr/bin/python -c \"import huggingface_hub; print\\(huggingface_hub.__version__\\)\")",
+      "Bash(/opt/homebrew/Caskroom/miniconda/base/bin/pip show *)",
+      "Bash(pip3 install *)",
+      "Bash(python image_toolCalling/verify_results.py)"
+    ],
+    "additionalDirectories": [
+      "/Users/ragha/Documents/MLBIO"
     ]
   }
 }
