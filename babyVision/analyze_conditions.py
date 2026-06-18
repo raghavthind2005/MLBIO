@@ -28,8 +28,10 @@ CONDITIONS = [  # (key, dir, passes, label)
     ("a0",       "results_a0_nothink",     [1],         "A0 no-think"),
     ("standard", "results_standard",       [1, 2, 3],   "standard"),
     ("a3",       "results_a3_forced_long", [1],         "A3 forced-long"),
+    ("b1",       "results_b1_reinject",    [1],         "B1 reinject"),
+    ("b2",       "results_b2_noreinject",  [1],         "B2 no-reinject"),
 ]
-ORDER = ["a0", "standard", "a3"]   # reasoning-length axis order
+ORDER = ["a0", "standard", "a3", "b2", "b1"]   # reasoning-length / re-grounding axis
 
 
 # ── Loading ──────────────────────────────────────────────────────────────────
