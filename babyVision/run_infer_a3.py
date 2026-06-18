@@ -70,7 +70,10 @@ SEGMENT_MAX         = 8192    # max_new_tokens per /generate segment
 ANSWER_BUDGET       = 4096    # tokens for the final answer after the channel closes
 WAIT_STR            = " Wait"
 
-N_CONCURRENT = 6              # multi-segment + multimodal → a bit lighter than baseline
+N_CONCURRENT = 2              # triton SWA attention throws CUDA illegal-memory-access on
+                              # long sequences under batching; serializing to 2 in-flight
+                              # long traces is the biggest lever against that IMA. (Was 6:
+                              # crashed the server ~sample 127 in job 2559747.)
 
 
 # ── sglang raw /generate ─────────────────────────────────────────────────────────
