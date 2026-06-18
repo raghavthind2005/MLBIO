@@ -49,8 +49,12 @@ from run_infer import (  # noqa: E402
 )
 
 # ── Channel delimiters (this model's thinking format) ───────────────────────────
-THINK_OPEN  = "<|channel>thought\n"
-THINK_CLOSE = "<channel|>"
+# Confirmed from the 2556704 spike: after "<|turn>model\n" the model thinks directly
+# (no per-response open token in the template — turn delims are <|turn> / <turn|>) and
+# closes the thought with "<channel|>". Only THINK_CLOSE matters for the logic: we
+# stop on it, suppress it to inject "Wait", and re-append it to force the answer.
+THINK_OPEN  = "<|channel>thought\n"   # cosmetic only (not present in template)
+THINK_CLOSE = "<channel|>"            # real thinking-close; stop=[THINK_CLOSE] fires here
 
 # ── Budget-forcing knobs ────────────────────────────────────────────────────────
 MIN_THINKING_TOKENS = 4000    # keep forcing "Wait" until the trace reaches this
@@ -80,7 +84,11 @@ def sgl_generate(base_url, prompt, image_paths, max_new_tokens,
         },
         "return_logprob":   return_logprob,
         "top_logprobs_num": N_TOP_LOGPROBS if return_logprob else 0,
-        "logprob_start_len": 0,
+        # NB: do NOT set logprob_start_len=0 — that forces logprobs over the entire
+        # INPUT prompt. On the answer step the input is the full grown trace (~7k+
+        # tokens) × ~262k vocab → a 14.6 GiB logits all-gather → CUDA OOM that kills
+        # the server. Omitting it returns OUTPUT-token logprobs only (computed cheaply
+        # during decode), which is exactly the generated thinking+answer we want.
     }
     r = requests.post(f"{base_url}/generate", json=payload, timeout=7200)
     r.raise_for_status()
