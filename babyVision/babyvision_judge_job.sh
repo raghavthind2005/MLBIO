@@ -27,22 +27,22 @@ REPO='$REPO'
 RESULTS_DIR='$RESULTS_DIR'
 PASSES='$PASSES'
 
-pip install -q 'kernels==0.3.0'
-pip install -q 'transformers>=5.10.1'
-pip install -q --index-url https://download.pytorch.org/whl/cu130/ \
-    'torch==2.11.0' 'torchvision==0.26.0' 'torchaudio==2.11.0'
+# NOTE: do NOT reinstall torch here. The sglang.toml container already ships a
+# matching torch + prebuilt sgl_kernel; reinstalling torch==2.11.0 breaks the
+# sgl_kernel ABI (undefined libtorch symbol) and the server fails to launch.
+# Qwen3-32B (text judge) needs no upgrades — serve with the stock container.
 
 python -m sglang.launch_server \
   --model-path \$JUDGE_MODEL_PATH \
   --port 30001 --host 0.0.0.0 --tp 4 \
   --mem-fraction-static 0.8 \
-  --watchdog-timeout 300 \
+  --watchdog-timeout 600 \
   --enable-metrics &
 JUDGE_PID=\$!
 
-echo 'Waiting for judge server...'
+echo 'Waiting for judge server (up to 15 min for weight load + CUDA graph capture)...'
 SERVER_READY=0
-for i in \$(seq 1 60); do
+for i in \$(seq 1 180); do
   if curl -sf http://localhost:30001/health > /dev/null 2>&1; then
     echo \"Judge ready after \$((i*5))s.\"
     SERVER_READY=1
