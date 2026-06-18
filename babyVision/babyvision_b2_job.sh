@@ -35,57 +35,82 @@ pip install -q 'transformers>=5.10.1'
 pip install -q --index-url https://download.pytorch.org/whl/cu130/ \
     'torch==2.11.0' 'torchvision==0.26.0' 'torchaudio==2.11.0'
 
-python -m sglang.launch_server \
-  --model-path \$MODEL_PATH \
-  --port 30000 --host 0.0.0.0 --tp 4 \
-  --mem-fraction-static 0.8 \
-  --watchdog-timeout 600 \
-  --reasoning-parser gemma4 \
-  --disable-overlap-schedule \
-  --enable-metrics &
-VLM_PID=\$!
+# ── Retry loop ──────────────────────────────────────────────────────────────────
+# A triton sliding-window-attention CUDA illegal-memory-access can kill the server
+# mid-run on long sequences under batching (it killed A3 v2). One IMA tears down the
+# whole CUDA context, so every later request fails. On each attempt we relaunch a
+# FRESH server (new CUDA context) and re-run; run_infer_b.py resumes by skipping the
+# taskIds already completed without error, so each attempt only does what's left. We
+# stop once all 388 are done (or after MAX_ATTEMPTS).
+MAX_ATTEMPTS=6
+DID_SPIKE=0
+DONE=0
+for attempt in \$(seq 1 \$MAX_ATTEMPTS); do
+  echo \"=== Attempt \$attempt/\$MAX_ATTEMPTS ===\"
 
-echo 'Waiting for VLM server (up to 15 min)...'
-SERVER_READY=0
-for i in \$(seq 1 180); do
-  if curl -sf http://localhost:30000/health > /dev/null 2>&1; then
-    echo \"VLM ready after \$((i*5))s.\"
-    SERVER_READY=1
-    break
+  python -m sglang.launch_server \
+    --model-path \$MODEL_PATH \
+    --port 30000 --host 0.0.0.0 --tp 4 \
+    --mem-fraction-static 0.8 \
+    --watchdog-timeout 1800 \
+    --reasoning-parser gemma4 \
+    --disable-overlap-schedule \
+    --enable-metrics &
+  VLM_PID=\$!
+
+  echo 'Waiting for VLM server (up to 15 min)...'
+  SERVER_READY=0
+  for i in \$(seq 1 180); do
+    if curl -sf http://localhost:30000/health > /dev/null 2>&1; then
+      echo \"VLM ready after \$((i*5))s.\"
+      SERVER_READY=1
+      break
+    fi
+    sleep 5
+  done
+  if [ \$SERVER_READY -eq 0 ]; then
+    echo 'WARNING: VLM server never became healthy this attempt; retrying.'
+    kill \$VLM_PID 2>/dev/null; sleep 10; continue
   fi
-  sleep 5
-done
-if [ \$SERVER_READY -eq 0 ]; then
-  echo 'ERROR: VLM server never became healthy.'
-  kill \$VLM_PID 2>/dev/null
-  exit 1
-fi
 
-# ── Spike gate ────────────────────────────────────────────────────────────────
-if [ \"\$SKIP_SPIKE\" != \"1\" ]; then
-  echo '=== SPIKE: validating 2-turn no-reinject protocol ==='
+  # Spike gate runs ONCE, on the first healthy attempt. The 2-turn prompt format has
+  # NOT been validated before — read the 'T2 prompt tail' line in the log.
+  if [ \"\$SKIP_SPIKE\" != \"1\" ] && [ \$DID_SPIKE -eq 0 ]; then
+    echo '=== SPIKE: validating 2-turn no-reinject protocol ==='
+    python \$REPO/run_infer_b.py \
+      --port 30000 --model-path \$MODEL_PATH \
+      --data-dir \$DATA_DIR \
+      --spike \$SPIKE_N --no-reinject
+    SPIKE_RC=\$?
+    echo \"Spike exit code: \$SPIKE_RC\"
+    if [ \$SPIKE_RC -ne 0 ]; then
+      echo 'SPIKE FAILED — inspect log above.'
+      kill \$VLM_PID 2>/dev/null; exit \$SPIKE_RC
+    fi
+    DID_SPIKE=1
+    echo '=== SPIKE PASSED — launching full run ==='
+  fi
+
+  # Full run — resumes, only does the taskIds still missing/errored.
   python \$REPO/run_infer_b.py \
     --port 30000 --model-path \$MODEL_PATH \
-    --data-dir \$DATA_DIR \
-    --spike \$SPIKE_N --no-reinject
-  SPIKE_RC=\$?
-  echo \"Spike exit code: \$SPIKE_RC\"
-  if [ \$SPIKE_RC -ne 0 ]; then
-    echo 'SPIKE FAILED — inspect log above.'
-    kill \$VLM_PID 2>/dev/null
-    exit \$SPIKE_RC
+    --data-dir \$DATA_DIR --out-dir \$OUT_DIR \
+    --no-reinject
+  kill \$VLM_PID 2>/dev/null; sleep 10
+
+  DONE=\$(python -c \"import json; recs=[json.loads(l) for l in open('\$OUT_DIR/results_run1.jsonl') if l.strip()]; print(len({r['taskId'] for r in recs if 'error' not in r}))\" 2>/dev/null || echo 0)
+  echo \"Completed \$DONE/388 after attempt \$attempt.\"
+  if [ \"\$DONE\" -ge 388 ]; then
+    echo 'All 388 completed.'; break
   fi
-  echo '=== SPIKE PASSED — launching full run ==='
+  echo 'Not all done (server likely crashed mid-run) — relaunching fresh and resuming.'
+done
+
+if [ \"\$DONE\" -ge 388 ]; then
+  echo 'B2 done: 388/388.'
+  exit 0
+else
+  echo \"B2 INCOMPLETE: only \$DONE/388 after \$MAX_ATTEMPTS attempts.\"
+  exit 1
 fi
-
-# ── Full run ─────────────────────────────────────────────────────────────────
-python \$REPO/run_infer_b.py \
-  --port 30000 --model-path \$MODEL_PATH \
-  --data-dir \$DATA_DIR --out-dir \$OUT_DIR \
-  --no-reinject
-
-EXIT_CODE=\$?
-kill \$VLM_PID 2>/dev/null
-echo \"B2 done (exit code \$EXIT_CODE).\"
-exit \$EXIT_CODE
 "

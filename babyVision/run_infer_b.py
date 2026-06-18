@@ -49,7 +49,9 @@ THINK_CLOSE = "<channel|>"            # model closes thinking here
 # ── Generation budgets ────────────────────────────────────────────────────────
 TURN1_BUDGET   = 16384   # thinking + initial answer (generous: median ~7k in standard)
 TURN2_BUDGET   = 8192    # re-examination: usually shorter, but give room for re-think
-N_CONCURRENT   = 4       # 2 serial calls per sample → lighter than baseline
+N_CONCURRENT   = 2       # triton SWA attention throws CUDA illegal-memory-access on long
+                         # sequences under batching (crashed A3 v2 at concurrency 6). With
+                         # 2 serial /generate calls per sample already, keep 2 in flight.
 
 # Turn-2 prompt (same for B1 and B2; only the image presence differs)
 TURN2_QUESTION = "Give your final answer in \\boxed{Answer}."
