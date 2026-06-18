@@ -34,9 +34,17 @@ Two knobs:
 ## A3 — forced-long (s1 single-trace budget forcing)
 - `run_infer_a3.py`. Drives sglang **raw `/generate`** (not chat) so we own the
   `<|channel>thought … <channel|>` trace. Generate with `stop="<channel|>"`; each
-  time the model tries to close before `MIN_THINKING_TOKENS` (4000), suppress the
-  close, append `" Wait"`, continue the SAME trace (cap `MAX_FORCES=8`,
+  time the model tries to close before `MIN_THINKING_TOKENS`, suppress the close,
+  append `" Wait"`, continue the SAME trace (cap `MAX_FORCES`,
   ceiling `MAX_THINKING_TOKENS=32768`); then append `<channel|>` and force the answer.
+- **v2 (genuine long arm).** v1 used `MIN_THINKING_TOKENS=4000` — *below* standard's
+  natural thinking median (~7000), so 251/388 samples were never forced and the
+  `if ftype=="length": break` clipped the trace at one 8192-token segment. Result:
+  A3 median 7249 tok ≈ standard 7355, i.e. **not actually longer**. v2 fixes both:
+  `MIN_THINKING_TOKENS=12000` (above standard's median, so most samples get lifted),
+  `MAX_FORCES=30`, and the length-finish path now **continues across segments** until
+  the floor is reached instead of breaking. Validated by `validate_results.py` length
+  table. v1 (invalid long arm) was archived to `results_a3_forced_long_v1/`.
 - Image shown ONCE, never re-injected (this is forced-*long*, not re-examination).
 - Job `babyvision_a3_job.sh` is **spike-gated**: validates the mechanism on 10
   samples (forced ≥1 Wait + extractable boxed answer on ≥half) and only runs the

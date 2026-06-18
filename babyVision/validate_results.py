@@ -96,17 +96,27 @@ def main():
 
             raw = load_jsonl(raw_path)
             task_ids = [r.get("taskId") for r in raw]
-            dup_counts = {t: c for t, c in Counter(task_ids).items() if c > 1}
             errors     = [r for r in raw if "error" in r]
             valid_raw  = [r for r in raw if "error" not in r]
+
+            # A duplicate taskId is only a real bug if it has >1 VALID record.
+            # The expected resume pattern is error(original) + valid(resume) pairs.
+            valid_ids   = Counter(r.get("taskId") for r in valid_raw)
+            true_dups   = {t: c for t, c in valid_ids.items() if c > 1}
+            benign_dups = {t: c for t, c in Counter(task_ids).items()
+                           if c > 1 and valid_ids.get(t, 0) <= 1}
 
             print(f"    total lines:       {len(raw)}")
             print(f"    unique taskIds:    {len(set(t for t in task_ids if t))}")
             print(f"    error records:     {len(errors)}")
             print(f"    valid records:     {len(valid_raw)}")
-            if dup_counts:
-                print(f"    *** DUPLICATE taskIds (resume bug?): {dup_counts}")
+            print(f"    unique valid taskIds: {len(valid_ids)}")
+            if true_dups:
+                print(f"    *** TRUE DUPLICATES (>1 valid record — accuracy bug!): {true_dups}")
                 all_ok = False
+            elif benign_dups:
+                print(f"    duplicate taskIds: {len(benign_dups)} benign "
+                      f"(error+resume pairs, 1 valid each)  OK")
             else:
                 print(f"    duplicate taskIds: 0  OK")
             if errors:

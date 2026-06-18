@@ -57,8 +57,14 @@ THINK_OPEN  = "<|channel>thought\n"   # cosmetic only (not present in template)
 THINK_CLOSE = "<channel|>"            # real thinking-close; stop=[THINK_CLOSE] fires here
 
 # ── Budget-forcing knobs ────────────────────────────────────────────────────────
-MIN_THINKING_TOKENS = 4000    # keep forcing "Wait" until the trace reaches this
-MAX_FORCES          = 8       # safety cap on number of "Wait" injections
+# v2 (genuine long arm): standard's natural thinking median is ~7000 tok, so the old
+# 4000 floor left 251/388 samples un-forced and the trace capped at one 8192 segment.
+# To make A3 *exceed* standard, the floor is lifted well above standard's median and
+# the loop now continues across segments (instead of breaking at the first 8192-token
+# segment) until the floor is reached or the ceiling hit. MAX_FORCES is raised so
+# stubborn early-closers get enough "Wait" injections to actually reach the floor.
+MIN_THINKING_TOKENS = 12000   # keep forcing/continuing until the trace reaches this floor
+MAX_FORCES          = 30      # safety cap on number of "Wait" injections (was 8)
 MAX_THINKING_TOKENS = 32768   # hard ceiling on the thought channel
 SEGMENT_MAX         = 8192    # max_new_tokens per /generate segment
 ANSWER_BUDGET       = 4096    # tokens for the final answer after the channel closes
@@ -194,9 +200,14 @@ def forced_long(base_url, base_prompt, image_paths, verbose=False):
                 cur_prompt += WAIT_STR
                 forces     += 1
                 continue
-            break                              # allow the channel to close
+            break                              # floor reached (or forces exhausted) → close
         if ftype == "length":
-            break                              # hit a segment/ceiling budget
+            # Segment filled without the model closing the channel. If we're still
+            # below the floor, keep generating the SAME trace across the next segment
+            # (this is what makes A3 genuinely long); otherwise stop and force the answer.
+            if think_tokens < MIN_THINKING_TOKENS:
+                continue
+            break
         # any other stop (e.g. EOS without closing) → stop forcing
         break
 
@@ -303,7 +314,8 @@ def process_sample(item, img_path, img_props, base_prompt, base_url,
 def run_spike(base_url, processor, items, n, enable_thinking):
     print(f"\n{'='*72}\nSPIKE — validating single-trace budget forcing on {n} samples\n{'='*72}")
     sample = items[:n]
-    ok_forced = ok_answer = 0
+    ok_long = ok_answer = 0
+    floor_target = int(0.75 * MIN_THINKING_TOKENS)   # "long enough" = reached ~3/4 of floor
     for i, item in enumerate(sample):
         q, gt = build_question(item)
         base_prompt = build_base_prompt(processor, q, enable_thinking)
@@ -316,13 +328,15 @@ def run_spike(base_url, processor, items, n, enable_thinking):
         print(f"    → forces={res['n_forces']}  think_tokens={res['thinking_tokens']}  "
               f"answer_tokens={res['answer_tokens']}  finish={res['answer_finish']}")
         print(f"    → extracted={extracted!r}   answer_tail=...{res['answer'][-160:]!r}")
-        if res["n_forces"] > 0:               ok_forced += 1
-        if extracted is not None:             ok_answer += 1
+        # Genuine long arm: the trace must actually approach the floor (via Wait OR
+        # segment-continuation), not merely have fired ≥1 Wait.
+        if res["thinking_tokens"] >= floor_target:  ok_long += 1
+        if extracted is not None:                   ok_answer += 1
 
     print(f"\n{'='*72}\nSPIKE SUMMARY")
-    print(f"  forced ≥1 Wait : {ok_forced}/{n}   (mechanism actually elongated the trace)")
-    print(f"  boxed answer   : {ok_answer}/{n}   (answer extractable after forced close)")
-    ok = ok_forced >= max(1, n // 2) and ok_answer >= max(1, n // 2)
+    print(f"  reached ≥{floor_target} think tok : {ok_long}/{n}   (trace genuinely long, floor={MIN_THINKING_TOKENS})")
+    print(f"  boxed answer            : {ok_answer}/{n}   (answer extractable after forced close)")
+    ok = ok_long >= max(1, n // 2) and ok_answer >= max(1, n // 2)
     print(f"  VERDICT        : {'PASS — safe to launch full run' if ok else 'FAIL — inspect above before full run'}")
     print(f"{'='*72}\n")
     return ok
