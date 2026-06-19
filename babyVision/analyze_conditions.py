@@ -5,10 +5,12 @@ BabyVision three-way readout: standard vs A0 (no-think) vs A3 (forced-long).
 Reasoning-length axis:  A0 (~0 reasoning) → standard (natural) → A3 (forced-long).
 Tests the "think-longer-see-less" hypothesis on vision-primitive tasks.
 
-Reads *_judged.jsonl from each condition dir (stdlib only — runs on the login node):
-  standard:  results_run1_judged.jsonl, run2, run3   (3-pass mean±std)
-  a0:        results_run1_judged.jsonl                (1 pass)
-  a3:        results_run1_judged.jsonl                (1 pass)
+Reads *_graded.jsonl from each condition dir (stdlib only — runs on the login node).
+Correctness comes from the `grade` field written by grade.py (the once-and-for-all,
+format-agnostic grader), NOT the old `judge_result`:
+  standard:  results_run1_graded.jsonl, run2, run3   (3-pass mean±std)
+  a0:        results_run1_graded.jsonl                (1 pass)
+  a3:        results_run1_graded.jsonl                (1 pass)
 
 Outputs: console tables + a machine-readable summary.json + a markdown readout.md.
 
@@ -37,7 +39,7 @@ ORDER = ["a0", "standard", "a3", "b2", "b1"]   # reasoning-length / re-grounding
 # ── Loading ──────────────────────────────────────────────────────────────────
 
 def load_pass(cond_dir: Path, pass_idx: int) -> list:
-    p = cond_dir / f"results_run{pass_idx}_judged.jsonl"
+    p = cond_dir / f"results_run{pass_idx}_graded.jsonl"
     if not p.exists():
         print(f"  WARN: missing {p}")
         return []
@@ -56,7 +58,7 @@ def acc(recs: list):
     v = valid(recs)
     if not v:
         return None, 0, 0
-    nc = sum(1 for r in v if r.get("judge_result") is True)
+    nc = sum(1 for r in v if r.get("grade") is True)
     return nc / len(v), nc, len(v)
 
 
@@ -116,7 +118,7 @@ def summarize_condition(key, cond_dir, passes, label):
 # ── Within-condition accuracy vs reasoning length (the see-less curve) ─────────
 
 def acc_vs_length(pooled: list, n_bins: int = 4):
-    rows = [(length_metric(r), r.get("judge_result") is True)
+    rows = [(length_metric(r), r.get("grade") is True)
             for r in pooled if length_metric(r) is not None]
     if len(rows) < n_bins:
         return []
@@ -140,7 +142,7 @@ def flip_stats(cond_dir, passes):
     by_task = defaultdict(list)
     for pi in passes:
         for r in valid(load_pass(cond_dir, pi)):
-            by_task[r["taskId"]].append(r.get("judge_result") is True)
+            by_task[r["taskId"]].append(r.get("grade") is True)
     full = [v for v in by_task.values() if len(v) == len(passes)]
     if not full:
         return None
