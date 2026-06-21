@@ -62,8 +62,30 @@ MAX_ANSWER_CHARS = 8000
 
 
 def model_answer(rec: dict) -> str:
-    """The model's final answer; fall back to the tail of the thinking trace only
-    if the final answer is empty."""
+    """The model's final committed answer, format-agnostic.
+
+    Normal case: the model's final answer text (answer_text); fall back to the
+    tail of the thinking trace only if the final answer is empty.
+
+    Two-turn (B1/B2) special case: if turn 2 ran out of budget *while still
+    thinking* (finish_reason=='length' AND the thinking channel never closed, so
+    thinking_trace==''), then answer_text holds cut-off, often degenerate-looping
+    turn-2 reasoning with NO conclusion — not an answer. The model's standing
+    committed answer there is its turn-1 answer (the 2-turn protocol already
+    defines extracted_answer with this same T1 fallback in run_infer_b.py). Grade
+    that instead. Inert for single-turn conditions (A*), which have no
+    turn1_answer_text field, so their grading is byte-identical to before."""
+    t2_unconcluded = (
+        rec.get("turn1_answer_text") is not None
+        and rec.get("finish_reason") == "length"
+        and not (rec.get("thinking_trace") or "").strip()
+    )
+    if t2_unconcluded:
+        a = (rec.get("turn1_answer_text") or "").strip()
+        if not a:
+            a = (rec.get("turn1_thinking") or "")[-1500:].strip()
+        return a[:MAX_ANSWER_CHARS]
+
     a = (rec.get("answer_text") or "").strip()
     if not a:
         a = (rec.get("thinking_trace") or "")[-1500:].strip()
