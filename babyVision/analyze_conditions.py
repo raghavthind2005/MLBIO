@@ -154,6 +154,72 @@ def flip_stats(cond_dir, passes):
             "all_correct": allright, "all_wrong": allwrong}
 
 
+# ── B-family: two-turn integrity & re-grounding contrast ───────────────────────
+
+def _t2_unconcluded(r: dict) -> bool:
+    """Turn-2 ran out of budget while still thinking (channel never closed) → no
+    real 2-turn answer; grade.py graded this record on its standing turn-1 answer."""
+    return (r.get("finish_reason") == "length"
+            and not (r.get("thinking_trace") or "").strip())
+
+
+def b_family_report(summ: dict):
+    """Three honest views of the B1/B2 result (see babyvision_b_truncation_decision):
+      1. runaway-loop truncation rates  (behavioral finding; the asymmetry)
+      2. paired concluded-only contrast (clean 2-turn, both conditions real)
+      3. full-388 T1-fallback vs concluded-only  (sensitivity — verdict must agree)
+    """
+    b1p, b2p = summ.get("b1", {}).get("pooled"), summ.get("b2", {}).get("pooled")
+    if not b1p or not b2p:
+        return
+    b1 = {r["taskId"]: r for r in b1p}
+    b2 = {r["taskId"]: r for r in b2p}
+
+    print("\n" + "-" * 78)
+    print("B-FAMILY · two-turn integrity & re-grounding contrast (B1 reinject vs B2)")
+    print("-" * 78)
+
+    # 1. truncation / runaway-loop rates (behavioral finding)
+    print("turn-2 runaway-loop truncation (hit budget mid-thinking → graded on standing T1):")
+    rates = {}
+    for key, d in (("b1", b1), ("b2", b2)):
+        u = sum(1 for r in d.values() if _t2_unconcluded(r))
+        rates[key] = (u, len(d))
+        print(f"  {summ[key]['label']:<16}{u:>4}/{len(d):<4} = {u/len(d)*100:4.1f}%")
+    if rates["b1"][1] and rates["b2"][1]:
+        d = (rates["b1"][0]/rates["b1"][1] - rates["b2"][0]/rates["b2"][1]) * 100
+        print(f"  → re-grounding induces {d:+.1f} pts more runaway loops "
+              f"(behavioral finding — do NOT fold into accuracy)")
+
+    # 2. paired concluded-only contrast (clean 2-turn on identical items)
+    common = set(b1) & set(b2)
+    concl = [i for i in common if not _t2_unconcluded(b1[i]) and not _t2_unconcluded(b2[i])]
+    print(f"\npaired concluded-only contrast (both B1 & B2 produced a real 2-turn answer):")
+    if concl:
+        b1a = sum(1 for i in concl if b1[i].get("grade") is True) / len(concl)
+        b2a = sum(1 for i in concl if b2[i].get("grade") is True) / len(concl)
+        # McNemar discordant pairs
+        b1r_b2w = sum(1 for i in concl if b1[i].get("grade") is True and b2[i].get("grade") is not True)
+        b1w_b2r = sum(1 for i in concl if b1[i].get("grade") is not True and b2[i].get("grade") is True)
+        print(f"  N = {len(concl)}   (dropped {len(common)-len(concl)} of {len(common)} as loop-truncated)")
+        print(f"  B1 = {b1a*100:5.1f}%   B2 = {b2a*100:5.1f}%   Δ(B1−B2) = {(b1a-b2a)*100:+.1f} pts")
+        print(f"  discordant pairs: B1-right/B2-wrong = {b1r_b2w}   B1-wrong/B2-right = {b1w_b2r}")
+        print(f"  NOTE: the {len(common)-len(concl)} dropped items are where re-grounding most "
+              f"changes behavior; read with the loop-rate finding above.")
+    else:
+        print("  (no paired concluded items)")
+
+    # 3. sensitivity: full-388 T1-fallback (main table) vs concluded-only
+    print(f"\nsensitivity — full set (T1-fallback) vs concluded-only:")
+    for key, d in (("b1", b1), ("b2", b2)):
+        full = summ[key]["overall_acc"]
+        ids = [i for i in d if not _t2_unconcluded(d[i])]
+        co = (sum(1 for i in ids if d[i].get("grade") is True) / len(ids)) if ids else None
+        print(f"  {summ[key]['label']:<16} full={fmt_pct(full)}%   "
+              f"concluded-only={fmt_pct(co)}%   (concluded n={len(ids)})")
+    print("  → B1-vs-B2 verdict is robust iff the sign of Δ agrees across both views.")
+
+
 # ── Main ────────────────────────────────────────────────────────────────────────
 
 def main():
@@ -255,6 +321,9 @@ def main():
         print(f"  questions with disagreement across passes: "
               f"{fs['unstable']}/{fs['n']} = {fs['unstable_frac']*100:.1f}%")
         print(f"  all-3-correct: {fs['all_correct']}   all-3-wrong: {fs['all_wrong']}")
+
+    # ── 8. B-family two-turn integrity & re-grounding contrast ──────────────────
+    b_family_report(summ)
 
     # ── Persist ──────────────────────────────────────────────────────────────────
     if args.out:
