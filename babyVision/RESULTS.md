@@ -5,27 +5,30 @@ Model: Gemma-4-31B-it. Benchmark: BabyVision, 388 vision-primitive questions
 judge reads the model's full final answer and decides if it is correct in substance
 (no rigid format matching).
 
-## What we wanted to know
-
-These are simple visual tasks that young children pass and strong models fail (mazes,
-counting, shadows, 3D views, pattern completion). We wanted to know one thing: does
-making the model reason more — think longer, reconsider, or look at the image again —
-help it answer these questions correctly?
-
 ## What we did
 
 We ran the same 388 questions five ways. Only the reasoning changed; the prompt,
 sampling settings, and scoring were identical across all of them.
 
-- A0: answer directly, no thinking (median 536 reasoning tokens)
-- standard: normal thinking, run 3 times (median 7,334)
-- A3: forced to think much longer (median 12,599)
-- B2: answer, then reconsider with no image shown again
-- B1: answer, then reconsider with the image shown again
+| Condition | What changes | Median reasoning tokens |
+|-----------|--------------|-------------------------|
+| A0 | answer directly, no thinking | 536 |
+| standard | normal thinking (run 3 times) | 7,334 |
+| A3 | forced to think much longer | 12,599 |
+| B2 | reconsider, image NOT shown again | 9,308 |
+| B1 | reconsider, image shown again | 10,105 |
 
 That is a 23x range in reasoning length, plus two ways of "looking again."
 
 ## Finding 1: more reasoning does not help
+
+| Condition | Accuracy | vs standard | Significant? |
+|-----------|----------|-------------|--------------|
+| A0 | 29.4% | −1.0 | no (p=0.76) |
+| standard | 31.6% (±1.4) | — | — |
+| A3 | 30.7% | +0.3 | no (p=1.00) |
+| B2 | 28.1% | −2.3 | no (p=0.41) |
+| B1 | 33.2% | +2.8 | no (p=0.29) |
 
 Accuracy barely moved: A0 29.4%, standard 31.6%, A3 30.7%, B2 28.1%, B1 33.2%. None
 of the differences are statistically real. We tested every pair with a paired test and
@@ -61,11 +64,20 @@ So the flat result is real.
 We treated the 7 runs per item (A0, standard x3, A3, B1, B2) as 7 attempts at the same
 question and counted how often each item was answered correctly.
 
-- 27 items (7%) are always right, 135 (35%) are always wrong, and 226 (58%) come out
-  right sometimes and wrong other times.
-- Any two conditions agree on which items are right or wrong 72-77% of the time. If the
-  conditions were independent, chance agreement would be about 58%. So which items are
-  right or wrong is mostly a property of the item, not the condition.
+| Across all 7 attempts | Items | Share |
+|-----------------------|-------|-------|
+| always right | 27 | 7% |
+| always wrong | 135 | 35% |
+| sometimes right, sometimes wrong | 226 | 58% |
+
+Any two conditions agree on which items are right or wrong 72-77% of the time. If the
+conditions were independent, chance agreement would be about 58%. So which items are
+right or wrong is mostly a property of the item, not the condition.
+
+| Flip rate (an item changes right↔wrong) | Value |
+|------------------------------------------|-------|
+| changing the reasoning regime (e.g. A0 vs A3) | 25.5% |
+| just re-running standard with a new random seed | 25.3% |
 
 The key check: changing the reasoning regime flips an item's outcome 25.5% of the time —
 but simply re-running standard with a different random seed flips it 25.3% of the time.
@@ -83,6 +95,11 @@ map), counting (3D blocks), or matching elements one by one (find-the-same, find
 different, find-the-shadow). The top (more often solved) are single-glance recognitions
 (rotation, letters, overlay, a single 3D view).
 
+| Group | Mean % correct | Ever solved |
+|-------|----------------|-------------|
+| Serial / step-by-step (tracing, counting, one-by-one matching) | 18.8% | only 12% of these items |
+| Single-glance (rotation, letters, overlay, single 3D view) | 43.4% | — |
+
 Grouping all subtypes into "serial" vs "single-glance": serial 18.8% correct vs
 single-glance 43.4% (p ≈ 0). This is real but not the whole story — the separation is
 moderate (a random single-glance item is harder-to-beat only ~73% of the time), and about
@@ -96,11 +113,11 @@ The 226 "sometimes right" items were the interesting case: what tips a single at
 from wrong to right? We checked, holding the item fixed, whether a right attempt differs
 from a wrong attempt of the same item.
 
-- Confidence: flat. The model is just as confident when wrong as when right (entropy and
-  log-probability separate the two only ~50% of the time).
-- Length: a weak hint that longer attempts go wrong on easy items, but not significant
-  (54% of items, n = 48).
-- Which wrong answer it picks: scattered across the options, not one consistent mistake.
+| Signal (right vs wrong attempt of the same item) | Result | Predicts the flip? |
+|---------------------------------------------------|--------|--------------------|
+| Confidence (entropy, log-probability) | separates them only ~50% of the time | no |
+| Length | "longer goes wrong" hint on easy items, 54% (n=48), not significant | no |
+| Which wrong answer it picks | scattered across options, no consistent mistake | no |
 
 So on an unsure item, whether a given attempt lands right or wrong is not predictable from
 the attempt's length, its confidence, or its answer. Each attempt is a coin-flip at the
@@ -144,3 +161,34 @@ Significance: paired McNemar tests and bootstrap confidence intervals (babyvisio
 Data integrity: alignment, manipulation, and grading checks (babyvision_integrity.py).
 Item structure and churn: babyvision_flips.py, babyvision_churn.py. Difficulty grouping:
 babyvision_serial.py. Flip structure: babyvision_transitions.py. Scoring: grade.py.
+
+## Appendix: per-subtype solvability
+
+Mean % correct over all 7 attempts, sorted from hardest to easiest. "Group" marks our
+serial (S) vs single-glance (H) labelling. Note it is a smooth gradient, not two clean
+clusters — a few single-glance subtypes sit low and one serial subtype sits mid-pack.
+
+| Subtype | Group | n | Mean % correct |
+|---------|-------|---|----------------|
+| Find the same | S | 17 | 7.6 |
+| Maze | S | 20 | 8.6 |
+| Count 3D blocks | S | 22 | 11.0 |
+| Lines Observation | S | 9 | 11.1 |
+| Connect the lines | S | 19 | 11.3 |
+| Metro map | S | 12 | 17.9 |
+| Paper Folding | S | 12 | 19.0 |
+| Find the different | S | 16 | 22.3 |
+| Find the shadow | S | 23 | 23.0 |
+| 3D Cube Unfold | S | 12 | 25.0 |
+| Mirroring Patterns | H | 10 | 27.1 |
+| Pattern and Color Completion | H | 20 | 30.7 |
+| Count Same Patterns | S | 35 | 34.7 |
+| Logic Patterns | H | 14 | 41.8 |
+| 3D Pattern Completion | H | 18 | 42.1 |
+| 2D Pattern Completion | H | 20 | 42.1 |
+| 3D Views | H | 27 | 44.4 |
+| Reconstruction | H | 14 | 44.9 |
+| Count Clusters | H | 18 | 45.2 |
+| Overlay Patterns | H | 17 | 48.7 |
+| Recognize numbers and letters | H | 23 | 51.6 |
+| Rotation Patterns | H | 10 | 55.7 |
