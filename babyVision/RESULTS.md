@@ -57,15 +57,25 @@ is that **the same items are right or wrong regardless of how the model reasons.
   (73%), the most extreme length contrast. Chance agreement at this accuracy is ~58%, so
   conditions are coupled **~15 pts above chance.** Correctness is dominantly a property of the
   *item*, not the condition.
-- **The ~52% that do flip, flip symmetrically.** Every McNemar contrast has balanced discordant
-  pairs — A3-vs-std 55/54, A0-vs-std 46/50, B1-vs-std 51/40, B2-vs-std 43/52. As many items are
-  gained as lost when reasoning changes. The flips are **stochastic noise, not a reasoning arm
-  systematically winning.**
+- **The ~52% that flip, flip non-directionally — and no faster than re-sampling.** Reasoning is
+  *not* inert at the item level: changing it flips ~28% of items (A3-vs-std: 55 wrong→right, 54
+  right→wrong). But (i) every contrast is **balanced** (A3-vs-std 55/54, A0-vs-std 46/50,
+  B2-vs-std 43/52) — as many items gained as lost, no arm systematically wins; and (ii) the
+  cross-condition flip rate (**25.5%**) is statistically **indistinguishable from standard's own
+  pass-to-pass flip rate under identical settings (25.3% sampling-noise floor; +0.3 pts excess).**
+  Changing the reasoning regime flips items *no more than re-rolling the sampler does.* W.r.t.
+  correctness, varying the reasoning is equivalent to drawing a new sample — not steering the answer.
 
 This rules out the trivial explanation that the model just repeats itself: **92% of items receive
 a *different* extracted answer across conditions.** The wording and the answer vary; the
-right/wrong *outcome* stays locked to the item. The model reasons differently every time and
-still lands on the same perceptual verdict.
+right/wrong *outcome* is no more controllable by reasoning than by chance.
+
+**Three item populations.** BabyVision partitions into **33 stable-correct** items (8.5%; confident
+right perception), **154 stable-wrong** (40%; the model cannot extract the cue, and no perturbation
+recovers it), and **~201 boundary** items (52%) that sit near the model's perceptual decision
+threshold and flip under *any* perturbation — a different seed or a different reasoning regime,
+interchangeably. Which side a boundary item lands on is set at perception, not by the reasoning
+that follows it.
 
 **Interpretation:** the model forms its perception of the visual primitive at encoding, and
 reasoning operates on that fixed (often wrong) percept without re-perceiving. More thinking,
@@ -129,5 +139,6 @@ convert into accuracy**, consistent with the perception-bound thesis.
 
 Across a 23× range of reasoning length, plus forced reconsideration and image re-grounding,
 BabyVision accuracy does not move; correctness is locked to the item (48% invariant, all pairs
-coupled ~15 pts above chance, remaining flips symmetric/noise). **BabyVision measures perception,
-and reasoning cannot substitute for a cue the model failed to perceive.**
+coupled ~15 pts above chance, and the remaining flips are non-directional and no larger than the
+sampling-noise floor). **BabyVision measures perception, and reasoning cannot substitute for a cue
+the model failed to perceive — varying the reasoning only re-samples around a fixed percept.**
