@@ -1,144 +1,146 @@
-# BabyVision — Results: perception-bound, not reasoning-bound
+# BabyVision results
 
-**Model:** Gemma-4-31B-it (Clariden, sglang). **Benchmark:** BabyVision, 388 vision-primitive
-VQA items (135 choice / 253 free-form blank), 4 types / 22 subtypes. **Scoring:** `grade.py`
-— a Qwen3-32B judge reads the model's full final answer and decides correctness in substance
-(format-agnostic; no `\boxed{}` regex). Standard baseline = 3 passes; all other arms = 1 pass.
+Model: Gemma-4-31B-it. Benchmark: BabyVision, 388 vision-primitive questions
+(135 multiple-choice, 253 free-form), 4 task types, 22 subtypes. Scoring: a Qwen3-32B
+judge reads the model's full final answer and decides if it is correct in substance
+(no rigid format matching).
 
-## Thesis
+## What we wanted to know
 
-On these vision primitives, **accuracy is bound by perception, not by reasoning.** Whether the
-model gets an item right is determined by whether it can *perceive* the relevant visual cue
-from the image — not by how long it reasons, whether it reconsiders, or whether it re-sees the
-image. We manipulate reasoning along two axes while holding everything else byte-identical
-(prompt, temperature, top-k/p, gold construction, judge), and accuracy does not move.
+These are simple visual tasks that young children pass and strong models fail (mazes,
+counting, shadows, 3D views, pattern completion). We wanted to know one thing: does
+making the model reason more — think longer, reconsider, or look at the image again —
+help it answer these questions correctly?
 
-## Conditions (only reasoning changes; everything else fixed)
+## What we did
 
-| ID | Arm | Manipulation | Reasoning length (median tok) |
-|----|-----|--------------|-------------------------------|
-| A0 | no-think | `enable_thinking=False`, answer directly | **536** |
-| — | standard | natural thinking, 3 passes | **7 334** |
-| A3 | forced-long | s1-style "Wait"-injection to a 12k floor | **12 599** |
-| B2 | no-reinject | 2-turn: reconsider, **no** image in turn 2 | 9 308 |
-| B1 | reinject | 2-turn: reconsider **with image re-shown** | 10 105 |
+We ran the same 388 questions five ways. Only the reasoning changed; the prompt,
+sampling settings, and scoring were identical across all of them.
 
-The length axis (A0→std→A3) spans a **23× range** in reasoning tokens. The freshness axis
-(B2 vs B1) isolates the effect of re-grounding the image at answer time.
+- A0: answer directly, no thinking (median 536 reasoning tokens)
+- standard: normal thinking, run 3 times (median 7,334)
+- A3: forced to think much longer (median 12,599)
+- B2: answer, then reconsider with no image shown again
+- B1: answer, then reconsider with the image shown again
 
-## Headline: every reasoning manipulation is a null
+That is a 23x range in reasoning length, plus two ways of "looking again."
 
-| Arm | Accuracy | Δ vs standard | paired bootstrap 95% CI | McNemar p |
-|-----|----------|---------------|--------------------------|-----------|
-| A0 no-think | 29.4% | −1.0 | [−5.9, +3.9] | 0.76 |
-| **standard** | **31.6% ±1.4** | — (passes 30.4 / 33.5 / 30.9) | — | — |
-| A3 forced-long | 30.7% | +0.3 | [−5.2, +5.7] | 1.00 |
-| B2 no-reinject | 28.1% | −2.3 | [−7.2, +2.6] | 0.41 |
-| B1 reinject | 33.2% | +2.8 | [−1.8, +7.7] | 0.29 |
+## Finding 1: more reasoning does not help
 
-Standard's own 3-pass range is **3.1 pts** — larger than most of the cross-condition deltas.
-**No delta is statistically significant**; every confidence interval spans 0. Forcing ~1.7× more
-reasoning than the model naturally produces (A3) changes accuracy by +0.3 pts (p=1.00).
+Accuracy barely moved: A0 29.4%, standard 31.6%, A3 30.7%, B2 28.1%, B1 33.2%. None
+of the differences are statistically real. We tested every pair with a paired test and
+confidence intervals; every interval includes zero. Standard run three times already
+varied by 3.1 points on its own (30.4 / 33.5 / 30.9), which is bigger than most of the
+differences between conditions. Forcing the model to think 1.7x longer than it normally
+does (A3) changed accuracy by +0.3 points (p = 1.00).
 
-The re-grounding contrast looks tempting at first (B1−B2 full set = +5.2, CI [+0.5,+10.1]),
-but it is a **fallback artifact**, not re-grounding: on the clean paired subset where both arms
-produced a genuine two-turn answer, it collapses to **+2.1 pts, CI [−3.8,+7.5], p=0.55** (see
-*Two-turn integrity*). Re-showing the image does not help.
+The one result that looked promising — re-showing the image (B1) beating no-reshow (B2)
+by 5.2 points — disappeared when we cleaned it up. About 1 in 5 of B1's reconsideration
+attempts ran out of room while still thinking (they fell into repetitive loops) and
+never produced a real second answer; for those we fairly fell back to the model's first
+answer. On the clean subset where both conditions actually produced a second answer, the
+gap shrank to +2.1 points with p = 0.55 — i.e. nothing. So the apparent win was an
+artifact, not re-grounding helping.
 
-## Why it's flat: correctness is item-locked
+## We checked the data is real, not buggy
 
-The null is not "the conditions are secretly identical" — the manipulations demonstrably took
-effect (23× length spread; A3 forced on 328/388 items; B1 carries 2 image passes, B2 zero). It
-is that **the same items are right or wrong regardless of how the model reasons.**
+A flat result across very different conditions is suspicious, so we verified it.
 
-- **48.2% of items are condition-invariant** across all 5 arms: **154 always wrong** (40%),
-  **33 always right** (8.5%).
-- **Every pair of conditions agrees on right/wrong 72–77% of the time** — including A0-vs-A3
-  (73%), the most extreme length contrast. Chance agreement at this accuracy is ~58%, so
-  conditions are coupled **~15 pts above chance.** Correctness is dominantly a property of the
-  *item*, not the condition.
-- **The ~52% that flip, flip non-directionally — and no faster than re-sampling.** Reasoning is
-  *not* inert at the item level: changing it flips ~28% of items (A3-vs-std: 55 wrong→right, 54
-  right→wrong). But (i) every contrast is **balanced** (A3-vs-std 55/54, A0-vs-std 46/50,
-  B2-vs-std 43/52) — as many items gained as lost, no arm systematically wins; and (ii) the
-  cross-condition flip rate (**25.5%**) is statistically **indistinguishable from standard's own
-  pass-to-pass flip rate under identical settings (25.3% sampling-noise floor; +0.3 pts excess).**
-  Changing the reasoning regime flips items *no more than re-rolling the sampler does.* W.r.t.
-  correctness, varying the reasoning is equivalent to drawing a new sample — not steering the answer.
+- All five conditions cover the exact same 388 questions, with identical correct answers
+  and identical question text. No misalignment.
+- The conditions really are different: 23x spread in reasoning length, A3 was forced on
+  328 of 388 items, B1 carries two image passes and B2 zero. The manipulations took.
+- Grading is sound. On multiple-choice (where the right letter is known) the judge agrees
+  with the known answer 84-96% of the time, and nearly all disagreements are the judge
+  correctly crediting an answer written in prose that a strict format check would miss.
 
-This rules out the trivial explanation that the model just repeats itself: **92% of items receive
-a *different* extracted answer across conditions.** The wording and the answer vary; the
-right/wrong *outcome* is no more controllable by reasoning than by chance.
+So the flat result is real.
 
-**Three item populations.** BabyVision partitions into **33 stable-correct** items (8.5%; confident
-right perception), **154 stable-wrong** (40%; the model cannot extract the cue, and no perturbation
-recovers it), and **~201 boundary** items (52%) that sit near the model's perceptual decision
-threshold and flip under *any* perturbation — a different seed or a different reasoning regime,
-interchangeably. Which side a boundary item lands on is set at perception, not by the reasoning
-that follows it.
+## Finding 2: whether the model is right is decided by the question, not the reasoning
 
-**Interpretation:** the model forms its perception of the visual primitive at encoding, and
-reasoning operates on that fixed (often wrong) percept without re-perceiving. More thinking,
-forced reconsideration, and even re-showing the image cannot recover a cue the model did not
-extract in the first place. This matches the public leaderboard, where reasoning-heavy models
-also score low on BabyVision.
+We treated the 7 runs per item (A0, standard x3, A3, B1, B2) as 7 attempts at the same
+question and counted how often each item was answered correctly.
 
-## Within-condition "see-less" curve (correlational — not causal)
+- 27 items (7%) are always right, 135 (35%) are always wrong, and 226 (58%) come out
+  right sometimes and wrong other times.
+- Any two conditions agree on which items are right or wrong 72-77% of the time. If the
+  conditions were independent, chance agreement would be about 58%. So which items are
+  right or wrong is mostly a property of the item, not the condition.
 
-Inside *every* condition, accuracy falls as the trace lengthens (concluded-only, fallback-removed):
+The key check: changing the reasoning regime flips an item's outcome 25.5% of the time —
+but simply re-running standard with a different random seed flips it 25.3% of the time.
+They are the same. So changing how the model reasons does no more than re-rolling the
+dice. Reasoning re-samples the answer around a fixed perception; it does not steer it.
+(92% of items get a differently-worded answer across conditions, so this is not the model
+just repeating itself — the wording changes, the right/wrong outcome does not.)
 
-| | Q1 (short) | Q2 | Q3 | Q4 (long) |
-|---|---|---|---|---|
-| standard | 46.7% | 29.6% | 26.8% | 23.4% |
-| A3 | 49.5% | 22.7% | 29.9% | 20.6% |
-| B1 | 48.7% | 34.6% | 23.1% | 29.1% |
-| B2 | 46.4% | 30.6% | 21.2% | 22.4% |
+## Finding 3: the hard tasks are the ones needing step-by-step looking
 
-This is striking but **correlational**: trace length proxies item difficulty (hard items induce
-longer reasoning *and* are more often wrong). It is **not** evidence that reasoning causes errors —
-the clean causal test is the between-condition contrast (A3 forces the *same* items to reason
-longer), and that is the null above. We report the curve, we do not claim it is causal.
+The 135 always-wrong items are not spread evenly. Sorting subtypes by how often the model
+gets them right shows a clear pattern. The bottom (almost never solved) are tasks that
+need serial, step-by-step inspection — tracing a path (maze, connect-the-lines, metro
+map), counting (3D blocks), or matching elements one by one (find-the-same, find-the-
+different, find-the-shadow). The top (more often solved) are single-glance recognitions
+(rotation, letters, overlay, a single 3D view).
 
-## Behavioral co-finding: re-grounding induces more runaway loops
+Grouping all subtypes into "serial" vs "single-glance": serial 18.8% correct vs
+single-glance 43.4% (p ≈ 0). This is real but not the whole story — the separation is
+moderate (a random single-glance item is harder-to-beat only ~73% of the time), and about
+a third of single-glance items also fail. The honest version: needing step-by-step looking
+almost guarantees failure (only 12% of serial items are ever solved), but not needing it
+does not guarantee success. There is a second source of failure we did not pin down.
 
-Re-showing the image in turn 2 (B1) makes the model spiral into degenerate enumeration loops more
-often than text-only reconsideration (B2): **B1 19.3% vs B2 12.6%** of turn-2 traces run to the
-budget ceiling mid-thinking (compression ratio 0.21 vs 0.40 for concluded traces — i.e. genuine
-loops, not long reasoning). This is a real behavioral effect of re-grounding — but it **does not
-convert into accuracy**, consistent with the perception-bound thesis.
+## Finding 4: on the unsure items, the model is an uncalibrated coin-flip
 
-## Rigor / threats addressed
+The 226 "sometimes right" items were the interesting case: what tips a single attempt
+from wrong to right? We checked, holding the item fixed, whether a right attempt differs
+from a wrong attempt of the same item.
 
-- **Alignment:** all 5 conditions cover the identical 388 taskIds with 0 gold-answer and 0
-  question mismatches (`babyvision_integrity.py`).
-- **Judge faithfulness:** on choice items (where the gold letter is deterministic), the judge
-  agrees with the gold letter 84–96% of the time (A0 84.4, std 93.3, A3 95.6, B1 92.6, B2 96.3).
-  Nearly all disagreements are the judge correctly crediting a right answer written in prose that
-  a `\boxed{}` regex missed — i.e. the judge is *more* faithful than extraction, not less. One
-  reverse case in 675 choice gradings.
-- **Two-turn integrity:** when turn 2 ran out of budget mid-thinking (no conclusion), we grade the
-  model's standing turn-1 answer (the protocol's pre-defined fallback), report the fallback rate
-  per arm, and confirm the B1-vs-B2 verdict is identical under full-set / concluded-only /
-  raw-grade views. Truncation is reported as a behavioral finding, never folded silently into
-  accuracy.
-- **Significance:** all deltas tested with paired McNemar (exact) + paired bootstrap CIs
-  (`babyvision_validity.py`); none survive.
+- Confidence: flat. The model is just as confident when wrong as when right (entropy and
+  log-probability separate the two only ~50% of the time).
+- Length: a weak hint that longer attempts go wrong on easy items, but not significant
+  (54% of items, n = 48).
+- Which wrong answer it picks: scattered across the options, not one consistent mistake.
 
-## Limitations
+So on an unsure item, whether a given attempt lands right or wrong is not predictable from
+the attempt's length, its confidence, or its answer. Each attempt is a coin-flip at the
+item's own success rate, and the model has no internal sense of which way it went.
 
-- Single model (Gemma-4-31B-it) and single judge (Qwen3-32B). Cross-model replication open.
-- Non-baseline arms are 1-pass; the baseline's 3-pass band (±1.4) is our noise yardstick.
-- The see-less curve is correlational (difficulty confound), explicitly not claimed causal.
-- **Mechanism not yet shown directly.** The item-locking result predicts that always-wrong items
-  reflect a perceptual failure — the model never attends to / extracts the relevant cue. The
-  planned Phase-2 attention pass tests this: does image-token attention on always-wrong items stay
-  low / decay with trace length, while always-right items hold it, and does B1's re-grounding fail
-  to restore it? That is the direct mechanistic test of the perception-bound claim.
+## What this tells us
 
-## One-line summary
+The model's perception of these puzzles is set when it looks at the image. If it can see
+the cue, it answers right; if it can't, no amount of extra thinking, reconsidering, or
+looking again recovers it — those just re-sample around the same fixed perception. The
+clearest deficit is in tasks that need attention deployed step-by-step across the image
+(tracing, counting, one-by-one comparison), which the model essentially cannot do. And on
+the puzzles it is unsure about, it is unsure in an uncalibrated way: it cannot tell its own
+right answers from its wrong ones.
 
-Across a 23× range of reasoning length, plus forced reconsideration and image re-grounding,
-BabyVision accuracy does not move; correctness is locked to the item (48% invariant, all pairs
-coupled ~15 pts above chance, and the remaining flips are non-directional and no larger than the
-sampling-noise floor). **BabyVision measures perception, and reasoning cannot substitute for a cue
-the model failed to perceive — varying the reasoning only re-samples around a fixed percept.**
+In short: BabyVision measures perception, and on this model reasoning cannot substitute for
+a cue that perception failed to extract.
+
+## What we could not do, and why
+
+We could not explain what makes a single attempt flip from wrong to right. We showed that
+flip is just sampling noise here, and nothing observable predicts it. That question is real
+but needs a different setup: controlled images where one perceptual variable is dialed up
+and down with many repeats per setting, so a flip threshold can actually be measured.
+BabyVision is too varied and has too few attempts per item for that.
+
+A direct mechanism check is still open: extracting the model's visual attention to test
+*why* the serial tasks fail (does attention fail to move across the image?). That is the
+natural next step for the "why is it hard" question — not for the "what flips it" question,
+which this data cannot answer.
+
+## Side note
+
+Re-showing the image (B1) made the model fall into repetitive reasoning loops more often
+than not re-showing it (B2): 19.3% vs 12.6% of second attempts. This is a real behavioral
+difference, but it did not change accuracy.
+
+## How to trust these numbers
+
+Significance: paired McNemar tests and bootstrap confidence intervals (babyvision_validity.py).
+Data integrity: alignment, manipulation, and grading checks (babyvision_integrity.py).
+Item structure and churn: babyvision_flips.py, babyvision_churn.py. Difficulty grouping:
+babyvision_serial.py. Flip structure: babyvision_transitions.py. Scoring: grade.py.
