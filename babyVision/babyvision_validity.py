@@ -21,8 +21,14 @@ Reads *_graded.jsonl only (stdlib) — safe on the login node.
 import json
 import random
 import re
-from math import comb
+from math import factorial
 from pathlib import Path
+
+
+def comb(n, k):
+    if k < 0 or k > n:
+        return 0
+    return factorial(n) // (factorial(k) * factorial(n - k))
 
 random.seed(0)
 BASE = Path("/iopsstor/scratch/cscs/raghavthind/babyvision")
