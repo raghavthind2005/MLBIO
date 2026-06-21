@@ -18,9 +18,8 @@ sampling settings, and scoring were identical across all of them.
 | B2 | reconsider, image NOT shown again | 9,308 |
 | B1 | reconsider, image shown again | 10,105 |
 
-That is a 23x range in reasoning length, plus two ways of "looking again."
 
-## Finding 1: more reasoning does not help
+## Finding 1: No major trends in accuraccy
 
 | Condition | Accuracy | vs standard | Significant? |
 |-----------|----------|-------------|--------------|
@@ -31,33 +30,18 @@ That is a 23x range in reasoning length, plus two ways of "looking again."
 | B1 | 33.2% | +2.8 | no (p=0.29) |
 
 Accuracy barely moved: A0 29.4%, standard 31.6%, A3 30.7%, B2 28.1%, B1 33.2%. None
-of the differences are statistically real. We tested every pair with a paired test and
-confidence intervals; every interval includes zero. Standard run three times already
+of the differences are statistically real. Standard run three times already
 varied by 3.1 points on its own (30.4 / 33.5 / 30.9), which is bigger than most of the
-differences between conditions. Forcing the model to think 1.7x longer than it normally
-does (A3) changed accuracy by +0.3 points (p = 1.00).
+differences between conditions. 
 
 The one result that looked promising — re-showing the image (B1) beating no-reshow (B2)
 by 5.2 points — disappeared when we cleaned it up. About 1 in 5 of B1's reconsideration
 attempts ran out of room while still thinking (they fell into repetitive loops) and
 never produced a real second answer; for those we fairly fell back to the model's first
 answer. On the clean subset where both conditions actually produced a second answer, the
-gap shrank to +2.1 points with p = 0.55 — i.e. nothing. So the apparent win was an
-artifact, not re-grounding helping.
+gap shrank to +2.1 points with p = 0.55. So the apparent win was anbartifact, not re-grounding helping.
 
-## We checked the data is real, not buggy
-
-A flat result across very different conditions is suspicious, so we verified it.
-
-- All five conditions cover the exact same 388 questions, with identical correct answers
-  and identical question text. No misalignment.
-- The conditions really are different: 23x spread in reasoning length, A3 was forced on
-  328 of 388 items, B1 carries two image passes and B2 zero. The manipulations took.
-- Grading is sound. On multiple-choice (where the right letter is known) the judge agrees
-  with the known answer 84-96% of the time, and nearly all disagreements are the judge
-  correctly crediting an answer written in prose that a strict format check would miss.
-
-So the flat result is real.
+checked the data is valid, not buggy
 
 ## Finding 2: whether the model is right is decided by the question, not the reasoning
 
@@ -70,21 +54,28 @@ question and counted how often each item was answered correctly.
 | always wrong | 135 | 35% |
 | sometimes right, sometimes wrong | 226 | 58% |
 
-Any two conditions agree on which items are right or wrong 72-77% of the time. If the
-conditions were independent, chance agreement would be about 58%. So which items are
-right or wrong is mostly a property of the item, not the condition.
+Take any two of the five conditions and go item by item: do they land the same way — both
+right, or both wrong? They match on 72-77% of items. That might sound automatic, but it
+isn't. Two conditions that had nothing to do with each other would still match about 58%
+of the time purely by luck — mostly by both being wrong, since the model fails most items.
+(That 58% is just what you get from two ~30%-accurate guessers: both-right ≈ 0.3×0.3 plus
+both-wrong ≈ 0.7×0.7.) The conditions match *well above* that 58% floor, which means they
+get the same items right and the same items wrong. So the item largely decides the outcome;
+switching the reasoning barely changes which items are answered correctly.
+
+The next check makes the same point another way. A "flip" is when one item comes out right
+on one attempt and wrong on another. How often do flips happen?
 
 | Flip rate (an item changes right↔wrong) | Value |
 |------------------------------------------|-------|
 | changing the reasoning regime (e.g. A0 vs A3) | 25.5% |
 | just re-running standard with a new random seed | 25.3% |
 
-The key check: changing the reasoning regime flips an item's outcome 25.5% of the time —
-but simply re-running standard with a different random seed flips it 25.3% of the time.
-They are the same. So changing how the model reasons does no more than re-rolling the
-dice. Reasoning re-samples the answer around a fixed perception; it does not steer it.
-(92% of items get a differently-worded answer across conditions, so this is not the model
-just repeating itself — the wording changes, the right/wrong outcome does not.)
+Changing the reasoning regime flips an item 25.5% of the time. But keeping everything the
+same and only re-running standard with a new random seed flips it 25.3% of the time — the
+same rate. So switching how the model reasons disturbs the answers no more than simply
+re-rolling the dice does. Reasoning re-samples the answer around a fixed perception; it
+does not steer it toward the right one.
 
 ## Finding 3: the hard tasks are the ones needing step-by-step looking
 
