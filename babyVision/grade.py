@@ -36,6 +36,8 @@ CONDITIONS = [
     ("a3v1",     "results_a3_forced_long_v1", [1]),
     ("b1",       "results_b1_reinject",       [1]),
     ("b2",       "results_b2_noreinject",     [1]),
+    ("b1cot",    "results_b1cot_reinject",    [1]),   # B1' corrected (reinject + folded CoT)
+    ("b2cot",    "results_b2cot_noreinject",  [1]),   # B2' paired (no-image + folded CoT), runs later
 ]
 
 GRADE_PROMPT = """You are grading one answer to a visual puzzle. Decide if the model's answer is correct.
