@@ -27,13 +27,29 @@ from collections import defaultdict
 from pathlib import Path
 
 CONDITIONS = [  # (key, dir, passes, label)
-    ("a0",       "results_a0_nothink",     [1],         "A0 no-think"),
-    ("standard", "results_standard",       [1, 2, 3],   "standard"),
-    ("a3",       "results_a3_forced_long", [1],         "A3 forced-long"),
-    ("b1",       "results_b1_reinject",    [1],         "B1 reinject"),
-    ("b2",       "results_b2_noreinject",  [1],         "B2 no-reinject"),
+    ("a0",       "results_a0_nothink",      [1],         "A0 no-think"),
+    ("standard", "results_standard",        [1, 2, 3],   "standard"),
+    ("a3",       "results_a3_forced_long",  [1],         "A3 forced-long"),
+    ("b1",       "results_b1_reinject",     [1],         "B1 reinject"),
+    ("b2",       "results_b2_noreinject",   [1],         "B2 no-reinject"),
+    ("b1cot",    "results_b1cot_reinject",  [1],         "B1' reinj+CoT"),
+    ("b2cot",    "results_b2cot_noreinject",[1],         "B2' noreinj+CoT"),
 ]
-ORDER = ["a0", "standard", "a3", "b2", "b1"]   # reasoning-length / re-grounding axis
+ORDER = ["a0", "standard", "a3", "b2", "b1", "b1cot"]   # reasoning-length / re-grounding axis
+# (b2cot kept out of ORDER so the wide tables don't carry an empty column until B2' runs;
+#  it is still loaded and used in the dedicated b1cot_report paired contrast when present.)
+
+# A-priori perception-vs-reasoning grouping for the B1' prediction test. NOT the same as
+# the serial/holistic split: our traces show 3D Cube Unfold / Paper Folding flip on
+# REASONING (same figure read, different mental fold) while counting flips on PERCEPTION
+# (the counts themselves change). Debatable at the margins — read the per-subtype Δ too.
+PERCEPTION_TASKS = {"Count 3D blocks", "Count Same Patterns", "Count Clusters", "Maze",
+                    "Connect the lines", "Metro map", "Lines Observation", "Find the same",
+                    "Find the different", "Find the shadow"}
+REASONING_TASKS  = {"3D Cube Unfold", "Paper Folding", "3D Views", "Rotation Patterns",
+                    "Mirroring Patterns", "2D Pattern Completion", "3D Pattern Completion",
+                    "Logic Patterns", "Overlay Patterns", "Reconstruction",
+                    "Recognize numbers and letters", "Pattern and Color Completion"}
 
 
 # ── Loading ──────────────────────────────────────────────────────────────────
@@ -220,6 +236,93 @@ def b_family_report(summ: dict):
     print("  → B1-vs-B2 verdict is robust iff the sign of Δ agrees across both views.")
 
 
+# ── B1' corrected (reconsider WITH folded CoT) ──────────────────────────────────
+
+def _grade_map(pooled):
+    return {r["taskId"]: (r.get("grade") is True) for r in pooled}
+
+
+def _std_majority(pooled):
+    """standard per-item label = majority correct across its passes (≥2 of 3)."""
+    by = defaultdict(list)
+    for r in pooled:
+        by[r["taskId"]].append(r.get("grade") is True)
+    return {t: (sum(v) > len(v) / 2) for t, v in by.items()}
+
+
+def _paired(name_new, gnew, name_ref, gref):
+    ids = set(gnew) & set(gref)
+    if not ids:
+        print("  (no common items)"); return None
+    an = sum(gnew[i] for i in ids) / len(ids)
+    ar = sum(gref[i] for i in ids) / len(ids)
+    nr_rw = sum(1 for i in ids if gnew[i] and not gref[i])
+    nw_rr = sum(1 for i in ids if not gnew[i] and gref[i])
+    print(f"  {name_new} {an*100:5.1f}%   vs {name_ref} {ar*100:5.1f}%   "
+          f"Δ={(an-ar)*100:+.1f} pts   (n={len(ids)})")
+    print(f"    discordant: {name_new}-right/{name_ref}-wrong={nr_rw}   "
+          f"{name_new}-wrong/{name_ref}-right={nw_rr}")
+    return ids
+
+
+def b1cot_report(summ):
+    """B1' = corrected re-grounding that actually carries the turn-1 CoT into turn 2.
+    Tests the prediction from the trajectory read: re-grounding + CoT should help the
+    REASONING-type flips (spatial transform) more than the PERCEPTION-type ones
+    (counting/search), where re-grounding only re-rolls an unstable percept."""
+    b1cp = summ.get("b1cot", {}).get("pooled")
+    if not b1cp:
+        return
+    print("\n" + "-" * 78)
+    print("B1' · CORRECTED reconsider-with-CoT (turn-1 reasoning folded into turn-2 user msg)")
+    print("-" * 78)
+    g_b1c = _grade_map(b1cp)
+
+    std_pool = summ.get("standard", {}).get("pooled") or []
+    g_std = _std_majority(std_pool) if std_pool else {}
+    if g_std:
+        print("paired vs standard (majority of 3 passes):")
+        _paired("B1'", g_b1c, "std", g_std)
+
+    b1_pool = summ.get("b1", {}).get("pooled") or []
+    if b1_pool:
+        print("paired vs B1 (original reinject — CoT was stripped by the template):")
+        _paired("B1'", g_b1c, "B1", _grade_map(b1_pool))
+
+    # prediction test: where does B1' help?  Δ vs standard, by perception/reasoning family
+    if g_std:
+        sub_of = {r["taskId"]: r.get("subtype") for r in b1cp}
+        ids = set(g_b1c) & set(g_std)
+        print("\nwhere B1' helps — Δ vs standard by a-priori family "
+              "(prediction: reasoning > perception):")
+        for name, grp in (("perception (count / search / trace)", PERCEPTION_TASKS),
+                          ("reasoning  (spatial transform / completion)", REASONING_TASKS)):
+            gi = [i for i in ids if sub_of.get(i) in grp]
+            if gi:
+                an = sum(g_b1c[i] for i in gi) / len(gi)
+                ar = sum(g_std[i] for i in gi) / len(gi)
+                print(f"  {name:<44} B1'={an*100:5.1f}%  std={ar*100:5.1f}%  "
+                      f"Δ={(an-ar)*100:+.1f} pts  (n={len(gi)})")
+        # data-driven per-subtype Δ (don't trust the grouping alone)
+        print("\nper-subtype Δ(B1' − standard), largest gain first:")
+        b1c_sub, std_sub = summ["b1cot"]["by_subtype"], summ["standard"]["by_subtype"]
+        rows = []
+        for sub, (a, _, n) in b1c_sub.items():
+            sa = std_sub.get(sub, (None,))[0]
+            if a is not None and sa is not None:
+                rows.append((a - sa, sub, a, sa, n))
+        for d, sub, a, sa, n in sorted(rows, reverse=True):
+            fam = "P" if sub in PERCEPTION_TASKS else "R" if sub in REASONING_TASKS else "?"
+            print(f"  [{fam}] {str(sub)[:26]:<26} Δ={d*100:+6.1f}  "
+                  f"(B1'={a*100:4.0f}%  std={sa*100:4.0f}%  n={n})")
+
+    # clean image-reshow contrast (identical turn-1) — only once B2' exists
+    b2cp = summ.get("b2cot", {}).get("pooled")
+    if b2cp:
+        print("\npaired vs B2' (identical turn-1 reused; image NOT reshown — isolates re-show):")
+        _paired("B1'", g_b1c, "B2'", _grade_map(b2cp))
+
+
 # ── Main ────────────────────────────────────────────────────────────────────────
 
 def main():
@@ -324,6 +427,9 @@ def main():
 
     # ── 8. B-family two-turn integrity & re-grounding contrast ──────────────────
     b_family_report(summ)
+
+    # ── 9. B1' corrected reconsider-with-CoT (+ perception/reasoning prediction) ─
+    b1cot_report(summ)
 
     # ── Persist ──────────────────────────────────────────────────────────────────
     if args.out:
