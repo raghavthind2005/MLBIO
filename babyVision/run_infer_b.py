@@ -175,14 +175,27 @@ def build_turn2_prompt(processor, question, t1_thinking, t1_answer,
     # message (user content is NOT stripped) — this is the only way the model
     # actually reconsiders WITH its prior chain-of-thought rather than re-deriving.
     if fold_reasoning:
-        turn2_text = (
-            "On your first pass at this question you reasoned as follows:\n\n"
-            f'"""\n{(t1_thinking or "").strip()}\n"""\n\n'
-            f"and you gave the answer: {(t1_answer or '').strip()}\n\n"
-            "Look at the image again and re-examine that reasoning carefully — "
-            "check each observation against what you actually see. Then give your "
-            "final answer in \\boxed{Answer}."
-        )
+        reasoning = (t1_thinking or "").strip()
+        answer    = (t1_answer or "").strip()
+        if reasoning:
+            turn2_text = (
+                "On your first pass at this question you reasoned as follows:\n\n"
+                f'"""\n{reasoning}\n"""\n\n'
+                f"and you gave the answer: {answer}\n\n"
+                "Look at the image again and re-examine that reasoning carefully — "
+                "check each observation against what you actually see. Then give your "
+                "final answer in \\boxed{Answer}."
+            )
+        else:
+            # Turn-1 ran out of budget mid-thinking: no closed reasoning and no
+            # final answer, so its raw output IS the (unfinished) work. Present it
+            # faithfully as work-in-progress rather than an empty block + bogus answer.
+            turn2_text = (
+                "On your first pass you began working through this question:\n\n"
+                f'"""\n{answer}\n"""\n\n'
+                "You did not reach a final answer. Look at the image again, re-examine "
+                "what you see, and give your final answer in \\boxed{Answer}."
+            )
     else:
         turn2_text = TURN2_QUESTION
 
@@ -276,8 +289,10 @@ def two_turn(base_url, processor, question, img_path, reinject_image,
     if verbose:
         print(f"    T2 prompt tail …{t2_prompt[-300:]!r}  (n_imgs={n_imgs})")
         if fold_reasoning:
-            anchor = (t1_thinking or "").strip()[:80]
-            print(f"    fold-reasoning check: turn-1 reasoning present in T2 prompt? "
+            th = (t1_thinking or "").strip()
+            src = "reasoning" if th else "raw turn-1 output (runaway, no closed CoT)"
+            anchor = (th or (t1_answer or "").strip())[:80]
+            print(f"    fold-reasoning check: turn-1 {src} present in T2 prompt? "
                   f"{bool(anchor) and anchor in t2_prompt}  (T2 prompt chars={len(t2_prompt)})")
 
     t2_out  = sgl_generate(base_url, t2_prompt, img_paths,
@@ -543,11 +558,15 @@ def main():
             ]
             results = [f.result() for f in futures]
 
-    completed = [r for r in results if "error" not in r]
-    no_ans    = [r for r in completed if r.get("extracted_answer") is None]
+    completed  = [r for r in results if "error" not in r]
+    no_ans     = [r for r in completed if r.get("extracted_answer") is None]
+    t1_runaway = [r for r in completed if r.get("turn1_finish") == "length"]
+    t2_ceiling = [r for r in completed if r.get("finish_reason") == "length"]
     print(f"\n{label} done in {(time.time()-t_start)/60:.1f} min")
     print(f"  completed : {len(completed)}/{len(todo)}")
     print(f"  no boxed  : {len(no_ans)}")
+    print(f"  turn-1 runaway (finish=length → no clean CoT to fold): {len(t1_runaway)}")
+    print(f"  turn-2 hit ceiling (finish=length)                   : {len(t2_ceiling)}")
     print(f"  results   : {compact_path}\n  logprobs  : {heavy_path}")
     print("Run run_judge.py on this dir next (--passes 1).")
 
