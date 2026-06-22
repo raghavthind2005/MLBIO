@@ -126,33 +126,41 @@ The model's perception of these puzzles is set when it looks at the image. If it
 the cue, it answers right; if it can't, no amount of extra thinking, reconsidering, or
 looking again recovers it — those just re-sample around the same fixed perception. The
 clearest deficit is in tasks that need attention deployed step-by-step across the image
-(tracing, counting, one-by-one comparison), which the model essentially cannot do. And on
-the puzzles it is unsure about, it is unsure in an uncalibrated way: it cannot tell its own
-right answers from its wrong ones.
+(tracing, counting, one-by-one comparison), which the model essentially cannot do. 
 
 In short: BabyVision measures perception, and on this model reasoning cannot substitute for
-a cue that perception failed to extract.
+a cue that perception failed to extract.... which largely determines right from wrong
+
+Maybe one good idea would be to fixate on these hard, largely unsolvable problems, 
+and think how to increase their accuracy.
 
 ## What we could not do, and why
 
 We could not explain what makes a single attempt flip from wrong to right. We showed that
-flip is just sampling noise here, and nothing observable predicts it. That question is real
-but needs a different setup: controlled images where one perceptual variable is dialed up
-and down with many repeats per setting, so a flip threshold can actually be measured.
-BabyVision is too varied and has too few attempts per item for that.
+flip is just sampling noise here, and nothing observable predicts it. 
 
 A direct mechanism check is still open: extracting the model's visual attention to test
 *why* the serial tasks fail (does attention fail to move across the image?). That is the
 natural next step for the "why is it hard" question — not for the "what flips it" question,
 which this data cannot answer.
 
-## Side note
+## Side note: re-showing the image makes the model loop more
 
-Re-showing the image (B1) made the model fall into repetitive reasoning loops more often
-than not re-showing it (B2): 19.3% vs 12.6% of second attempts. This is a real behavioral
-difference, but it did not change accuracy.
+Conditions B1 and B2 both work in two turns — the model gives a first answer, then takes a
+second turn to reconsider it. The only difference between them is that B1 shows the image
+again in that second turn while B2 does not.
 
-## How to trust these numbers
+In that second turn the model sometimes gets stuck repeating itself — restating the same
+observation again and again (for example, listing "(C): yellow background... (D): yellow
+background..." on and on) — and burns through its token budget without ever reaching a new
+answer. This happened more often when the image was re-shown (B1: 19.3% of second turns)
+than when it was not (B2: 12.6%). So, counterintuitively, giving the model a fresh look at
+the image made it *more* likely to spiral into repetition, not less.
+
+This is a genuine behavioral difference between the two conditions, but it did not change
+accuracy. (These unfinished second turns were scored fairly: when a second turn never
+produced a real answer, we fell back to the model's first-turn answer — see Finding 1.)
+
 
 Significance: paired McNemar tests and bootstrap confidence intervals (babyvision_validity.py).
 Data integrity: alignment, manipulation, and grading checks (babyvision_integrity.py).
