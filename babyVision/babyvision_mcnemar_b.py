@@ -21,8 +21,16 @@ fair baseline). Pure stdlib — runs on the login node, no GPU/server.
 
 import argparse
 import json
-from math import comb
 from pathlib import Path
+
+try:
+    from math import comb
+except ImportError:                      # python < 3.8 on the login node
+    from math import factorial
+    def comb(n, k):
+        if k < 0 or k > n:
+            return 0
+        return factorial(n) // (factorial(k) * factorial(n - k))
 
 # Must match analyze_conditions.py's groupings.
 PERCEPTION = {"Count 3D blocks", "Count Same Patterns", "Count Clusters", "Maze",
