@@ -10,10 +10,25 @@ Protocol:
   Turn 2: [image (B1) | text-only (B2)] + "Give your final answer in \\boxed{Answer}."
           → model (optionally re-)thinks + gives FINAL answer
 
-The FULL turn-1 context (thinking trace + initial answer) is preserved in the
-turn-2 prompt, so the model has its own prior reasoning in context when it
-reconsiders. The only difference between B1 and B2 is whether fresh image tokens
-appear during the second pass.
+NOTE (verified empirically — see check_prompt.py): Gemma-4's chat template STRIPS
+the thinking trace from prior assistant turns and keeps only the final answer. So
+although we reconstruct the turn-1 thinking below and pass it as the assistant
+message, it is dropped on render: in turn 2 the model sees only its turn-1 ANSWER
+(plus, for B1, the re-injected image) — NOT its turn-1 chain-of-thought. The only
+difference between B1 and B2 is whether fresh image tokens appear during the
+second pass. (This means the as-run B condition tests "reconsider from your answer
++ fresh image", not "reconsider with your reasoning"; to test the latter the
+turn-1 reasoning must be folded into the turn-2 USER message, which is not stripped.)
+
+CORRECTED conditions (--fold-reasoning): re-present the turn-1 reasoning inside the
+turn-2 USER message (user content is NOT stripped), so the model reconsiders WITH its
+chain-of-thought. Combine with image control:
+  B1' = --reinject    --fold-reasoning   (image re-shown + reasoning in context)
+  B2' = --no-reinject --fold-reasoning   (text-only + reasoning in context)
+Add --turn1-from DIR to reuse a prior run's turn 1 (by taskId) instead of regenerating
+it, so B1' and B2' share an IDENTICAL turn 1 — a clean paired contrast differing only
+in image re-show. TURN2_BUDGET was raised to 16384 to prevent the ceiling truncation
+that the original (anchorless) re-derivation loops caused.
 
 Scientific question:
   Does re-grounding (B1) restore visual attention and lift accuracy vs. no-reinject
@@ -48,7 +63,11 @@ THINK_CLOSE = "<channel|>"            # model closes thinking here
 
 # ── Generation budgets ────────────────────────────────────────────────────────
 TURN1_BUDGET   = 16384   # thinking + initial answer (generous: median ~7k in standard)
-TURN2_BUDGET   = 8192    # re-examination: usually shorter, but give room for re-think
+TURN2_BUDGET   = 16384   # re-examination. Raised from 8192: the original B1/B2 loops hit
+                         # the turn-2 ceiling (total cap 24576) because the model re-derived
+                         # from scratch (no turn-1 reasoning in context). With the reasoning
+                         # now folded into the turn-2 user message it has an anchor; the
+                         # extra headroom + T1-fallback together prevent ceiling truncation.
 N_CONCURRENT   = 2       # triton SWA attention throws CUDA illegal-memory-access on long
                          # sequences under batching (crashed A3 v2 at concurrency 6). With
                          # 2 serial /generate calls per sample already, keep 2 in flight.
@@ -132,23 +151,45 @@ def build_turn1_prompt(processor, question, enable_thinking=True):
 
 
 def build_turn2_prompt(processor, question, t1_thinking, t1_answer,
-                       reinject_image, enable_thinking=True):
+                       reinject_image, enable_thinking=True, fold_reasoning=False):
     """Build full 2-turn prompt for /generate.
 
     The turn-1 model response (with thinking markers) is passed as the
     assistant message; apply_chat_template wraps it in <|turn>model…<turn|>.
     The turn-2 user message optionally includes a second image placeholder.
 
+    WARNING: Gemma-4's chat template strips the thought channel from prior
+    assistant turns, so the t1_thinking we embed below does NOT survive into the
+    rendered prompt — only t1_answer does. The model reconsiders from its turn-1
+    answer (+ re-injected image for B1), not from its turn-1 reasoning.
+
     Returns (prompt_string, n_images_total).
     """
     # Reconstruct turn-1 model output as the model would have generated it.
-    # The model opens THINK_OPEN itself; we include it so the context is faithful.
+    # NB: the chat template drops the thought channel on render, so t1_thinking
+    # here is stripped and only t1_answer reaches the model (see WARNING above).
     t1_model_content = f"{THINK_OPEN}{t1_thinking}{THINK_CLOSE}\n{t1_answer}"
+
+    # fold_reasoning=True (B1' corrected): the chat template strips the turn-1
+    # thinking from the assistant turn, so re-present it inside the turn-2 USER
+    # message (user content is NOT stripped) — this is the only way the model
+    # actually reconsiders WITH its prior chain-of-thought rather than re-deriving.
+    if fold_reasoning:
+        turn2_text = (
+            "On your first pass at this question you reasoned as follows:\n\n"
+            f'"""\n{(t1_thinking or "").strip()}\n"""\n\n'
+            f"and you gave the answer: {(t1_answer or '').strip()}\n\n"
+            "Look at the image again and re-examine that reasoning carefully — "
+            "check each observation against what you actually see. Then give your "
+            "final answer in \\boxed{Answer}."
+        )
+    else:
+        turn2_text = TURN2_QUESTION
 
     turn2_user_content = []
     if reinject_image:
         turn2_user_content.append({"type": "image"})
-    turn2_user_content.append({"type": "text", "text": TURN2_QUESTION})
+    turn2_user_content.append({"type": "text", "text": turn2_text})
 
     messages = [
         {"role": "user",      "content": [{"type": "image"},
@@ -193,29 +234,51 @@ def split_thinking_answer(text: str):
 # ── Core 2-turn protocol ──────────────────────────────────────────────────────
 
 def two_turn(base_url, processor, question, img_path, reinject_image,
-             verbose=False):
-    """Execute the 2-turn protocol; return raw fields (no exception handling)."""
-    # ── Turn 1 ────────────────────────────────────────────────────────────────
-    t1_prompt = build_turn1_prompt(processor, question, enable_thinking=True)
-    t1_out    = sgl_generate(base_url, t1_prompt, [str(img_path)],
-                             max_new_tokens=TURN1_BUDGET)
-    t1_meta   = t1_out["meta_info"]
-    t1_thinking, t1_answer = split_thinking_answer(t1_out["text"])
+             verbose=False, fold_reasoning=False, t1_precomputed=None):
+    """Execute the 2-turn protocol; return raw fields (no exception handling).
 
-    if verbose:
-        ft, _ = _finish(t1_meta)
-        print(f"    T1 {t1_meta.get('completion_tokens')}tok  finish={ft}")
-        print(f"       think_tail …{t1_thinking[-120:]!r}")
-        print(f"       answer     …{t1_answer[:120]!r}")
+    If t1_precomputed (a prior run's compact record) is given, turn 1 is NOT
+    regenerated — its thinking/answer are reused verbatim so two conditions can
+    share an identical turn 1 (paired B1' vs B2'). Only turn 2 is generated.
+    """
+    # ── Turn 1 (generate, or reuse a prior run's) ───────────────────────────────
+    if t1_precomputed is not None:
+        t1_thinking  = t1_precomputed.get("turn1_thinking") or ""
+        t1_answer    = t1_precomputed.get("turn1_answer_text") or ""
+        t1_tokens    = t1_precomputed.get("turn1_tokens") or 0
+        t1_finish    = t1_precomputed.get("turn1_finish")
+        t1_token_lps, t1_top_lps = [], []   # logprobs not carried across runs
+        if verbose:
+            print(f"    T1 REUSED  {t1_tokens}tok  finish={t1_finish}")
+            print(f"       answer     …{t1_answer[:120]!r}")
+    else:
+        t1_prompt = build_turn1_prompt(processor, question, enable_thinking=True)
+        t1_out    = sgl_generate(base_url, t1_prompt, [str(img_path)],
+                                 max_new_tokens=TURN1_BUDGET)
+        t1_meta   = t1_out["meta_info"]
+        t1_thinking, t1_answer = split_thinking_answer(t1_out["text"])
+        t1_tokens    = t1_meta.get("completion_tokens") or 0
+        t1_finish    = _finish(t1_meta)[0]
+        t1_token_lps = t1_meta.get("output_token_logprobs") or []
+        t1_top_lps   = t1_meta.get("output_top_logprobs") or []
+        if verbose:
+            print(f"    T1 {t1_tokens}tok  finish={t1_finish}")
+            print(f"       think_tail …{t1_thinking[-120:]!r}")
+            print(f"       answer     …{t1_answer[:120]!r}")
 
     # ── Turn 2 ────────────────────────────────────────────────────────────────
     t2_prompt, n_imgs = build_turn2_prompt(processor, question,
                                             t1_thinking, t1_answer,
-                                            reinject_image, enable_thinking=True)
+                                            reinject_image, enable_thinking=True,
+                                            fold_reasoning=fold_reasoning)
     img_paths = [str(img_path)] * n_imgs
 
     if verbose:
         print(f"    T2 prompt tail …{t2_prompt[-300:]!r}  (n_imgs={n_imgs})")
+        if fold_reasoning:
+            anchor = (t1_thinking or "").strip()[:80]
+            print(f"    fold-reasoning check: turn-1 reasoning present in T2 prompt? "
+                  f"{bool(anchor) and anchor in t2_prompt}  (T2 prompt chars={len(t2_prompt)})")
 
     t2_out  = sgl_generate(base_url, t2_prompt, img_paths,
                            max_new_tokens=TURN2_BUDGET)
@@ -231,12 +294,12 @@ def two_turn(base_url, processor, question, img_path, reinject_image,
     return {
         "t1_thinking":    t1_thinking,   "t1_answer":   t1_answer,
         "t2_thinking":    t2_thinking,   "t2_answer":   t2_answer,
-        "t1_tokens":      t1_meta.get("completion_tokens") or 0,
+        "t1_tokens":      t1_tokens,
         "t2_tokens":      t2_meta.get("completion_tokens") or 0,
-        "t1_finish":      _finish(t1_meta)[0],
+        "t1_finish":      t1_finish,
         "t2_finish":      _finish(t2_meta)[0],
-        "t1_token_lps":   t1_meta.get("output_token_logprobs") or [],
-        "t1_top_lps":     t1_meta.get("output_top_logprobs") or [],
+        "t1_token_lps":   t1_token_lps,
+        "t1_top_lps":     t1_top_lps,
         "t2_token_lps":   t2_meta.get("output_token_logprobs") or [],
         "t2_top_lps":     t2_meta.get("output_top_logprobs") or [],
     }
@@ -245,13 +308,18 @@ def two_turn(base_url, processor, question, img_path, reinject_image,
 # ── Per-sample worker ─────────────────────────────────────────────────────────
 
 def process_sample_b(item, img_path, img_props, processor, base_url,
-                     reinject_image, compact_fh, heavy_fh, lock, counter):
+                     reinject_image, compact_fh, heavy_fh, lock, counter,
+                     fold_reasoning=False, t1_precomputed=None):
     task_id   = item["taskId"]
     q, gt     = build_question(item)
-    condition = "b1_reinject" if reinject_image else "b2_noreinject"
+    if fold_reasoning:
+        condition = "b1_reinject_cot" if reinject_image else "b2_noreinject_cot"
+    else:
+        condition = "b1_reinject" if reinject_image else "b2_noreinject"
     try:
         t0  = time.time()
-        res = two_turn(base_url, processor, q, img_path, reinject_image)
+        res = two_turn(base_url, processor, q, img_path, reinject_image,
+                       fold_reasoning=fold_reasoning, t1_precomputed=t1_precomputed)
         elapsed = time.time() - t0
 
         t1_extracted = (extract_boxed_answer(res["t1_answer"]) or
@@ -296,6 +364,8 @@ def process_sample_b(item, img_path, img_props, processor, base_url,
             "turn1_tokens":         res["t1_tokens"],
             "turn2_tokens":         res["t2_tokens"],
             "reinject_image":       reinject_image,
+            "fold_reasoning":       fold_reasoning,
+            "turn1_reused":         t1_precomputed is not None,
             "n_image_tokens_turn1": 260,
             "n_image_tokens_turn2": 260 if reinject_image else 0,
             "reasoning_chars":      len(res["t1_thinking"]) + len(res["t2_thinking"]),
@@ -338,8 +408,9 @@ def process_sample_b(item, img_path, img_props, processor, base_url,
 
 # ── Spike ─────────────────────────────────────────────────────────────────────
 
-def run_spike(base_url, processor, items, n, reinject_image):
-    label = "B1 reinject" if reinject_image else "B2 no-reinject"
+def run_spike(base_url, processor, items, n, reinject_image, fold_reasoning=False):
+    label = ("B1' reinject+CoT" if fold_reasoning else
+             "B1 reinject" if reinject_image else "B2 no-reinject")
     print(f"\n{'='*70}\nSPIKE — 2-turn protocol ({label}) on {n} samples\n{'='*70}")
     ok_t1 = ok_t2 = 0
     for i, item in enumerate(items[:n]):
@@ -348,7 +419,8 @@ def run_spike(base_url, processor, items, n, reinject_image):
         if i == 0:
             t1p = build_turn1_prompt(processor, q)
             print(f"  Turn-1 prompt tail: …{t1p[-200:]!r}")
-        res = two_turn(base_url, processor, q, item["_img_path"], reinject_image, verbose=True)
+        res = two_turn(base_url, processor, q, item["_img_path"], reinject_image,
+                       verbose=True, fold_reasoning=fold_reasoning)
         t1a = extract_boxed_answer(res["t1_answer"]) or extract_boxed_answer(res["t1_thinking"])
         t2a = extract_boxed_answer(res["t2_answer"]) or extract_boxed_answer(res["t2_thinking"])
         print(f"  → t1_extracted={t1a!r}   t2_extracted={t2a!r}")
@@ -378,9 +450,17 @@ def main():
                      help="B1: include image in turn 2 (re-grounding)")
     grp.add_argument("--no-reinject", action="store_true",
                      help="B2: text-only turn 2 (no re-grounding)")
+    ap.add_argument("--fold-reasoning", action="store_true",
+                    help="fold the turn-1 reasoning into the turn-2 USER message so it "
+                         "survives Gemma's template stripping (the corrected B1'/B2')")
+    ap.add_argument("--turn1-from", default=None, metavar="DIR",
+                    help="reuse turn-1 (thinking+answer) from a prior run's "
+                         "results_run1.jsonl by taskId instead of regenerating it — "
+                         "enables a paired B1' vs B2' that share an IDENTICAL turn 1")
     args = ap.parse_args()
 
-    reinject_image = args.reinject
+    fold_reasoning = args.fold_reasoning
+    reinject_image = args.reinject   # --no-reinject => False
     base_url = f"http://localhost:{args.port}"
 
     from transformers import AutoProcessor
@@ -391,11 +471,15 @@ def main():
     items = [json.loads(l) for l in open(data_dir / "meta_data.jsonl") if l.strip()]
     for it in items:
         it["_img_path"] = data_dir / it["image"]
-    label = "B1 (reinject)" if reinject_image else "B2 (no-reinject)"
+    if fold_reasoning:
+        label = "B1' (reinject+CoT)" if reinject_image else "B2' (no-reinject+CoT)"
+    else:
+        label = "B1 (reinject)" if reinject_image else "B2 (no-reinject)"
     print(f"Model at :{args.port}  |  {len(items)} items  |  condition={label}")
 
     if args.spike:
-        ok = run_spike(base_url, processor, items, args.spike, reinject_image)
+        ok = run_spike(base_url, processor, items, args.spike, reinject_image,
+                       fold_reasoning=fold_reasoning)
         sys.exit(0 if ok else 2)
 
     if not args.out_dir:
@@ -420,10 +504,27 @@ def main():
     if not todo:
         print("Nothing to do."); return
 
-    print("Pre-building prompts and image properties...")
-    base_prompts = {it["taskId"]: build_turn1_prompt(processor, build_question(it)[0])
-                    for it in todo}
-    img_props    = {it["taskId"]: get_image_properties(it["_img_path"]) for it in todo}
+    # Optional turn-1 reuse: load a prior run's turn-1 by taskId so this run only
+    # generates turn 2 on top of an IDENTICAL turn 1 (paired B1' vs B2').
+    t1_store = None
+    if args.turn1_from:
+        t1_src = Path(args.turn1_from) / "results_run1.jsonl"
+        t1_store = {}
+        for line in open(t1_src):
+            if not line.strip():
+                continue
+            r = json.loads(line)
+            if "error" not in r and r.get("turn1_answer_text") is not None:
+                t1_store[r["taskId"]] = r
+        before = len(todo)
+        todo = [it for it in todo if it["taskId"] in t1_store]
+        print(f"Reusing turn-1 from {t1_src}: {len(t1_store)} records; "
+              f"{len(todo)}/{before} pending items have a reusable turn-1.\n")
+        if not todo:
+            print("No items with a reusable turn-1. Nothing to do."); return
+
+    print("Pre-building image properties...")
+    img_props = {it["taskId"]: get_image_properties(it["_img_path"]) for it in todo}
     print("Done.\n")
 
     lock    = threading.Lock()
@@ -435,7 +536,9 @@ def main():
             futures = [
                 pool.submit(process_sample_b, it, it["_img_path"],
                             img_props[it["taskId"]], processor, base_url,
-                            reinject_image, cfh, hfh, lock, counter)
+                            reinject_image, cfh, hfh, lock, counter,
+                            fold_reasoning=fold_reasoning,
+                            t1_precomputed=(t1_store.get(it["taskId"]) if t1_store else None))
                 for it in todo
             ]
             results = [f.result() for f in futures]

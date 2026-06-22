@@ -150,16 +150,28 @@ Conditions B1 and B2 both work in two turns — the model gives a first answer, 
 second turn to reconsider it. The only difference between them is that B1 shows the image
 again in that second turn while B2 does not.
 
-In that second turn the model sometimes gets stuck repeating itself — restating the same
-observation again and again (for example, listing "(C): yellow background... (D): yellow
-background..." on and on) — and burns through its token budget without ever reaching a new
-answer. This happened more often when the image was re-shown (B1: 19.3% of second turns)
-than when it was not (B2: 12.6%). So, counterintuitively, giving the model a fresh look at
-the image made it *more* likely to spiral into repetition, not less.
+Important caveat about what turn 2 actually saw. We reconstruct the turn-1 response
+(thinking + answer) and feed it back as the prior turn, but **Gemma-4's chat template
+strips the reasoning out of past assistant turns and keeps only the final answer**. We
+verified this by rebuilding the exact turn-2 prompt: the turn-1 thinking is absent, only
+the turn-1 answer survives. So in turn 2 the model has its earlier *answer* and (for B1)
+the *re-shown image*, but not the chain of thought that produced the answer. The as-run B
+condition therefore tests "reconsider from your answer + fresh image", not "reconsider with
+your reasoning." Testing the latter would require folding the turn-1 reasoning into the
+turn-2 *user* message (which is not stripped) — a separate run worth doing.
+
+This stripping also explains the looping. In that second turn the model sometimes gets
+stuck repeating itself — restating the same observation again and again (for example,
+listing "(C): yellow background... (D): yellow background..." on and on) — and burns through
+its token budget without ever reaching a new answer. With the image back in front of it but
+no prior reasoning to anchor on, it re-derives the whole perceptual analysis from scratch
+and spirals. This happened more often when the image was re-shown (B1: 19.3% of second
+turns) than when it was not (B2: 12.6%) — i.e. a fresh look made re-perception, and the
+spiral, *more* likely, not less.
 
 This is a genuine behavioral difference between the two conditions, but it did not change
 accuracy. (These unfinished second turns were scored fairly: when a second turn never
-produced a real answer, we fell back to the model's first-turn answer — see Finding 1.)
+produced a real answer, we fell back to the model's first-turn answer.)
 
 
 Significance: paired McNemar tests and bootstrap confidence intervals (babyvision_validity.py).
