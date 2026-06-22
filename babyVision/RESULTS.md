@@ -110,11 +110,11 @@ The 226 "sometimes right" items were the interesting case: what tips a single at
 from wrong to right? We checked, holding the item fixed, whether a right attempt differs
 from a wrong attempt of the same item.
 
-| Signal (right vs wrong attempt of the same item) | Result | Predicts the flip? |
-|---------------------------------------------------|--------|--------------------|
-| Confidence (entropy, log-probability) | separates them only ~50% of the time | no |
-| Length | "longer goes wrong" hint on easy items, 54% (n=48), not significant | no |
-| Which wrong answer it picks | scattered across options, no consistent mistake | no |
+| Signal (compared between right and wrong attempts of the *same* item) | If it predicted the flip, we'd see... | What we actually found | Predicts the flip? |
+|----------------------------------------------------------------------|----------------------------------------|------------------------|--------------------|
+| **Confidence** — answer entropy and average token log-probability | wrong attempts noticeably less confident than right ones | right vs wrong separated only ~50% of the time (entropy 54%, log-prob 47%); the model is just as confident when it's wrong as when it's right | No |
+| **Length** — total tokens the model spent on the attempt | a consistent direction, e.g. longer attempts more often wrong | only a weak, non-significant hint that longer attempts go wrong on easy items (54% of items, n=48); no effect overall | No |
+| **Chosen wrong answer** (multiple-choice items) | wrong attempts converging on one specific distractor (a systematic confusion) | wrong answers scattered across the options (~2.15 distinct wrong answers per item, about what random picking over the 3 distractors gives) | No |
 
 So on an unsure item, whether a given attempt lands right or wrong is not predictable from
 the attempt's length, its confidence, or its answer. Each attempt is a coin-flip at the
