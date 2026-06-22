@@ -58,9 +58,7 @@ Take any two of the five conditions and go item by item: do they land the same w
 right, or both wrong? They match on 72-77% of items. That might sound automatic, but it
 isn't. Two conditions that had nothing to do with each other would still match about 58%
 of the time purely by luck — mostly by both being wrong, since the model fails most items.
-(That 58% is just what you get from two ~30%-accurate guessers: both-right ≈ 0.3×0.3 plus
-both-wrong ≈ 0.7×0.7.) The conditions match *well above* that 58% floor, which means they
-get the same items right and the same items wrong. So the item largely decides the outcome;
+So the item largely decides the outcome;
 switching the reasoning barely changes which items are answered correctly.
 
 The next check makes the same point another way. A "flip" is when one item comes out right
@@ -80,16 +78,24 @@ does not steer it toward the right one.
 ## Finding 3: the hard tasks are the ones needing step-by-step looking
 
 The 135 always-wrong items are not spread evenly. Sorting subtypes by how often the model
-gets them right shows a clear pattern. The bottom (almost never solved) are tasks that
-need serial, step-by-step inspection — tracing a path (maze, connect-the-lines, metro
-map), counting (3D blocks), or matching elements one by one (find-the-same, find-the-
-different, find-the-shadow). The top (more often solved) are single-glance recognitions
-(rotation, letters, overlay, a single 3D view).
+gets them right shows a clear pattern: the tasks that almost never get solved are the ones
+that need serial, step-by-step inspection (tracing a path, counting, matching elements one
+by one), while the ones solved more often are single-glance recognitions. We split all 22
+benchmark subtypes into these two groups:
 
-| Group | Mean % correct | Ever solved |
-|-------|----------------|-------------|
-| Serial / step-by-step (tracing, counting, one-by-one matching) | 18.8% | only 12% of these items |
-| Single-glance (rotation, letters, overlay, single 3D view) | 43.4% | — |
+| Group | n subtypes | Mean % correct | Ever solved |
+|-------|------------|----------------|-------------|
+| Serial / step-by-step | 11 | 18.8% | only 12% of these items |
+| Single-glance | 11 | 43.4% | — |
+
+The official benchmark subtypes in each group (named exactly as they appear in the dataset):
+
+- **Serial / step-by-step:** Maze, Connect the lines, Metro map, Lines Observation, Find
+  the same, Find the different, Find the shadow, Count 3D blocks, Count Same Patterns,
+  Paper Folding, 3D Cube Unfold.
+- **Single-glance:** Rotation Patterns, Recognize numbers and letters, Overlay Patterns,
+  3D Views, 2D Pattern Completion, 3D Pattern Completion, Mirroring Patterns, Logic
+  Patterns, Reconstruction, Count Clusters, Pattern and Color Completion.
 
 Grouping all subtypes into "serial" vs "single-glance": serial 18.8% correct vs
 single-glance 43.4% (p ≈ 0). This is real but not the whole story — the separation is
