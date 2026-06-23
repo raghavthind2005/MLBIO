@@ -388,8 +388,22 @@ def main():
             if "error" not in r and r.get("answer_text") is not None:
                 recs.append(r)
 
-    out_path = Path(args.out)
-    poison_path = out_path.with_suffix(out_path.suffix + ".poison")
+    out_path    = Path(args.out)
+    poison_path = out_path.with_suffix(out_path.suffix + ".poison")   # crashed/errored
+    skip_path   = out_path.with_suffix(out_path.suffix + ".skip")     # too long / no output
+
+    def _load_ids(path):
+        ids = set()
+        if path.exists():
+            for line in open(path):
+                t = line.strip()
+                if t:
+                    try:
+                        ids.add(int(t))
+                    except ValueError:
+                        ids.add(t)
+        return ids
+
     done = set()
     if args.skip_existing:
         if out_path.exists():
@@ -399,21 +413,16 @@ def main():
                         done.add(json.loads(line)["taskId"])
                     except Exception:
                         pass
-        # Quarantine list: taskIds that triggered a fatal CUDA crash or errored on a
-        # prior attempt. Skip them so a relaunch makes forward progress instead of
-        # re-hitting the same poison sample and dying again.
         n_extracted = len(done)
-        if poison_path.exists():
-            for line in open(poison_path):
-                t = line.strip()
-                if t:
-                    try:
-                        done.add(int(t))
-                    except ValueError:
-                        done.add(t)
+        # Also skip taskIds permanently unprocessable (too long / no output → .skip)
+        # or that crashed a prior attempt (.poison), so a relaunch only does genuinely
+        # NEW work and the retry loop converges instead of re-tokenizing the long tail.
+        poison = _load_ids(poison_path)
+        toolong = _load_ids(skip_path)
+        done |= poison | toolong
         recs = [r for r in recs if r.get("taskId") not in done]
-        print(f"--skip-existing: {n_extracted} extracted + "
-              f"{len(done) - n_extracted} quarantined, {len(recs)} remaining")
+        print(f"--skip-existing: {n_extracted} extracted + {len(toolong)} too-long + "
+              f"{len(poison)} quarantined, {len(recs)} remaining")
 
     if args.max_samples:
         recs = recs[:args.max_samples]
@@ -445,6 +454,10 @@ def main():
                     print(f"seq={res['seq_len']} out={res['n_output_tokens']}"
                           f" vis_groups={res['n_visual_groups']}{extra}")
                 else:
+                    # Permanent skip (too long / no output / no visual) — record so a
+                    # relaunch doesn't re-tokenize + re-preprocess it every attempt.
+                    with open(skip_path, "a") as sf:
+                        sf.write(f"{rec.get('taskId')}\n")
                     n_skip += 1
             except Exception as exc:
                 print(f"ERROR: {exc}")
