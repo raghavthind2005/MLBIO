@@ -62,7 +62,7 @@ and **append the model's own generated turn-2 text** so its reasoning is really 
 (again sidestepping the template strip), then measure how much of the attention from the
 turn-2 reasoning tokens points back at the image tokens. Caveat, stated up front: holding
 the full attention matrix in memory is expensive, so we could only process the **shorter
-items (about 16% of the set, 60–66 questions)** — the attention numbers are a *preliminary,
+items (about 16% of the set, 61 and 67 questions)** — the attention numbers are a *preliminary,
 correlational* look, not the final word.
 
 ---
@@ -182,8 +182,8 @@ we lean on the family totals.)
 
 ## Finding 6: where the model looks — it stops looking, and that's when it fails
 
-A first, preliminary look at the attention (shorter items only, ~16% of the set,
-correlational — see methods). Three things line up with everything above.
+A first, preliminary look at the attention (shorter items only, 61 and 67 questions,
+~16% of the set, correlational — see methods). Three things line up with everything above.
 
 **It looks at the image less the longer it reasons ("see less").** Across the second-turn
 reasoning, attention to the image drops by about half from start to finish (B1′ −51%, B2′
@@ -192,7 +192,7 @@ reasoning, attention to the image drops by about half from start to finish (B1�
 ![attention decays across the reasoning](plots/attention_decay.png)
 
 **When it keeps looking, it's right.** Correct answers put about **twice** as much attention
-on the image as wrong answers (B1′: 0.022 vs 0.011; B2′: 0.012 vs 0.007). Looking and being
+on the image as wrong answers (B1′: 0.021 vs 0.011; B2′: 0.012 vs 0.007). Looking and being
 right go together; disengaging and being wrong go together. (Correlational — easier items may
 both draw more looking and be answered right — but the signal is clean and consistent.)
 
@@ -204,9 +204,9 @@ configuration, then turns inward to its mental operation. Perception tasks hold 
 *steadier* attention (−38%) — they keep glancing back. This is exactly the split from
 Finding 5: the tasks that keep looking are the ones that re-examination helps.
 
-**It barely uses the re-shown image.** When the image is re-injected (B1′), in 49 of 60 items
-the model still attends *more* to the original copy than the fresh one — it leans on what it
-already encoded rather than the new look. That is the mechanism behind "re-showing the image
+**It barely uses the re-shown image.** When the image is re-injected (B1′), in roughly
+8 of every 10 items the model still attends *more* to the original copy than the fresh one —
+it leans on what it already encoded rather than the new look. That is the mechanism behind "re-showing the image
 does almost nothing" in Finding 5.
 
 ---
