@@ -85,26 +85,30 @@ def _is_oom(exc: Exception) -> bool:
 
 # ─── Model loading ──────────────────────────────────────────────────────────────
 
-def load_model_and_processor(model_path: str, mem_cap_gib: int = 55):
+def load_model_and_processor(model_path: str):
     from transformers import AutoProcessor, AutoModelForImageTextToText
     print(f"Loading processor from {model_path}...")
     processor = AutoProcessor.from_pretrained(model_path)
-    # CAP per-GPU memory so device_map can't pack GPU 0 full (the OOM cause): the
-    # ~62 GB model then spreads ~15 GB/GPU, leaving each GPU ~40 GB free for the
-    # O(seq^2) eager-attention transient. Without this, "auto" filled GPU 0 to ~88 GB
-    # and every long-sequence forward OOM'd.
+    # device_map="balanced_low_0": keep GPU 0 nearly EMPTY of weights (it holds the
+    # embeddings, logits [seq x 256k] and per-forward activations) and put the ~62 GB
+    # of weights on GPUs 1-3. This leaves GPU 0 ~90 GB free for the forward — fixing
+    # the OOM where "auto"/capped-"auto" packed GPU 0 and even a 1.4 GB transient
+    # couldn't fit. Eager attn (required for weights); KV cache disabled at call time.
     n_gpus = torch.cuda.device_count()
-    max_memory = {i: f"{mem_cap_gib}GiB" for i in range(n_gpus)}
-    print(f"Loading model (bf16, eager attn, {n_gpus} GPUs capped at {mem_cap_gib}GiB)...")
+    print(f"Loading model (bf16, eager attn, balanced_low_0 across {n_gpus} GPUs)...")
     model = AutoModelForImageTextToText.from_pretrained(
         model_path,
         dtype=torch.bfloat16,
-        device_map="auto",
-        max_memory=max_memory,
-        attn_implementation="eager",   # required — flash-attn doesn't return weights
+        device_map="balanced_low_0",
+        attn_implementation="eager",
     )
     model.eval()
-    print(f"Model loaded. Devices: {sorted(set(model.hf_device_map.values()))}")
+    print(f"Model loaded. Layer devices: {sorted(set(model.hf_device_map.values()))}")
+    for i in range(n_gpus):
+        alloc = torch.cuda.memory_allocated(i) / 1024**3
+        free, total = torch.cuda.mem_get_info(i)
+        print(f"  GPU{i}: {alloc:.1f} GB weights, {free/1024**3:.1f} GB free / "
+              f"{total/1024**3:.0f} GB")
     return model, processor
 
 
