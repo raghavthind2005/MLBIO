@@ -47,6 +47,11 @@ MAX_SEQ_LEN='$MAX_SEQ_LEN'
 DIAG_ONLY='$DIAG_ONLY'
 SKIP_DIAG='$SKIP_DIAG'
 
+# Fight allocator fragmentation: ~200 large O(n^2) eager-attention forwards shred
+# the CUDA allocator until a kernel launch fails (the mid-run crash). Expandable
+# segments let freed blocks coalesce, so peak pressure doesn't fragment the heap.
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
 pip install -q 'kernels==0.3.0'
 pip install -q 'transformers>=5.10.1'
 pip install -q --index-url https://download.pytorch.org/whl/cu130/ \
