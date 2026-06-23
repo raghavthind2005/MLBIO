@@ -89,17 +89,19 @@ def load_model_and_processor(model_path: str):
     from transformers import AutoProcessor, AutoModelForImageTextToText
     print(f"Loading processor from {model_path}...")
     processor = AutoProcessor.from_pretrained(model_path)
-    # device_map="balanced_low_0": keep GPU 0 nearly EMPTY of weights (it holds the
-    # embeddings, logits [seq x 256k] and per-forward activations) and put the ~62 GB
-    # of weights on GPUs 1-3. This leaves GPU 0 ~90 GB free for the forward — fixing
-    # the OOM where "auto"/capped-"auto" packed GPU 0 and even a 1.4 GB transient
-    # couldn't fit. Eager attn (required for weights); KV cache disabled at call time.
+    # device_map="balanced": spread the ~48 layers EVENLY across all 4 GPUs (~12 each)
+    # instead of 16 on GPUs 1-3. With output_attentions, every layer's [heads,seq,seq]
+    # matrix is retained for the whole forward, so per-GPU peak = (layers on that GPU)
+    # x transient; fewer layers/GPU -> lower peak -> we can raise MAX_SEQ_LEN (~6000
+    # with balanced_low_0's 16/GPU -> ~8000 here with 12/GPU). "balanced" (not "auto")
+    # distributes evenly; the per-GPU memory print below confirms it. Eager attn
+    # required for weights; KV cache disabled at call time.
     n_gpus = torch.cuda.device_count()
-    print(f"Loading model (bf16, eager attn, balanced_low_0 across {n_gpus} GPUs)...")
+    print(f"Loading model (bf16, eager attn, balanced across {n_gpus} GPUs)...")
     model = AutoModelForImageTextToText.from_pretrained(
         model_path,
         dtype=torch.bfloat16,
-        device_map="balanced_low_0",
+        device_map="balanced",
         attn_implementation="eager",
     )
     model.eval()
