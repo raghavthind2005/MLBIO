@@ -1,25 +1,73 @@
 # BabyVision results
 
 Model: Gemma-4-31B-it. Benchmark: BabyVision, 388 vision-primitive questions
-(135 multiple-choice, 253 free-form), 4 task types, 22 subtypes. Scoring: a Qwen3-32B
-judge reads the model's full final answer and decides if it is correct in substance
-(no rigid format matching).
+(135 multiple-choice, 253 free-form), 4 task types, 22 subtypes — simple visual puzzles
+that young children pass but frontier models fail (mazes, counting, paper-folding, 3D
+views, pattern completion).
 
-## What we did
+**The question we are chasing.** When this model gets a visual puzzle wrong, is it because
+it reasoned badly, or because it never *saw* the cue in the first place? And if it is a
+seeing problem, can we fix it by making the model look again — re-grounding it in the
+image? That is the through-line for everything below.
 
-We ran the same 388 questions five ways. Only the reasoning changed; the prompt,
-sampling settings, and scoring were identical across all of them.
+---
 
-| Condition | What changes | Median reasoning tokens |
-|-----------|--------------|-------------------------|
+## How we ran everything (methods)
+
+**Serving the model.** Gemma-4 runs locally through sglang's raw `/generate` endpoint (not
+a chat API), with its thinking channel enabled. Every condition uses identical sampling
+settings and the identical question prompt; the *only* thing we change is the reasoning.
+
+**The conditions.** We ran the same 388 questions several ways, along two axes — how long
+the model reasons, and whether it gets to look at the image a second time:
+
+| Condition | What changes | Reasoning length (median tokens) |
+|-----------|--------------|----------------------------------|
 | A0 | answer directly, no thinking | 536 |
-| standard | normal thinking (run 3 times) | 7,334 |
+| standard | normal thinking (run 3×) | 7,334 |
 | A3 | forced to think much longer | 12,599 |
-| B2 | reconsider, image NOT shown again | 9,308 |
-| B1 | reconsider, image shown again | 10,105 |
+| B2 | second turn to reconsider, image **not** shown again | 9,308 |
+| B1 | second turn to reconsider, image **shown again** | 10,105 |
+| **B1′ / B2′** | corrected reconsider (see below): the model re-reads **its own first-pass reasoning**, with / without the image | two-turn |
 
+**The two-turn conditions (B family).** The model answers once (turn 1: image + question →
+thinking + answer), then gets a second turn to reconsider. B1 re-shows the image in turn 2,
+B2 does not.
 
-## Finding 1: No major trends in accuraccy
+**A bug we found and fixed.** We intended turn 2 to say "here is your earlier reasoning,
+re-examine it." But Gemma-4's chat template **silently strips the thinking out of past
+assistant turns and keeps only the final answer**. We caught this by rebuilding the exact
+turn-2 prompt the model received and confirming the turn-1 reasoning was missing (verified
+on all 763 two-turn items). So the original B1/B2 actually tested "reconsider from your
+*answer* (+ fresh image)", not "reconsider with your *reasoning*." We fixed it by folding
+the turn-1 reasoning into the turn-2 **user** message (which is not stripped) and re-ran as
+**B1′ / B2′**. We then verified prompt-by-prompt on all 388 items that the reasoning now
+reaches the model and (for B1′) the image is genuinely re-injected.
+
+**Scoring.** A Qwen3-32B judge reads the model's full final answer and decides if it matches
+the correct answer *in substance* — no rigid format matching (Gemma sometimes writes the
+answer outside the `\boxed{}`, which a regex would miss). On multiple-choice items, where we
+know the gold letter, we check the judge against ground truth and it agrees 96–100% of the
+time. For two-turn answers that ran out of room while still thinking and never produced a
+real second answer, we fairly fall back to the model's first-turn answer.
+
+**Significance.** All condition comparisons use **paired** tests on the same items
+(McNemar, exact binomial), plus bootstrap confidence intervals. We compare against standard
+run three times (majority vote) so we are not fooled by a single lucky run.
+
+**Attention.** To see *where* the model looks, we re-feed each answered item through the
+model with teacher-forcing and read out the attention weights (this needs the slower "eager"
+attention; the fast kernels don't expose weights). We reconstruct the exact two-turn prompt
+and **append the model's own generated turn-2 text** so its reasoning is really present
+(again sidestepping the template strip), then measure how much of the attention from the
+turn-2 reasoning tokens points back at the image tokens. Caveat, stated up front: holding
+the full attention matrix in memory is expensive, so we could only process the **shorter
+items (about 16% of the set, 60–66 questions)** — the attention numbers are a *preliminary,
+correlational* look, not the final word.
+
+---
+
+## Finding 1: changing the reasoning barely moves accuracy
 
 | Condition | Accuracy | vs standard | Significant? |
 |-----------|----------|-------------|--------------|
@@ -29,24 +77,20 @@ sampling settings, and scoring were identical across all of them.
 | B2 | 28.1% | −2.3 | no (p=0.41) |
 | B1 | 33.2% | +2.8 | no (p=0.29) |
 
-Accuracy barely moved: A0 29.4%, standard 31.6%, A3 30.7%, B2 28.1%, B1 33.2%. None
-of the differences are statistically real. Standard run three times already
-varied by 3.1 points on its own (30.4 / 33.5 / 30.9), which is bigger than most of the
-differences between conditions. 
+Accuracy barely moves. None of the differences are statistically real — and standard run
+three times already swung 3.1 points on its own (30.4 / 33.5 / 30.9), bigger than most
+gaps between conditions.
 
-The one result that looked promising — re-showing the image (B1) beating no-reshow (B2)
-by 5.2 points — disappeared when we cleaned it up. About 1 in 5 of B1's reconsideration
-attempts ran out of room while still thinking (they fell into repetitive loops) and
-never produced a real second answer; for those we fairly fell back to the model's first
-answer. On the clean subset where both conditions actually produced a second answer, the
-gap shrank to +2.1 points with p = 0.55. So the apparent win was anbartifact, not re-grounding helping.
-
-checked the data is valid, not buggy
+The one result that looked promising — re-showing the image (B1) beating no-reshow (B2) by
+5.2 points — disappeared on a clean look. About 1 in 5 of B1's reconsiderations ran out of
+room while still thinking (they fell into repetitive loops) and never produced a real second
+answer; for those we fell back to the first answer. On the clean subset where both produced
+a genuine second answer, the gap shrank to +2.1 points (p = 0.55). The apparent win was an
+artifact, not re-grounding helping.
 
 ## Finding 2: whether the model is right is decided by the question, not the reasoning
 
-We treated the 7 runs per item (A0, standard x3, A3, B1, B2) as 7 attempts at the same
-question and counted how often each item was answered correctly.
+Treating the 7 runs per item (A0, standard×3, A3, B1, B2) as 7 attempts at the same question:
 
 | Across all 7 attempts | Items | Share |
 |-----------------------|-------|-------|
@@ -54,136 +98,156 @@ question and counted how often each item was answered correctly.
 | always wrong | 135 | 35% |
 | sometimes right, sometimes wrong | 226 | 58% |
 
-Take any two of the five conditions and go item by item: do they land the same way — both
-right, or both wrong? They match on 72-77% of items. That might sound automatic, but it
-isn't. Two conditions that had nothing to do with each other would still match about 58%
-of the time purely by luck — mostly by both being wrong, since the model fails most items.
-So the item largely decides the outcome;
-switching the reasoning barely changes which items are answered correctly.
+Take any two conditions and go item by item: they land the same way (both right or both
+wrong) on 72–77% of items. Two unrelated conditions would still match ~58% of the time by
+luck (mostly by both being wrong). So the item itself largely decides the outcome; switching
+the reasoning barely changes which items are right.
 
-The next check makes the same point another way. A "flip" is when one item comes out right
-on one attempt and wrong on another. How often do flips happen?
+Same point another way: changing the reasoning regime flips an item right↔wrong 25.5% of the
+time — but just re-running standard with a new random seed flips it 25.3% of the time, the
+same rate. Reasoning re-samples the answer around a fixed perception; it doesn't steer it
+toward the right one.
 
-| Flip rate (an item changes right↔wrong) | Value |
-|------------------------------------------|-------|
-| changing the reasoning regime (e.g. A0 vs A3) | 25.5% |
-| just re-running standard with a new random seed | 25.3% |
-
-Changing the reasoning regime flips an item 25.5% of the time. But keeping everything the
-same and only re-running standard with a new random seed flips it 25.3% of the time — the
-same rate. So switching how the model reasons disturbs the answers no more than simply
-re-rolling the dice does. Reasoning re-samples the answer around a fixed perception; it
-does not steer it toward the right one.
-
-## Finding 3: the hard tasks are the ones needing step-by-step looking
+## Finding 3: the hard tasks are the ones that need step-by-step looking
 
 The 135 always-wrong items are not spread evenly. Sorting subtypes by how often the model
-gets them right shows a clear pattern: the tasks that almost never get solved are the ones
-that need serial, step-by-step inspection (tracing a path, counting, matching elements one
-by one), while the ones solved more often are single-glance recognitions. We split all 22
-benchmark subtypes into these two groups:
+gets them right, the tasks that almost never get solved are the ones needing **serial,
+step-by-step inspection** (tracing a path, counting, matching elements one by one); the ones
+solved more often are **single-glance** recognitions.
 
 | Group | n subtypes | Mean % correct | Ever solved |
 |-------|------------|----------------|-------------|
-| Serial / step-by-step | 11 | 18.8% | only 12% of these items |
+| Serial / step-by-step | 11 | 18.8% | only 12% of these items ever |
 | Single-glance | 11 | 43.4% | — |
 
-The official benchmark subtypes in each group (named exactly as they appear in the dataset):
-
-- **Serial / step-by-step:** Maze, Connect the lines, Metro map, Lines Observation, Find
-  the same, Find the different, Find the shadow, Count 3D blocks, Count Same Patterns,
-  Paper Folding, 3D Cube Unfold.
-- **Single-glance:** Rotation Patterns, Recognize numbers and letters, Overlay Patterns,
-  3D Views, 2D Pattern Completion, 3D Pattern Completion, Mirroring Patterns, Logic
-  Patterns, Reconstruction, Count Clusters, Pattern and Color Completion.
-
-Grouping all subtypes into "serial" vs "single-glance": serial 18.8% correct vs
-single-glance 43.4% (p ≈ 0). This is real but not the whole story — the separation is
-moderate (a random single-glance item is harder-to-beat only ~73% of the time), and about
-a third of single-glance items also fail. The honest version: needing step-by-step looking
-almost guarantees failure (only 12% of serial items are ever solved), but not needing it
-does not guarantee success. There is a second source of failure we did not pin down.
+This is real (p ≈ 0) but not the whole story: the separation is moderate, and about a third
+of single-glance items also fail. Honest version: needing step-by-step looking almost
+guarantees failure, but not needing it does not guarantee success.
 
 ## Finding 4: on the unsure items, the model is an uncalibrated coin-flip
 
-The 226 "sometimes right" items were the interesting case: what tips a single attempt
-from wrong to right? We checked, holding the item fixed, whether a right attempt differs
-from a wrong attempt of the same item.
+For the 226 "sometimes right" items we asked what tips one attempt from wrong to right,
+holding the item fixed:
 
-| Signal (compared between right and wrong attempts of the *same* item) | If it predicted the flip, we'd see... | What we actually found | Predicts the flip? |
-|----------------------------------------------------------------------|----------------------------------------|------------------------|--------------------|
-| **Confidence** — answer entropy and average token log-probability | wrong attempts noticeably less confident than right ones | right vs wrong separated only ~50% of the time (entropy 54%, log-prob 47%); the model is just as confident when it's wrong as when it's right | No |
-| **Length** — total tokens the model spent on the attempt | a consistent direction, e.g. longer attempts more often wrong | only a weak, non-significant hint that longer attempts go wrong on easy items (54% of items, n=48); no effect overall | No |
-| **Chosen wrong answer** (multiple-choice items) | wrong attempts converging on one specific distractor (a systematic confusion) | wrong answers scattered across the options (~2.15 distinct wrong answers per item, about what random picking over the 3 distractors gives) | No |
+| Signal (right vs wrong attempts of the *same* item) | Predicts the flip? |
+|-----------------------------------------------------|--------------------|
+| Confidence (answer entropy, token log-probability) | No — equally confident when wrong as when right |
+| Length (tokens spent) | No — only a weak, non-significant hint |
+| Which wrong answer it picked (MCQ) | No — wrong answers scatter across the options |
 
-So on an unsure item, whether a given attempt lands right or wrong is not predictable from
-the attempt's length, its confidence, or its answer. Each attempt is a coin-flip at the
-item's own success rate, and the model has no internal sense of which way it went.
+On an unsure item, whether an attempt lands right or wrong is not predictable from its
+length, confidence, or answer. Each attempt is a coin-flip at the item's own success rate,
+and the model has no internal sense of which way it went.
 
-## What this tells us
+---
 
-The model's perception of these puzzles is set when it looks at the image. If it can see
-the cue, it answers right; if it can't, no amount of extra thinking, reconsidering, or
-looking again recovers it — those just re-sample around the same fixed perception. The
-clearest deficit is in tasks that need attention deployed step-by-step across the image
-(tracing, counting, one-by-one comparison), which the model essentially cannot do. 
+## Finding 5: re-examining *with your own reasoning* helps perception, hurts reasoning
 
-In short: BabyVision measures perception, and on this model reasoning cannot substitute for
-a cue that perception failed to extract.... which largely determines right from wrong
+This is the corrected re-grounding experiment (B1′/B2′) — the model genuinely re-reads its
+first-pass reasoning in turn 2 and is told to check each observation against the image.
 
-Maybe one good idea would be to fixate on these hard, largely unsolvable problems, 
-and think how to increase their accuracy.
+**Overall, it's a wash.** Against the fair baseline (standard, majority of 3 runs = 27.8%),
+B1′ lands at 27.8% — dead even, with exactly 42 items flipping each way. (It looks *worse*
+only if you compare to standard's single luckiest run of 30.7%.)
 
-## What we could not do, and why
+**But the overall tie hides a clean split by task type:**
 
-We could not explain what makes a single attempt flip from wrong to right. We showed that
-flip is just sampling noise here, and nothing observable predicts it. 
+![accuracy by task family](plots/dissociation.png)
 
-A direct mechanism check is still open: extracting the model's visual attention to test
-*why* the serial tasks fail (does attention fail to move across the image?). That is the
-natural next step for the "why is it hard" question — not for the "what flips it" question,
-which this data cannot answer.
+| Task family | standard | B1′ (re-grounding + own reasoning) | change | significant? |
+|-------------|----------|------------------------------------|--------|--------------|
+| perception (counting, search, tracing) | 15.7% | **22.5%** | **+6.8** | **yes (p = 0.015)** |
+| reasoning (rotation, folding, overlay, completion) | 39.6% | 33.0% | −6.6 | no (p = 0.12, a trend) |
 
-## Side note: re-showing the image makes the model loop more
+Re-examining with your own reasoning **significantly helps the perception tasks** (+6.8
+points; 19 items flip wrong→right vs only 6 the other way) and **hurts the reasoning tasks**
+as a trend (−6.6, not significant on its own; though individual subtypes like Rotation −30
+and Overlay −29 drop hard). To be precise: only the perception gain is statistically solid;
+the reasoning drop is a consistent direction, not a proven effect.
 
-Conditions B1 and B2 both work in two turns — the model gives a first answer, then takes a
-second turn to reconsider it. The only difference between them is that B1 shows the image
-again in that second turn while B2 does not.
+**The driver is the reasoning, not the image.** B2′ (same thing but the image is *not*
+re-shown) gives the same split — perception +5.2, reasoning −7.6. And comparing B1′ vs B2′
+directly, where the *only* difference is whether the image is shown again, only 9 of 388
+items change and there is no real difference. So re-displaying the image does almost nothing;
+the effect comes from putting the model's own reasoning back in front of it.
 
-Important caveat about what turn 2 actually saw. We reconstruct the turn-1 response
-(thinking + answer) and feed it back as the prior turn, but **Gemma-4's chat template
-strips the reasoning out of past assistant turns and keeps only the final answer**. We
-verified this by rebuilding the exact turn-2 prompt: the turn-1 thinking is absent, only
-the turn-1 answer survives. So in turn 2 the model has its earlier *answer* and (for B1)
-the *re-shown image*, but not the chain of thought that produced the answer. The as-run B
-condition therefore tests "reconsider from your answer + fresh image", not "reconsider with
-your reasoning." Testing the latter would require folding the turn-1 reasoning into the
-turn-2 *user* message (which is not stripped) — a separate run worth doing.
+**Why this makes sense.** When the answer is *in the image* (perception), being handed your
+earlier reasoning as a checklist — "you said 5 clusters; look again and check" — sends the
+model back to re-count and catch its mistakes, so it helps. When the answer comes from a
+*mental operation* the image can't show (rotate this shape, fold this paper), re-reading your
+earlier reasoning just makes you re-commit to the same — possibly wrong — mental step, so it
+doesn't help and tends to hurt. (One caveat: B1′ also changed the turn-2 wording vs the old
+B1, so it isn't a perfectly clean one-variable swap; and the per-subtype counts are small, so
+we lean on the family totals.)
 
-This stripping also explains the looping. In that second turn the model sometimes gets
-stuck repeating itself — restating the same observation again and again (for example,
-listing "(C): yellow background... (D): yellow background..." on and on) — and burns through
-its token budget without ever reaching a new answer. With the image back in front of it but
-no prior reasoning to anchor on, it re-derives the whole perceptual analysis from scratch
-and spirals. This happened more often when the image was re-shown (B1: 19.3% of second
-turns) than when it was not (B2: 12.6%) — i.e. a fresh look made re-perception, and the
-spiral, *more* likely, not less.
+## Finding 6: where the model looks — it stops looking, and that's when it fails
 
-This is a genuine behavioral difference between the two conditions, but it did not change
-accuracy. (These unfinished second turns were scored fairly: when a second turn never
-produced a real answer, we fell back to the model's first-turn answer.)
+A first, preliminary look at the attention (shorter items only, ~16% of the set,
+correlational — see methods). Three things line up with everything above.
 
+**It looks at the image less the longer it reasons ("see less").** Across the second-turn
+reasoning, attention to the image drops by about half from start to finish (B1′ −51%, B2′
+−49%).
 
-Significance: paired McNemar tests and bootstrap confidence intervals (babyvision_validity.py).
-Data integrity: alignment, manipulation, and grading checks (babyvision_integrity.py).
-Item structure and churn: babyvision_flips.py, babyvision_churn.py. Difficulty grouping:
-babyvision_serial.py. Flip structure: babyvision_transitions.py. Scoring: grade.py.
+![attention decays across the reasoning](plots/attention_decay.png)
+
+**When it keeps looking, it's right.** Correct answers put about **twice** as much attention
+on the image as wrong answers (B1′: 0.022 vs 0.011; B2′: 0.012 vs 0.007). Looking and being
+right go together; disengaging and being wrong go together. (Correlational — easier items may
+both draw more looking and be answered right — but the signal is clean and consistent.)
+
+![image attention, correct vs wrong](plots/attn_correct_wrong.png)
+
+**Reasoning tasks disengage from the image; perception tasks keep checking it.** Reasoning
+tasks start with high image attention and then drop steeply (−60%) — the model reads the
+configuration, then turns inward to its mental operation. Perception tasks hold lower but
+*steadier* attention (−38%) — they keep glancing back. This is exactly the split from
+Finding 5: the tasks that keep looking are the ones that re-examination helps.
+
+**It barely uses the re-shown image.** When the image is re-injected (B1′), in 49 of 60 items
+the model still attends *more* to the original copy than the fresh one — it leans on what it
+already encoded rather than the new look. That is the mechanism behind "re-showing the image
+does almost nothing" in Finding 5.
+
+---
+
+## What this all tells us
+
+The model's answer to these puzzles is gated by **perception**, set when it first looks at
+the image. Extra thinking, forced length, and reconsidering mostly re-sample the answer
+around that fixed perception rather than fixing it (Findings 1–2), and the tasks it cannot do
+are the ones needing attention moved step-by-step across the image (Finding 3). The attention
+backs this up directly: the model looks at the image less as it reasons, and when it stops
+looking it gets the answer wrong (Finding 6).
+
+**On re-grounding — the answer is a qualified yes.** Making the model re-examine *with its own
+reasoning* genuinely and significantly helps the **perception** tasks (+6.8), because there
+the cue is in the image and a second, guided look can recover it. It does *not* help the
+reasoning tasks, where the missing step isn't visual. And crucially, simply **re-showing the
+image is not enough** — the model doesn't really look at the fresh copy; what helps is being
+prompted to re-check its own observations against the picture.
+
+So: responses that are poorly grounded in perception are weak (correct answers literally look
+at the image more), and re-grounding *can* help — but only for genuinely perceptual tasks, and
+only when the model is actively pushed to re-examine, not just shown the image again. The
+natural next step is to make that second look stronger and more targeted, and to confirm the
+attention story on the long items we couldn't yet fit in memory.
+
+---
+
+## Reproducibility
+
+Inference: `run_infer.py`, `run_infer_a3.py`, `run_infer_b.py` (two-turn; `--fold-reasoning`
+is the corrected B1′/B2′). Scoring: `grade.py`. Significance: `babyvision_validity.py`,
+`babyvision_mcnemar_b.py` (within-family). Condition analysis: `analyze_conditions.py`.
+Item structure: `babyvision_flips.py`, `babyvision_churn.py`, `babyvision_serial.py`,
+`babyvision_transitions.py`. Prompt-strip verification: `verify_b1cot.py`. Attention:
+`extract_attention_b.py`, `babyvision_attn_analyze.py`. Figures: `babyvision_report_plots.py`.
 
 ## Appendix: per-subtype solvability
 
-Mean % correct over all 7 attempts, sorted from hardest to easiest. "Group" marks our
-serial (S) vs single-glance (H) labelling. Note it is a smooth gradient, not two clean
-clusters — a few single-glance subtypes sit low and one serial subtype sits mid-pack.
+Mean % correct over all 7 attempts, hardest to easiest. "Group" marks serial (S) vs
+single-glance (H). It is a smooth gradient, not two clean clusters.
 
 | Subtype | Group | n | Mean % correct |
 |---------|-------|---|----------------|
