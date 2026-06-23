@@ -75,21 +75,36 @@ def _is_fatal_cuda(exc: Exception) -> bool:
     return any(m in s for m in _FATAL_CUDA_MARKERS)
 
 
+def _is_oom(exc: Exception) -> bool:
+    """Recoverable CUDA out-of-memory (the transient didn't fit) — free and skip,
+    NOT a context-corrupting fatal error."""
+    if exc.__class__.__name__ == "OutOfMemoryError":
+        return True
+    return "out of memory" in str(exc).lower()
+
+
 # ─── Model loading ──────────────────────────────────────────────────────────────
 
-def load_model_and_processor(model_path: str):
+def load_model_and_processor(model_path: str, mem_cap_gib: int = 55):
     from transformers import AutoProcessor, AutoModelForImageTextToText
     print(f"Loading processor from {model_path}...")
     processor = AutoProcessor.from_pretrained(model_path)
-    print("Loading model (bf16, eager attn)...")
+    # CAP per-GPU memory so device_map can't pack GPU 0 full (the OOM cause): the
+    # ~62 GB model then spreads ~15 GB/GPU, leaving each GPU ~40 GB free for the
+    # O(seq^2) eager-attention transient. Without this, "auto" filled GPU 0 to ~88 GB
+    # and every long-sequence forward OOM'd.
+    n_gpus = torch.cuda.device_count()
+    max_memory = {i: f"{mem_cap_gib}GiB" for i in range(n_gpus)}
+    print(f"Loading model (bf16, eager attn, {n_gpus} GPUs capped at {mem_cap_gib}GiB)...")
     model = AutoModelForImageTextToText.from_pretrained(
         model_path,
         dtype=torch.bfloat16,
         device_map="auto",
+        max_memory=max_memory,
         attn_implementation="eager",   # required — flash-attn doesn't return weights
     )
     model.eval()
-    print(f"Model loaded. Devices: {set(model.hf_device_map.values())}")
+    print(f"Model loaded. Devices: {sorted(set(model.hf_device_map.values()))}")
     return model, processor
 
 
@@ -303,10 +318,15 @@ def extract(model, processor, rec, img_path, image_token_id, reinject, max_seq_l
 
     handles = [m.register_forward_hook(make_hook(i)) for i, (_, m) in enumerate(attn_modules)]
     try:
-        model(**inputs, output_attentions=True, return_dict=True)
+        # use_cache=False: no generation, so skip the KV cache (pure memory waste).
+        # The hook nulls each layer's attention weights immediately, so only one
+        # layer's transient [heads, seq, seq] is live at a time.
+        out = model(**inputs, output_attentions=True, use_cache=False, return_dict=True)
+        del out                       # drop logits/outputs before the next sample
     finally:
         for h in handles:
             h.remove()
+    del inputs
     torch.cuda.empty_cache()
 
     # [n_layers, n_out] per group
@@ -460,8 +480,23 @@ def main():
                         sf.write(f"{rec.get('taskId')}\n")
                     n_skip += 1
             except Exception as exc:
+                # CUDA OOM is RECOVERABLE — free the failed allocation and skip this
+                # (too-big) sample WITHOUT poisoning it or tearing down the run. This
+                # is the common case (long eager-attention transient doesn't fit), not
+                # a corruption, so the next (smaller) sample proceeds fine.
+                if _is_oom(exc):
+                    print(f"OOM (skip, too big for memory): tried "
+                          f"{str(exc).split('Tried to allocate')[-1][:24].strip()}")
+                    try:
+                        torch.cuda.empty_cache()
+                    except Exception:
+                        pass
+                    with open(skip_path, "a") as sf:
+                        sf.write(f"{rec.get('taskId')}\n")
+                    n_skip += 1
+                    continue
                 print(f"ERROR: {exc}")
-                # Quarantine this taskId so a relaunch doesn't re-hit it forever.
+                # Non-OOM error: quarantine so a relaunch doesn't re-hit it forever.
                 with open(poison_path, "a") as pf:
                     pf.write(f"{rec.get('taskId')}\n")
                 if _is_fatal_cuda(exc):
