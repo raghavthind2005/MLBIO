@@ -29,6 +29,7 @@ B2COT_DIR="/iopsstor/scratch/cscs/raghavthind/babyvision/results_b2cot_noreinjec
 LOG_DIR="/iopsstor/scratch/cscs/raghavthind/babyvision/logs"
 MAX_SEQ_LEN="${MAX_SEQ_LEN:-12288}"
 DIAG_ONLY="${DIAG_ONLY:-0}"
+SKIP_DIAG="${SKIP_DIAG:-0}"   # set 1 to skip the 3-sample diagnostic (structure already verified)
 # ─────────────────────────────────────────────────────────────────────────────
 
 mkdir -p "$LOG_DIR"
@@ -44,6 +45,7 @@ B2COT_DIR='$B2COT_DIR'
 MODEL_PATH='$MODEL_PATH'
 MAX_SEQ_LEN='$MAX_SEQ_LEN'
 DIAG_ONLY='$DIAG_ONLY'
+SKIP_DIAG='$SKIP_DIAG'
 
 pip install -q 'kernels==0.3.0'
 pip install -q 'transformers>=5.10.1'
@@ -53,26 +55,51 @@ pip install -q accelerate
 
 run_cond () {
   COND=\$1; DIR=\$2
-  echo ''
-  echo \"=== DIAGNOSTIC (\$COND, 3 samples — verify 2-turn visual structure) ===\"
-  python \$REPO/extract_attention_b.py \
-    --condition \$COND \
-    --results \$DIR/results_run1.jsonl \
-    --out /tmp/attn_\${COND}_diag.jsonl \
-    --data-dir \$DATA_DIR \
-    --max-samples 3 --max-seq-len \$MAX_SEQ_LEN --diagnose
-  if [ \"\$DIAG_ONLY\" = \"1\" ]; then
-    echo \"DIAG_ONLY=1 — stopping after \$COND diagnostic.\"
-    return 0
+  if [ \"\$SKIP_DIAG\" != \"1\" ]; then
+    echo ''
+    echo \"=== DIAGNOSTIC (\$COND, 3 samples — verify 2-turn visual structure) ===\"
+    python \$REPO/extract_attention_b.py \
+      --condition \$COND \
+      --results \$DIR/results_run1.jsonl \
+      --out /tmp/attn_\${COND}_diag.jsonl \
+      --data-dir \$DATA_DIR \
+      --max-samples 3 --max-seq-len \$MAX_SEQ_LEN --diagnose
+    if [ \"\$DIAG_ONLY\" = \"1\" ]; then
+      echo \"DIAG_ONLY=1 — stopping after \$COND diagnostic.\"
+      return 0
+    fi
   fi
+  # ── Retry loop ──────────────────────────────────────────────────────────────
+  # A fatal CUDA error (unspecified launch failure / IMA / device-side assert) on a
+  # long eager-attention forward tears down the CUDA context, so every later sample
+  # fails. extract_attention_b.py detects this, QUARANTINES the triggering taskId
+  # (so we don't re-hit it forever), and exits rc=3. We relaunch a FRESH process
+  # (new context) and resume via --skip-existing; rc=0 means an attempt finished
+  # without a fatal crash (done). Each distinct crash-trigger costs one attempt.
   echo ''
-  echo \"=== FULL EXTRACTION (\$COND) ===\"
-  python \$REPO/extract_attention_b.py \
-    --condition \$COND \
-    --results \$DIR/results_run1.jsonl \
-    --out \$DIR/attention_b.jsonl \
-    --data-dir \$DATA_DIR \
-    --max-seq-len \$MAX_SEQ_LEN --skip-existing
+  echo \"=== FULL EXTRACTION (\$COND) — retry loop ===\"
+  ATTEMPTS=20
+  for k in \$(seq 1 \$ATTEMPTS); do
+    echo \"--- \$COND attempt \$k/\$ATTEMPTS ---\"
+    python \$REPO/extract_attention_b.py \
+      --condition \$COND \
+      --results \$DIR/results_run1.jsonl \
+      --out \$DIR/attention_b.jsonl \
+      --data-dir \$DATA_DIR \
+      --max-seq-len \$MAX_SEQ_LEN --skip-existing
+    RC=\$?
+    if [ \$RC -eq 0 ]; then
+      echo \"\$COND completed normally on attempt \$k.\"; break
+    elif [ \$RC -eq 3 ]; then
+      echo \"\$COND hit fatal CUDA (rc=3) — quarantined trigger, relaunching fresh.\"
+      sleep 10
+    else
+      echo \"\$COND exited rc=\$RC (unexpected) — relaunching.\"; sleep 10
+    fi
+  done
+  EXTRACTED=\$(wc -l < \$DIR/attention_b.jsonl 2>/dev/null || echo 0)
+  POISONED=\$(wc -l < \$DIR/attention_b.jsonl.poison 2>/dev/null || echo 0)
+  echo \"\$COND done: \$EXTRACTED extracted, \$POISONED quarantined.\"
 }
 
 run_cond b1cot \$B1COT_DIR

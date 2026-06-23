@@ -61,6 +61,19 @@ from run_infer_b import THINK_OPEN, THINK_CLOSE, build_turn2_prompt  # noqa: E40
 MODEL_PATH = "/capstor/store/cscs/swissai/a0174/models/gemma-4-31B-it"
 DIAGNOSE = False
 
+# A CUDA launch failure / IMA / device-side assert tears down the whole CUDA
+# context — every subsequent forward then fails. Detect it so we can exit and let
+# the job's retry loop relaunch a fresh process rather than limp through failures.
+_FATAL_CUDA_MARKERS = (
+    "unspecified launch failure", "illegal memory access", "device-side assert",
+    "CUDA error", "CUBLAS_STATUS", "an illegal instruction",
+)
+
+
+def _is_fatal_cuda(exc: Exception) -> bool:
+    s = str(exc)
+    return any(m in s for m in _FATAL_CUDA_MARKERS)
+
 
 # ─── Model loading ──────────────────────────────────────────────────────────────
 
@@ -376,16 +389,31 @@ def main():
                 recs.append(r)
 
     out_path = Path(args.out)
+    poison_path = out_path.with_suffix(out_path.suffix + ".poison")
     done = set()
-    if args.skip_existing and out_path.exists():
-        with open(out_path) as f:
-            for line in f:
-                try:
-                    done.add(json.loads(line)["taskId"])
-                except Exception:
-                    pass
+    if args.skip_existing:
+        if out_path.exists():
+            with open(out_path) as f:
+                for line in f:
+                    try:
+                        done.add(json.loads(line)["taskId"])
+                    except Exception:
+                        pass
+        # Quarantine list: taskIds that triggered a fatal CUDA crash or errored on a
+        # prior attempt. Skip them so a relaunch makes forward progress instead of
+        # re-hitting the same poison sample and dying again.
+        n_extracted = len(done)
+        if poison_path.exists():
+            for line in open(poison_path):
+                t = line.strip()
+                if t:
+                    try:
+                        done.add(int(t))
+                    except ValueError:
+                        done.add(t)
         recs = [r for r in recs if r.get("taskId") not in done]
-        print(f"--skip-existing: {len(done)} done, {len(recs)} remaining")
+        print(f"--skip-existing: {n_extracted} extracted + "
+              f"{len(done) - n_extracted} quarantined, {len(recs)} remaining")
 
     if args.max_samples:
         recs = recs[:args.max_samples]
@@ -420,6 +448,17 @@ def main():
                     n_skip += 1
             except Exception as exc:
                 print(f"ERROR: {exc}")
+                # Quarantine this taskId so a relaunch doesn't re-hit it forever.
+                with open(poison_path, "a") as pf:
+                    pf.write(f"{rec.get('taskId')}\n")
+                if _is_fatal_cuda(exc):
+                    # The CUDA context is now dead — every later sample would also
+                    # fail. Exit immediately (rc=3) so the job's retry loop relaunches
+                    # a FRESH process (new context) and resumes via --skip-existing.
+                    print(f"\nFATAL CUDA error — context corrupted, exiting for fresh "
+                          f"relaunch. Extracted this attempt: {n_done}.")
+                    sys.stdout.flush()
+                    os._exit(3)
                 import traceback; traceback.print_exc()
                 n_skip += 1
 
