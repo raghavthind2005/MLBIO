@@ -23,7 +23,7 @@ Usage (sanity, login node):
 import argparse
 import json
 import os
-from dataclasses import dataclass
+from collections import namedtuple
 
 
 PROMPT_INSTRUCTION = (
@@ -31,17 +31,12 @@ PROMPT_INSTRUCTION = (
 )
 
 
-@dataclass
-class MCItem:
-    task_id: int
-    image_path: str          # absolute path to the image file
-    question: str            # full prompt text (question + lettered choices + instruction)
-    options: list            # raw option strings
-    n_options: int
-    gold_index: int          # 0-indexed correct option
-    gold_letter: str         # "A".."F"
-    type: str                # perception category
-    subtype: str
+# namedtuple (not dataclass) so it imports on the cluster login node's Python 3.6 too.
+#   task_id, image_path, question, options, n_options, gold_index, gold_letter, type, subtype
+MCItem = namedtuple("MCItem", [
+    "task_id", "image_path", "question", "options",
+    "n_options", "gold_index", "gold_letter", "type", "subtype",
+])
 
 
 def format_choices(options: list) -> str:
