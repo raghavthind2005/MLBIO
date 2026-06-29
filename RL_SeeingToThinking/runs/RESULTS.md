@@ -243,9 +243,18 @@ fidelity is required, pin them explicitly; otherwise accept EasyR1 defaults and 
   ~0.60 [s50] → ~0.69 [s75] → ~0.75 [s96].
 - **Headline:** RLVR substantially improves visual perception on DOCCI MCQs at the paper-faithful config.
 
-### Condition 2 (llm_only) / Condition 3 (vit_only) — *(fill after each run)*
-- Compare final accuracy + curve vs Condition 1 → hypothesis H: is `llm_only ≈ full ≫ vit_only`?
-- Per-condition checkpoints (own dirs) feed the offline analyses (weight-delta MLP-vs-attn, depth-probing).
+### Condition 2 (llm_only, ViT frozen) — job 2642908, 2026-06-29 ✅ COMPLETE
+- **96/96 steps**, clean exit (no OOM), **16 checkpoints** → `runs/stage1_llm_only/checkpoints/`.
+- **Final accuracy reward ≈ 0.749** (bounces ±0.01 step-to-step: …0.722, 0.734, 0.746, 0.739, 0.749).
+- **HEADLINE — hypothesis H, first half CONFIRMED: `llm_only (0.749) ≈ full (0.746)`.** Freezing the vision
+  encoder cost *nothing* — the entire perception gain is reproduced by training the **LLM alone**. RL is not
+  improving *how the model sees* (ViT never moved); it improves *how the LLM reads what it already encoded*.
+  Direct behavioral support for "the fix is LLM-internal" + the "re-access, not re-representation" reframe.
+- Full H verdict pending Condition 3: needs `vit_only ≪ llm_only ≈ full`.
+
+### Condition 3 (vit_only, LLM frozen) — *(fill after run)*
+- The decisive test: if training the ViT alone barely helps → H complete (`llm_only ≈ full ≫ vit_only`).
+- Per-condition checkpoints feed the offline analyses (weight-delta MLP-vs-attn, depth-probing).
 
 ## 10. ANALYSES toward the research question
 
