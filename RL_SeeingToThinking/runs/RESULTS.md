@@ -247,13 +247,34 @@ fidelity is required, pin them explicitly; otherwise accept EasyR1 defaults and 
 - Compare final accuracy + curve vs Condition 1 → hypothesis H: is `llm_only ≈ full ≫ vit_only`?
 - Per-condition checkpoints (own dirs) feed the offline analyses (weight-delta MLP-vs-attn, depth-probing).
 
-## 10. ANALYSES toward the research question  *(fill after run — see RL_MASTERY / proposal §8)*
+## 10. ANALYSES toward the research question
+
+> **Full from-scratch explanation of every analysis + result → [`analysis/FINDINGS.md`](analysis/FINDINGS.md).**
+> Design spec → [`analysis/ANALYSIS_DESIGN.md`](ANALYSIS_DESIGN.md). Code → `runs/analysis/`.
 
 _Offline on the saved checkpoints + base:_
-- Depth-resolved perception decodability (base vs checkpoints) — the degradation curve & RL's repair.
-- Image-utility vs reasoning-position — the "perception as reasoning proceeds" curve.
-- Weight-delta MLP-vs-attention by layer — localize the fix.
-- CKA / modality-gap base-vs-trained — control.
+- ✅ **Weight-delta MLP-vs-attention by layer** (`weight_delta.py`, tests S2) — **DONE for Condition 1.**
+- ⏳ Depth-resolved perception decodability (`depth_probe.py`, S4/S5) — needs babyVision probe set.
+- ⏳ Causal module-graft (`module_graft.py`, S3) — needs babyVision + eval.
+- ⏳ CKA / modality-gap base-vs-trained (`cka_geometry.py`, S1) — control.
+- ⏳ Image-utility vs reasoning-position — the temporal "perception as reasoning proceeds" curve (weak in
+  Stage-1-Instruct; wants Stage-3 or long-reasoning eval probes — see FINDINGS Part 0/5).
+
+### 10.1 Weight-delta — Condition 1 (full), 2026-06-29 ✅
+*(Full explanation: FINDINGS.md Parts 2–5. Headline only here.)*
+- **The RL weight change is tiny: mean rel_fro ≈ 5e-4 = 0.05%** (LLM), max 0.1%. Yet accuracy went
+  0.365→0.746. **A 0.05% weight change ≈ doubled perception** → "surgical edit, not re-learning."
+  Confirms senior's S2 "tiny change" + supports the S5 "re-access" thesis. This tininess is the *expected*
+  fingerprint of our **lr=1e-6 + KL leash** (§2/§3).
+- **MLP-biased over attention at every depth** (rel_fro mlp/attn = 1.59× early, 1.40× mid, 1.37× late) →
+  S2 "MLP not attention" confirmed *directionally*.
+- **NOT late-layer-concentrated** (mlp roughly flat / slightly early-peaked) → S2 depth-localization **not
+  reproduced** in this 4B / 96-step / perception-only regime. Honestly reported; leading explanation =
+  regime difference vs senior's full-curriculum 930-step 8B analysis.
+- **Smooth monotonic drift** step 6→96 → stable training (process check; not yet evidence of re-surfacing).
+- **Caveats:** attn bucket mixes q/k/v/o with tiny q_norm/k_norm (refine to projections-only); `full`
+  condition only (cross-condition + freeze-at-weight-level pending Cond 2/3); correlational not causal
+  (S3 graft pending). See FINDINGS Part 4.
 
 ---
 
@@ -288,4 +309,12 @@ the fix lives in the LLM (late MLPs), confirming the senior's finding *prospecti
 train) rather than only post-hoc weight-grafting. Frozen conditions also use less memory (fewer
 trainable params) — `micro=4/8` kept identical for exact mirroring (could be raised, result-neutral).
 
-**Run order:** sequential (one node). Cond 1 running now; submit Cond 2 then Cond 3 as the node frees.
+**Run order:** sequential (one node).
+
+**✅ Freeze verified (2026-06-29, `runs/verify_freeze.py`).** Module sizes: total **4.438B** =
+language_model **4.022B** + visual **0.415B** (lm_head 0.389B is weight-tied into the LLM). Trainable
+params per condition match exactly: full **4.438B** (all), llm_only **4.022B** (ViT's 0.415B frozen),
+vit_only **0.415B** (LLM frozen). 3-part check on the running `llm_only` job (2642908): config diff vs
+Cond 1 shows only `freeze_vision_tower`/`experiment_name`/`save_checkpoint_path` differ (no training
+hyperparameter changes); log confirms *"Vision tower is set to not trainable."*; `Total training steps:
+96` + dataloader 6 = Cond 1; `grad_norm > 0` (LLM learning), reward/KL sane, no OOM.
