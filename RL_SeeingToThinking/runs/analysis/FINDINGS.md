@@ -561,9 +561,34 @@ stream so the late layers can read out perception the base model already compute
 appears late but is caused throughout.*
 
 ### 9.8 Follow-ups
-1. **Condition 2 (llm_only)** module_graft + depth_probe → confirm the same profile with the ViT frozen.
+1. ✅ **Condition 2 (llm_only)** module_graft + depth_probe → see 9.9.
 2. **Finer layer bands** (each MLP third + middle separately) → map the distribution precisely.
 3. Tuned lens / non-output-aligned probing → test the 9.5 mechanism directly.
+
+### 9.9 RESULT #3b — Condition 2 (llm_only) replication, ViT provably frozen
+Ran the identical graft + depth probe on `llm_only` (step 96, DOCCI 300):
+
+| graft | Cond 1 (full) | Cond 2 (llm_only) |
+|---|---|---|
+| base | 0.377 | 0.377 |
+| full | 0.657 | 0.593 |
+| mlp | 0.553 | 0.550 |
+| attn | 0.460 | 0.460 |
+| early_mlp | 0.430 | 0.403 |
+| late_mlp | 0.387 | 0.383 |
+
+**The per-graft accuracies are nearly identical across conditions** (mlp 0.55/0.55, attn 0.46/0.46, late_mlp
+0.387/0.383). The same weights carry the same competence with or without the ViT free → the **MLP-dominant,
+distributed, late_mlp-tiny mechanism replicates**, and is **unambiguously LLM-internal** (ViT Δ=0). `depth_c2`
+shows the **same late-layer signature** (collapse L19–23, jump L24–25, sustained ~0.59 to output; final 0.593
+matches its graft-full) — and it must be the LLM, since the ViT didn't move.
+
+**Honest nuance — the ViT is not 100% epiphenomenal on the *direct* probe.** `full` reaches 0.657 vs
+`llm_only` 0.593 (~6 pts), despite equal training rewards (0.746 vs 0.749). Grafts localize it: mlp→full adds
+**+0.107 in Cond 1** but only **+0.043 in Cond 2**, so in the full run the non-MLP changes (incl. the trainable
+ViT) added ~6 pts *on this direct-readout probe*. Caveats: within 300-item sample noise (±~3%), and behaviorally
+(training reward) the conditions were equal. Core claim stands (overwhelmingly LLM/MLP); footnote: ViT may add
+a little on direct perception.
 
 ---
 
