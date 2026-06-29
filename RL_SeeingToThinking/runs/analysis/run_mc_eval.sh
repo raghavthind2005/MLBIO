@@ -26,8 +26,11 @@ STEP="${2:-}"          # checkpoint step (omit for base)
 
 BASE=/capstor/store/cscs/swissai/a0174/models/Qwen3-VL-4B-Instruct
 ANALYSIS=/iopsstor/scratch/cscs/raghavthind/runs/analysis
-# babyVision MC probe data — copy here once from the MLBIO clone (see notes below).
-DATA=/iopsstor/scratch/cscs/raghavthind/probe_data/babyvision_data
+# DOCCI = the in-distribution probe (training distribution, where the RL gain lives).
+DOCCI_DATA=/capstor/store/cscs/swissai/a0174/datasets/VLM-CapCurriculum-Perception-Data
+JSONL=$DOCCI_DATA/perception_difficulty_curriculum.jsonl
+IMGDIR=$DOCCI_DATA/images
+NSAMPLE="${NSAMPLE:-300}"
 
 export PYTHONPATH=/iopsstor/scratch/cscs/raghavthind/code/EasyR1:${PYTHONPATH:-}
 export PYTHONUNBUFFERED=1
@@ -38,9 +41,9 @@ if [[ "$COND" != "base" && -n "$STEP" ]]; then
     CKPT_ARG="--ckpt /iopsstor/scratch/cscs/raghavthind/runs/stage1_${COND}/checkpoints/global_step_${STEP}/actor"
 fi
 
-echo "===== MC eval: cond=$COND step=${STEP:-(base)} ====="
+echo "===== MC eval (DOCCI): cond=$COND step=${STEP:-(base)} n=$NSAMPLE ====="
 python3 "$ANALYSIS/mc_eval.py" \
     --base "$BASE" \
-    --data-dir "$DATA" \
+    --dataset docci --jsonl "$JSONL" --image-dir "$IMGDIR" --n-sample "$NSAMPLE" --seed 1 \
     --out "$ANALYSIS/mc_${COND}${STEP:+_$STEP}.csv" \
     $CKPT_ARG

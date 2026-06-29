@@ -29,7 +29,8 @@ import torch
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(__file__))
-from babyvision_data import load_mc_items, option_letters
+from babyvision_data import option_letters
+from probe_loader import add_probe_args, load_probe
 from ckpt_model import load_model
 
 
@@ -94,13 +95,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", required=True)
     ap.add_argument("--ckpt", default=None, help="global_step_N/actor (optional)")
-    ap.add_argument("--data-dir", required=True)
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--out", default=None, help="optional CSV of per-item results")
+    add_probe_args(ap)
     args = ap.parse_args()
 
-    items = load_mc_items(args.data_dir)
-    print(f"[mc_eval] {len(items)} MC items")
+    items = load_probe(args)
+    print(f"[mc_eval] {len(items)} MC items ({args.dataset})")
     model, processor = load_model(args.base, ckpt_actor_dir=args.ckpt, device=args.device)
 
     acc, results = run_mc_probe(model, processor, items, device=args.device)

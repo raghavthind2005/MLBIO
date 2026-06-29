@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from qwen3vl_param_map import classify
 from ckpt_model import load_model, reconstruct_full_state_dict, _install_patch_embed_fix
 from mc_eval import run_mc_probe
-from babyvision_data import load_mc_items
+from probe_loader import add_probe_args, load_probe
 
 
 def in_mask(key: str, mode: str, n_layers: int) -> bool:
@@ -66,15 +66,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", required=True)
     ap.add_argument("--ckpt", required=True, help="global_step_N/actor (the trained checkpoint to graft)")
-    ap.add_argument("--data-dir", required=True)
     ap.add_argument("--modes", nargs="+",
                     default=["base", "full", "mlp", "attn", "late_mlp", "early_mlp"])
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--out", default="graft_results.csv")
+    add_probe_args(ap)
     args = ap.parse_args()
 
-    items = load_mc_items(args.data_dir)
-    print(f"[graft] {len(items)} MC items; modes={args.modes}")
+    items = load_probe(args)
+    print(f"[graft] {len(items)} MC items ({args.dataset}); modes={args.modes}")
 
     # Load base model ONCE; we'll overwrite/restore subsets per mode.
     model, processor = load_model(args.base, device=args.device)

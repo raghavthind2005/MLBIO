@@ -24,17 +24,20 @@ STEP="${2:?provide checkpoint step, e.g. 96}"
 
 BASE=/capstor/store/cscs/swissai/a0174/models/Qwen3-VL-4B-Instruct
 ANALYSIS=/iopsstor/scratch/cscs/raghavthind/runs/analysis
-DATA=/iopsstor/scratch/cscs/raghavthind/probe_data/babyvision_data
+DOCCI_DATA=/capstor/store/cscs/swissai/a0174/datasets/VLM-CapCurriculum-Perception-Data
+JSONL=$DOCCI_DATA/perception_difficulty_curriculum.jsonl
+IMGDIR=$DOCCI_DATA/images
+NSAMPLE="${NSAMPLE:-300}"
 CKPT=/iopsstor/scratch/cscs/raghavthind/runs/stage1_${COND}/checkpoints/global_step_${STEP}/actor
 
 export PYTHONPATH=/iopsstor/scratch/cscs/raghavthind/code/EasyR1:${PYTHONPATH:-}
 export PYTHONUNBUFFERED=1
 export PYTORCH_ALLOC_CONF=expandable_segments:True
 
-echo "===== module_graft: cond=$COND step=$STEP ====="
+echo "===== module_graft (DOCCI): cond=$COND step=$STEP n=$NSAMPLE ====="
 python3 "$ANALYSIS/module_graft.py" \
     --base "$BASE" \
     --ckpt "$CKPT" \
-    --data-dir "$DATA" \
+    --dataset docci --jsonl "$JSONL" --image-dir "$IMGDIR" --n-sample "$NSAMPLE" --seed 1 \
     --modes base full mlp attn late_mlp early_mlp \
     --out "$ANALYSIS/graft_${COND}_${STEP}.csv"
