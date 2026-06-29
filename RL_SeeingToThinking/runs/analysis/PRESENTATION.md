@@ -4,7 +4,8 @@
 > **what we found** *and* **how we computed it** — so a newcomer can follow the logic and an expert can
 > check the mechanics. Reading order is linear; each section = one method + one finding.
 >
-> Source-of-truth lab log: `FINDINGS.md`. Training config: `RESULTS.md`. Code: `runs/analysis/`.
+> Source-of-truth lab log: `FINDINGS.md`. **Exhaustive computational detail (every formula / tensor op / hook):
+> `METHODS.md`.** Training config: `RESULTS.md`. Code: `runs/analysis/`.
 
 ---
 

@@ -5,8 +5,10 @@
 > choices, and exactly what each number means. It is written so a beginner can follow it, yet contains
 > enough precision to present professionally. It grows as each analysis lands.
 >
-> **Companion docs:** `RESULTS.md` (per-knob training config), `ANALYSIS_DESIGN.md` (the analysis spec),
-> `RL_MASTERY.md` (RL internals from scratch), `EXPERIMENT_PROPOSAL.md` (the science & the senior's claims).
+> **Companion docs:** **`METHODS.md` (exhaustive "how every number was computed" — formulas, tensor ops,
+> hooks, reconstruction)**, `RESULTS.md` (per-knob training config), `ANALYSIS_DESIGN.md` (the analysis spec),
+> `PRESENTATION.md` (the talk), `RL_MASTERY.md` (RL internals from scratch), `EXPERIMENT_PROPOSAL.md` (science
+> + the senior's claims), `EXPERIMENT2_PLAN.md` (activation-patch design).
 
 ---
 
