@@ -269,6 +269,17 @@ _Offline on the saved checkpoints + base:_
 - ⏳ Image-utility vs reasoning-position — the temporal "perception as reasoning proceeds" curve (weak in
   Stage-1-Instruct; wants Stage-3 or long-reasoning eval probes — see FINDINGS Part 0/5).
 
+### 10.2 Weight-delta — Condition 2 (llm_only) + FREEZE PROOF, 2026-06-29 ✅
+*(Full explanation: FINDINGS.md Part 3b.)*
+- **Gold-standard freeze proof: `vision mean_rel_fro = 0.000e+00` (max 0 too, all 315 tensors).** ViT
+  bit-identical to base → truly frozen, proven at the weight level. LLM moved (5.0e-4) → genuinely trained.
+  Condition 2 now validated on all three layers (config / behavior / weights).
+- **Near-identical edit fingerprint to `full`** (mlp/attn = 1.61/1.41/1.38× early/mid/late vs full's
+  1.59/1.40/1.37×) → same LLM-internal mechanism with or without ViT free.
+- **Threefold-convergent claim "the fix is LLM-internal":** (1) behavioral `llm_only≈full`; (2) ablative —
+  freezing ViT (Δ=0) costs nothing; (3) mechanistic — in `full` the ViT moved 3.66e-4 but it's epiphenomenal,
+  LLM edit unchanged. Lever = LLM readout, not the encoder. Needs only `vit_only ≪` to complete H.
+
 ### 10.1 Weight-delta — Condition 1 (full), 2026-06-29 ✅
 *(Full explanation: FINDINGS.md Parts 2–5. Headline only here.)*
 - **The RL weight change is tiny: mean rel_fro ≈ 5e-4 = 0.05%** (LLM), max 0.1%. Yet accuracy went

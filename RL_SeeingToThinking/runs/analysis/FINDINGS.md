@@ -289,6 +289,48 @@ not *what that movement did to the model's internal perception*. Testing re-surf
 
 ---
 
+<a name="part-3b"></a>
+## Part 3b — RESULT #1b: Weight-delta on Condition 2 (llm_only), + the freeze proof, 2026-06-29
+
+We ran the identical weight-delta on Condition 2 (`llm_only`: ViT frozen, LLM trainable). Two payoffs:
+
+### 3b.1 The gold-standard freeze proof — `vision rel_fro = 0.000e+00` (exactly)
+| component | mean rel_fro | max rel_fro | n |
+|---|---|---|---|
+| **vision** | **0.000e+00** | **0.000e+00** | 315 |
+| llm | 5.01e-04 | 1.18e-03 | 397 |
+| embed | 3.41e-04 | — | 1 |
+
+Every one of the 315 vision tensors is **bit-identical to base** — *exactly* zero, mean and max. This is the
+mathematical proof the ViT was truly frozen: `freeze_vision_tower=true` sets `requires_grad=False`, the
+optimizer never touches those params, so the saved values equal base bit-for-bit → `Δ=0` exactly. The LLM,
+meanwhile, moved (5.0e-4). Combined with the config-equivalence and behavioral checks (RESULTS.md §11 / the
+3-layer verification), Condition 2 is validated on **all three layers — config, behavior, and weights.**
+
+### 3b.2 The two conditions have a near-identical edit fingerprint
+| band | **full** mlp/attn | **llm_only** mlp/attn |
+|---|---|---|
+| early | 1.59× | 1.61× |
+| mid | 1.40× | 1.41× |
+| late | 1.37× | 1.38× |
+
+The MLP-vs-attention localization is **essentially the same with or without the ViT free to move**. This
+tightens the story into a clean, threefold-convergent claim that *the perception fix is LLM-internal*:
+1. **Behavioral** — `llm_only` accuracy (0.749) ≈ `full` (0.746).
+2. **Ablative** — freezing the ViT (zero weight change) costs zero accuracy → the ViT's contribution is
+   *dispensable*.
+3. **Mechanistic** — in `full` the ViT *did* move a little (3.66e-4) but that movement was **epiphenomenal**:
+   removing it entirely leaves the LLM's MLP-biased, depth-uniform edit nearly unchanged (the LLM just moves a
+   hair more, 4.86e-4 → 5.01e-4, to compensate). The S5 trajectory is likewise near-identical.
+
+**Interpretation for the methodology:** the lever is in the **LLM's readout**, not the visual encoder — the
+encoder already encodes enough; what changes is how the LLM *reads* it. This is exactly the "re-access, not
+re-representation" thesis, now supported from three independent angles, and it tells us *where* a future
+intervention (model-edit or re-inspection tool-call) should act. The full hypothesis **H**
+(`llm_only ≈ full ≫ vit_only`) needs only Condition 3 (vit_only) to be *much worse* to complete.
+
+---
+
 <a name="part-4"></a>
 ## Part 4 — Honest caveats & limitations of this specific result
 
@@ -302,10 +344,9 @@ A professional presentation states these up front:
 2. **rel_fro is averaged unweighted across tensors.** A large matrix and a small one count equally in the
    mean. A parameter-count-weighted version (weight each tensor by its number of entries) answers a slightly
    different question ("where did the most *total* movement go") and is worth reporting alongside.
-3. **This is the `full` condition only.** The real S2 story needs the **three conditions overlaid**
-   (`full`, `llm_only`, `vit_only`). Those runs also serve as the **weight-level freeze proof**: `llm_only`
-   must show vision rel_fro ≈ 0, `vit_only` must show llm rel_fro ≈ 0. Until then, the freeze is only
-   confirmed behaviorally (log message + param counts + grad norms), not yet at the weight level.
+3. **Two of three conditions done (`full`, `llm_only`); `vit_only` pending.** The full S2 story needs all
+   three overlaid. `llm_only` is now in (Part 3b) and gave the weight-level freeze proof (vision rel_fro = 0).
+   `vit_only` (expect llm rel_fro ≈ 0) completes the freeze-proof pair and the H ablation.
 4. **Correlation, not causation.** Weight-delta shows *where the weights moved*. It does **not** show that
    moving the MLPs is what *caused* the perception gain. The senior's S3 graft test (`module_graft.py`) —
    write only-MLP deltas onto the base and see if perception recovers — is what establishes causation. That
