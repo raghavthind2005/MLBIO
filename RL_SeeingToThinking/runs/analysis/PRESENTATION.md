@@ -273,11 +273,34 @@ prediction** of ours (late-MLP did *not* dominate) — intellectual honesty that
 - **The residual-direction reconciliation (§5) is a hypothesis** consistent with the data, not yet directly proven.
 - Single model (4B), single seed, Stage-1-only — a mechanism study, not a 1:1 reproduction of the paper.
 
-## 9. What's next
+## 9. The bridge to the real goal — *are the better representations re-usable?*
+
+The program's actual question is not "how does RL change weights," but: **can we find internal representations
+that make the model understand better, and re-use them — e.g. in a mid-reasoning tool-call — to improve
+accuracy on demand?** Everything above establishes the *premise* of that idea, but in the wrong *space*:
+
+- **What we've shown (weight-space):** RL finds a tiny, LLM-internal edit that produces a **more
+  answer-decodable late-layer representation** (depth probe: 0.37 → 0.66). The "good understanding" the model
+  acquires lives in *how the answer-bearing tokens are represented in the late layers.*
+- **What the goal needs (representation-space):** to use this in a tool-call, the improvement must be a
+  **representation we can *extract* and *re-inject* at inference** — not just something baked into weights.
+
+**The bridge experiment: activation patching / steering.** Take the **difference in the residual stream**
+between the trained and base models at the late layers (the "good direction" RL found), and **inject it into
+the base model at inference**. Then measure accuracy:
+- **Per-item patching** (copy trained's late representation into base) → *is the late representation the
+  carrier of the answer?* (upper bound on what representation-injection can recover).
+- **A fixed steering vector** (the mean trained−base difference) → *is there a portable direction a tool could
+  deploy?* (the deployable artifact).
+
+**If accuracy recovers, the better representation is portable** — extractable and re-injectable — which is
+exactly the substrate a re-inspection tool-call would exploit. This is the experiment that turns "RL found a
+better representation" into "we can *use* that representation later to improve accuracy." (Caveat from §5: the
+cause is *distributed and synergistic*, so single-point injection may recover only part of the gain — the
+layer sweep quantifies how much, and even partial recovery is informative.)
+
+## 10. Remaining loose ends
 - Close the freeze ablation with **vit_only** (training only the vision tower — expected to recover little),
-  and its weight-level freeze proof.
+  plus its weight-level freeze proof.
 - **Finer layer-band grafts** to map the distribution precisely and test the §5 mechanism.
 - **Tuned lens** for a clean mid-stack readout.
-- The downstream vision: a *tool-call to re-inspect the image* mid-reasoning is the on-demand analog of this
-  always-on weight fix; these results locate *where* (the LLM's late readout) and prove *recoverability* —
-  de-risking that design.

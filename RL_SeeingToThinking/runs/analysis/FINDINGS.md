@@ -592,6 +592,51 @@ a little on direct perception.
 
 ---
 
+<a name="part-10"></a>
+## Part 10 — The bridge to the contribution: are the better representations RE-USABLE? (planned)
+
+### 10.1 Why this is THE experiment for the program's goal
+The program's real question is not "how does RL change weights," but: *can we find internal representations
+that make the model understand better, and **re-use** them (in a mid-reasoning tool-call) to improve accuracy
+on demand?* Parts 2–9 establish the premise but in **weight-space**; the goal lives in **representation-space**.
+
+What we have: the depth probe (Part 8) directly *measures representations* and shows RL produces a **more
+answer-decodable late-layer representation** (0.37 → 0.66). So RL *does* find a "better-understanding"
+representation of the answer-bearing tokens. What's missing: proof that this improvement is a representation we
+can **extract and re-inject at inference**, rather than only baked into weights. That portability is exactly
+what a tool-call would exploit.
+
+### 10.2 The method — activation patching / steering (representation-space causal test)
+Run base and trained models on the same items; at the late layers, take the **residual-stream difference**
+(trained − base) at the answer position, and **inject it into the base model at inference**. Two variants:
+- **Per-item patching** — replace base's residual at layer L (answer position) with the *trained model's*
+  residual, let base's remaining layers process it, read the answer. Sweep L. → *Is the late representation the
+  carrier of the answer, and from which depth?* (Upper bound on representation-injection recovery; a causal
+  mediation test — interchange intervention.)
+- **Portable steering vector** — `v_L = mean_items(trained_resid_L − base_resid_L)`; add `α·v_L` to base's
+  residual at L for held-out items. → *Is there a single, fixed direction a tool could deploy?* (The deployable
+  artifact closest to the tool-call.)
+
+Metric: the same DOCCI MC probe (base no-patch 0.377 vs patched vs trained 0.657). **If patched accuracy climbs
+toward 0.657, the better representation is portable** → the substrate for a re-inspection tool-call exists, and
+"RL found a better representation" becomes "we can *use* it later to improve accuracy."
+
+### 10.3 Predictions & caveats
+- From Part 8: patching from **layer ~24+** should recover a large share (that's where the trained/base curves
+  diverge); patching only very late (≈35) is trivial (it's already the output rep).
+- From Part 9 (distributed, synergistic cause): a single-point injection may recover only **part** of the gain;
+  the layer sweep quantifies how much. Even partial recovery is informative (the representation is *partly*
+  portable, and we learn from where).
+- Per-item patching needs the *trained* model at inference (mechanistic proof); the steering vector is the
+  deployable form (does not need the trained model at deploy time).
+
+### 10.4 Implementation plan → `activation_patch.py`
+Reuses `ckpt_model` (load base + trained), `mc_eval`/`docci_data` (the probe), and forward hooks on the LLM
+decoder layers to capture (trained) / overwrite (base) the answer-position hidden state. Sweep the patch layer;
+report accuracy vs layer for: base, per-item-patch@L, steering@L, full-trained. See `EXPERIMENT2_PLAN.md`.
+
+---
+
 <a name="part-6"></a>
 ## Part 6 — The next two analyses, explained from scratch (depth_probe + module_graft)
 
