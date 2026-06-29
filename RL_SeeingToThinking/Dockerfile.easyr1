@@ -1,0 +1,62 @@
+# EasyR1-matched FSDP + vLLM image for SwissAI Clariden (GH200 / aarch64).
+#
+# Adapted from the supervisor's verl image, repinned to EasyR1's known-good
+# stack — the combo already proven on this cluster by ce-images/vllm011.sqsh:
+#     torch 2.9.0+cu129 · vLLM 0.11.2 · transformers 4.57.3
+# (transformers 4.57 is the sweet spot: >=4.57 for Qwen3-VL, <5.0 for EasyR1.)
+#
+# flash-attn is built from source (training needs it; the inference image lacks it).
+# The `verl` import namespace is deliberately left EMPTY — EasyR1 is cloned to
+# scratch and mounted at runtime via PYTHONPATH, so it owns `verl` then.
+
+ARG CUDA_VERSION=12.9.1
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu24.04
+
+ARG PYTHON_VERSION=3.12
+ARG TRANSFORMERS_VERSION=4.57.3
+ARG VLLM_VERSION=0.11.2
+ARG FLASH_ATTENTION_VERSION=2.8.3
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PIP_NO_CACHE_DIR=1
+
+# PEP 668: Ubuntu 24.04 blocks system-wide pip installs; override for Docker.
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
+RUN apt-get update && apt-get install -y \
+    git wget curl cmake build-essential \
+    libibverbs-dev libnuma-dev librdmacm-dev numactl \
+    software-properties-common vim ffmpeg \
+    python${PYTHON_VERSION} python${PYTHON_VERSION}-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget https://bootstrap.pypa.io/get-pip.py && \
+    python${PYTHON_VERSION} get-pip.py && rm get-pip.py
+RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
+    ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python
+
+RUN pip install uv pybind11 wheel ninja packaging "setuptools<70.0.0"
+
+# --- vLLM 0.11.2: uv selects the matching torch 2.9.0+cu129 aarch64 wheel ---
+# (mirrors how the infra image installs vLLM on ARM; --torch-backend handles torch)
+RUN uv pip install --system --break-system-packages vllm==${VLLM_VERSION} --torch-backend=cu129
+
+# --- flash-attn from source against the torch vLLM just installed ---
+RUN export FLASH_ATTENTION_FORCE_BUILD="TRUE" && \
+    MAX_JOBS=16 pip install --no-build-isolation flash_attn==${FLASH_ATTENTION_VERSION}
+
+# --- pin transformers to EasyR1's range (proven 4.57.3) ---
+RUN pip install transformers==${TRANSFORMERS_VERSION}
+
+# --- EasyR1 / verl runtime dependencies (NOT verl itself — mounted at runtime) ---
+RUN pip install \
+    "ray[default]" tensordict torchdata \
+    codetiming mathruler pylatexenc \
+    liger_kernel qwen-vl-utils==0.0.14 \
+    omegaconf peft accelerate datasets \
+    wandb pyarrow pandas pillow numpy \
+    nvtx matplotlib cachetools pytest-asyncio
+
+# torchcodec for VLM video decoding (matched to cu129; non-fatal if unavailable)
+RUN pip install torchcodec --index-url=https://download.pytorch.org/whl/cu129 || true
+
+WORKDIR /opt
