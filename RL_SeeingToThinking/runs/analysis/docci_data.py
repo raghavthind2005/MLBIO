@@ -36,7 +36,7 @@ _OPT_RE = re.compile(r"(?m)^\s*([A-F]):\s")
 
 
 def load_docci_items(jsonl_path: str, image_dir: str,
-                     n_sample: int = None, seed: int = 1) -> list[MCItem]:
+                     n_sample: int = None, seed: int = 1) -> list:
     rows = []
     with open(jsonl_path) as f:
         for line in f:

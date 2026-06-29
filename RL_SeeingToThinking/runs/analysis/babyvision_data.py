@@ -49,7 +49,7 @@ def build_prompt(item: dict) -> str:
     return item["question"] + "\nChoices:\n" + format_choices(item["options"]) + PROMPT_INSTRUCTION
 
 
-def load_mc_items(data_dir: str) -> list[MCItem]:
+def load_mc_items(data_dir: str) -> list:
     meta = os.path.join(data_dir, "meta_data.jsonl")
     assert os.path.isfile(meta), f"meta_data.jsonl not found in {data_dir}"
     items = []
@@ -77,7 +77,7 @@ def load_mc_items(data_dir: str) -> list[MCItem]:
     return items
 
 
-def option_letters(n: int) -> list[str]:
+def option_letters(n: int) -> list:
     return [chr(65 + i) for i in range(n)]
 
 
