@@ -132,3 +132,7 @@ def main():
             if m in by:
                 rec = (by[m] - by["base"]) / gain if gain else float("nan")
                 print(f"  {m:10s}: acc={by[m]:.4f}  recovers {rec*100:5.1f}% of the full gain")
+
+
+if __name__ == "__main__":
+    main()
