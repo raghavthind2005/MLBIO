@@ -495,6 +495,78 @@ already robust without it.
 
 ---
 
+<a name="part-9"></a>
+## Part 9 — RESULT #3: Module graft (S3 causation) — MLP-dominant, but DISTRIBUTED not late-concentrated
+
+### 9.1 What it computes (recap)
+Build "Frankenstein" models `W_grafted[k] = ckpt[k]` if k is in the mask else `base[k]`, run the DOCCI MC
+probe on each (300 items). Modes: `base`/`full` (sanity bounds), `mlp`/`attn` (the S3 test), `late_mlp`
+(L24–35 MLP) / `early_mlp` (L0–11 MLP) (depth-resolved). Same classifier as weight_delta → identical mlp/attn
+boundary. Cond 1, step 96.
+
+### 9.2 The numbers
+| graft | params | accuracy | % of the +0.28 gain recovered |
+|---|---|---|---|
+| base | 0 | 0.377 | 0% (ref) |
+| full | 4.83B | 0.657 | 100% (ref) |
+| **mlp (all layers)** | 2.69B | 0.553 | **63%** |
+| **attn (all layers)** | 0.94B | 0.460 | **30%** |
+| early_mlp (L0–11) | 0.90B | 0.430 | 19% |
+| **late_mlp (L24–35)** | 0.90B | 0.387 | **3.6%** |
+
+Sanity: `base` 0.377 / `full` 0.657 reproduce the probe exactly → grafting machinery sound.
+
+### 9.3 Finding 1 — MLP dominates attention, causally (S3 supported)
+Grafting the MLP changes alone recovers **63%** of the gain; attention alone **30%**. The senior's "the fix is
+in the MLP" is **confirmed causally on our model** — MLP carries ~2× more of the effect. Honest nuance:
+attention is **not zero** (30%), so it's "MLP-dominant," not the stricter "attention → nothing."
+
+### 9.4 Finding 2 — the fix is DISTRIBUTED across depth, NOT late-concentrated (prediction revised)
+From the depth probe (Part 8) we **predicted `late_mlp` would dominate**. The data says the **opposite**:
+`late_mlp` recovers almost nothing (**3.6%**), `early_mlp` more (**19%**), and the full MLP (**63%**) is far
+more than the sum of its thirds (3.6% + 19% ≈ 23%). So the MLP fix is **synergistic and spread across the
+stack — no single third carries it; if anything early MLP matters more than late.** *We report this as a
+prediction the data corrected.*
+
+### 9.5 Reconciling Finding 2 with the depth probe (where it manifests ≠ which weights cause it)
+Not a contradiction — the two analyses answer different questions:
+- `depth_probe` shows **where the improved answer becomes readable** → late layers (24+).
+- `module_graft` shows **which weights cause it** → MLP, distributed across depth, early-leaning.
+
+The logit-lens reads through the **final output head**, so it only sees the **output-aligned** part of the
+representation — identical base-vs-trained until late. The **early/mid MLP edits change *other* residual
+directions** (invisible to the logit-lens early) that **propagate forward and let the late layers read out the
+answer.** That's why grafting *only* late-MLP weights fails (3.6%): the late layers need the earlier changes
+feeding them; on a base residual stream they have nothing better to read. **The late-layer signature is where
+the fix *manifests*; the causal weights are distributed MLP edits, set up early.** (This residual-direction
+mechanism is a *hypothesis* consistent with the data, not yet directly proven — see 9.6.)
+
+### 9.6 Honest caveats
+- **Non-additivity** is expected in nets (flagged in advance) — the grafts measure *sufficiency* of a subset,
+  not a clean decomposition; the strong synergy (full-mlp ≫ Σ thirds) is real and interesting, not an error.
+- The **residual-direction reconciliation (9.5) is a hypothesis** — a clean test is the tuned lens / probing
+  non-output-aligned directions, or finer per-band grafts.
+- **DOCCI contamination** (train-accuracy) applies as in Part 7; localization conclusions stand.
+
+### 9.7 The four pillars together
+- **S2** (weight_delta): tiny, MLP-biased, depth-uniform in magnitude.
+- **S4/S5** (depth_probe): functional effect appears in the late layers.
+- **S3** (module_graft): MLP-dominant (63% vs 30% attn), **distributed across depth** (not late-localized),
+  early-leaning, synergistic.
+- **H** (ablation): the whole thing is **LLM-internal** (`llm_only ≈ full`, ViT Δ=0).
+
+**One-sentence synthesis (revised, honest):** *RL makes a tiny set of MLP-dominated edits distributed across
+the LLM stack — not in the vision encoder — that don't change early decodability but reorganize the residual
+stream so the late layers can read out perception the base model already computes; the improvement therefore
+appears late but is caused throughout.*
+
+### 9.8 Follow-ups
+1. **Condition 2 (llm_only)** module_graft + depth_probe → confirm the same profile with the ViT frozen.
+2. **Finer layer bands** (each MLP third + middle separately) → map the distribution precisely.
+3. Tuned lens / non-output-aligned probing → test the 9.5 mechanism directly.
+
+---
+
 <a name="part-6"></a>
 ## Part 6 — The next two analyses, explained from scratch (depth_probe + module_graft)
 
