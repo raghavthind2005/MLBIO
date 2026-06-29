@@ -380,6 +380,62 @@ A professional presentation states these up front:
 
 ---
 
+<a name="part-7"></a>
+## Part 7 — Building the perception probe: the babyVision→DOCCI pivot (a methods result)
+
+Before `module_graft`/`depth_probe` can localize the perception fix, we need a **probe** — a
+deterministic perception accuracy on a fixed item set — that can actually *see* the RL improvement.
+
+### 7.1 The MC probe mechanism
+Take multiple-choice perception items. For each, feed image+question+lettered options, run **one
+forward pass**, read the logits at the answer position **restricted to the option-letter tokens**
+(A/B/C/D), argmax → predicted letter, compare to gold. Deterministic, judge-free, no generation. This is
+a **direct-perception** measure (no reasoning) — the perception-not-reasoning axis of the thesis.
+
+### 7.2 babyVision failed — and that's a finding, not a bug
+First probe set = babyVision (388 vision-primitive items, 135 MC). Result:
+
+| model | babyVision MC |
+|---|---|
+| base | 32.6% |
+| trained (Cond 1) | 33.3% |
+
+**No detectable improvement** — yet Cond 1 demonstrably doubled DOCCI perception. Diagnosis: not a broken
+probe (the DOCCI training data is *native direct-answer MC* — "respond using only the letter" — so reading
+the first-token letter is exactly how the model answers; the probe design is correct). The cause is
+**out-of-distribution**: babyVision ≠ DOCCI. **Result worth stating:** *the Stage-1 perception gain is
+distribution-specific — it does not transfer to babyVision's adversarial vision-primitives.* (Relevant to
+"is RL learning general perception or a distribution-specific readout?" — evidence leans toward the latter,
+consistent with the small, localized weight edit of Part 3.)
+
+### 7.3 The pivot: DOCCI (in-distribution) — probe validated
+Switched the probe to a 300-item sample of the **training distribution** (DOCCI perception MCQs), native
+direct-answer format:
+
+| model | DOCCI MC (direct probe) |
+|---|---|
+| base | **0.377** (113/300) |
+| trained (Cond 1) | **0.657** (197/300) |
+| **gap** | **+0.28** |
+
+The probe is **validated**: (1) it sees a 28-point gain; (2) base 0.377 ≈ the training reward's start
+(0.365) → calibrated; (3) base is *below* the 49% always-B majority while trained is well above → no
+position-bias artifact. There is now a large, real gain for `module_graft` (S3) and `depth_probe` (S4/S5)
+to localize.
+
+**Contamination caveat (stated, not hidden):** the model trained on DOCCI, so trained-model numbers are
+*train-accuracy*. For **localization** (which weights/layers carry the competence) this is fine — base
+numbers are uncontaminated, and we're dissecting the learned mechanism, not claiming generalization. The
+babyVision result already shows generalization is limited.
+
+### 7.4 Probe code (all in `runs/analysis/`)
+`babyvision_data.py` / `docci_data.py` (loaders → shared `MCItem`), `probe_loader.py` (dataset dispatch,
+default DOCCI), `ckpt_model.py` (load base + reconstruct ckpt from FSDP shards in-memory, no merge; conv→matmul
+patch for fast vision forward), `mc_eval.py` (the probe + `run_mc_probe` reused by module_graft),
+`probe_debug.py` (top-k next-token + greedy-gen diagnostic).
+
+---
+
 <a name="part-6"></a>
 ## Part 6 — The next two analyses, explained from scratch (depth_probe + module_graft)
 
