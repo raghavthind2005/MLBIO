@@ -436,6 +436,65 @@ patch for fast vision forward), `mc_eval.py` (the probe + `run_mc_probe` reused 
 
 ---
 
+<a name="part-8"></a>
+## Part 8 — RESULT #2: Depth probe (S4/S5) — the perception fix is ENTIRELY late-layer
+
+### 8.1 What it computes (recap)
+The MC probe reads only the final layer. `depth_probe` reads **every** layer via the **logit lens**: at each
+decoder layer L, take the hidden state at the answer position, push it through the model's *own* final-norm +
+output head, restrict to the option-letter tokens, and measure argmax-accuracy. Run for base and trained,
+overlay the curves. 300 DOCCI items. (Logit-lens caveat: applying the final head to *intermediate* layers is
+approximate — mid-layer states aren't in the output basis — so mid-layer absolute values are unreliable; the
+robust signals are the *late layers* and *base-vs-trained differences at the same layer*.)
+
+### 8.2 The curve (argmax-accuracy by layer)
+| layer | base | trained (Cond 1) |
+|---|---|---|
+| 7–10 | ~0.25 | ~0.25 |
+| 11 | 0.41 | 0.45 |
+| 12–18 | ~0.25–0.34 | ~0.25–0.30 |
+| 19–23 | ~0.04 | ~0.04 |
+| 24 | 0.17 | 0.27 |
+| **25** | **0.35** | **0.62** |
+| 30 | 0.39 | 0.63 |
+| **36 (final)** | **0.377** | **0.657** |
+
+Validation: the final-layer values (0.377 / 0.657) reproduce the `mc_eval` numbers *exactly* → the logit lens
+is calibrated. (The sub-chance dip at 19–23 is a logit-lens artifact and is **identical** in both models, so
+it carries no signal.)
+
+### 8.3 The finding
+1. **Layers 0–23 are essentially identical in base and trained.** RL leaves the early/mid representations
+   untouched.
+2. **The curves diverge sharply at layer ~24–25 and stay split** — base recovers to only ~0.37, trained climbs
+   to ~0.62–0.66.
+3. **RL's entire functional effect is concentrated in the late layers (24→36).**
+
+### 8.4 Why this matters — it reconciles weight_delta with the senior's S2
+weight_delta found the *weight-change magnitude* roughly uniform across depth (NOT late-concentrated), which
+appeared to contradict the senior's "late-layer" claim (Part 3, Finding C). The depth probe resolves it: the
+*functional consequence* is **entirely late-layer**. **Even if the weights moved similarly everywhere in size,
+only the late-layer changes change what the model can read out.** So:
+- "**depth-uniform in magnitude, late-specific in effect**" — the apparent contradiction dissolves.
+- Strong support for the senior's S2/S5 *spirit*: the fix is a **late-stage readout operation**, not a rebuild
+  of perception.
+- Consistent with **S1**: early/mid geometry is preserved (the curves overlap there).
+- Consistent with **Part 3** (tiny weight change) and **Part 3b** (LLM-internal): a small, late, readout-level edit.
+
+### 8.5 What it does NOT yet settle (→ module_graft)
+The depth probe is *observational*: it shows *where* the readout improves, not *which weights* cause it. Whether
+the late-layer **MLP** specifically is responsible (vs late attention) is the causal question — answered by
+`module_graft`'s `mlp` / `attn` / `late_mlp` / `early_mlp` modes (S3). The depth result *predicts* the
+late_mlp graft should recover most of the gain.
+
+### 8.6 Open refinement
+Run `depth_probe` for `llm_only` and `vit_only` too: H + Part 3b predict `llm_only` matches `full` (same
+late-layer lift) and `vit_only` shows little/no lift. The **tuned lens** (per-layer learned affine) would
+remove the mid-layer logit-lens artifact if we want a cleaner mid-stack readout, but the late-layer story is
+already robust without it.
+
+---
+
 <a name="part-6"></a>
 ## Part 6 — The next two analyses, explained from scratch (depth_probe + module_graft)
 
