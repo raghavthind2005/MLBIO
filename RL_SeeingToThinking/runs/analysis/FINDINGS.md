@@ -339,4 +339,95 @@ A professional presentation states these up front:
 
 ---
 
+<a name="part-6"></a>
+## Part 6 — The next two analyses, explained from scratch (depth_probe + module_graft)
+
+> One-line framing: **weight_delta** told us the change is small and in the MLPs; **depth_probe** tells us
+> *what that change does to the information inside the model*; **module_graft** tells us *whether that change
+> is what actually caused the fix*. **Correlation → mechanism → causation.**
+
+### 6.1 `depth_probe.py` — "Where does the model SEE, and where does it FORGET?" (tests S4 + S5)
+
+**The method, from scratch.** As the model processes image+question, data flows up through 36 layers. At each
+layer there is a **hidden state** — a vector that is the model's internal "thought" at that depth. We ask: *at
+which layer is the correct perceptual fact actually present?* To measure presence we use a **linear probe** (the
+standard interpretability tool): at layer L, grab the hidden state for many examples, train a **simple linear
+classifier** to predict the correct answer from that hidden state alone. If it succeeds, the info is **linearly
+decodable** at L (present and easily readable); if it fails, the info isn't there or is too tangled. We use a
+*linear* probe on purpose — we want "is it *readily accessible*," not "could a clever model dig it out." Repeat
+at every layer → a curve: **decodability vs. depth.**
+
+**What we expect.**
+- **S4 (base model):** curve rises to a **mid-layer peak then decays toward the top** = *the model figures out
+  the percept mid-way, then loses it before the output layer where it answers.* This is the measurable form of
+  "perception degrades as signal flows up the stack."
+- **S5 (after RL):** the **top-layer decay flattens** — late layers now retain what the base model discarded.
+  With 17 checkpoints we watch the flattening happen *over training* (senior had only base-vs-final).
+
+**Ties to the research:**
+1. **Defines the problem mechanistically** — converts "the model mis-sees" into "answer decodable at layer ~18,
+   gone by layer ~34."
+2. **Validates the "re-access not re-learning" reframe** (our reframe of S1) — if S4 holds, the info was
+   *already computed* by the base model; the goal is recovering access, not teaching it to see.
+3. **Produces the tool-call TRIGGER** — the depth/position where perception dies *is* the signal for *when* a
+   mid-reasoning re-inspection tool-call should fire. This analysis hands the final methodology its control signal.
+
+**Honest implementation note.** babyVision has multiple-choice and open ("blank") answers. Open answers are hard
+to probe cleanly → first cut uses the **multiple-choice subset** with a trained linear probe and/or a
+**logit-lens** readout (project each layer's hidden state through the model's own output head to read the
+answer-token probability at that depth — no probe training, handles all formats). Concept (decodability vs depth)
+is invariant to the choice; the choice will be documented.
+
+### 6.2 `module_graft.py` — "Is the MLP change what CAUSED the fix?" (tests S3)
+
+**The method, from scratch.** weight_delta showed MLPs changed more than attention — but that's *correlation*.
+To prove *causation* we do a **graft** (weight transplant / counterfactual model). Let `Δ = W_trained − W_base`.
+Build Frankenstein models that apply only *part* of Δ:
+- **MLP-graft:** `W_base + Δ` on MLP weights only, rest at base → "what if ONLY the MLPs had trained?"
+- **Attention-graft:** Δ on attention weights only → "what if ONLY attention changed?"
+
+Evaluate each on babyVision accuracy. **Prediction (S3):** MLP-graft recovers most of the gain (≈ trained),
+attention-graft recovers ≈ none (≈ base) → the MLP change is **sufficient** for the perception fix.
+
+**Why causal where weight_delta was correlational.** weight_delta *passively observed* which weights moved.
+module_graft *actively constructs counterfactual models* and measures behavior = an **intervention**, the gold
+standard for causal claims. "the MLPs changed" → "changing the MLPs is what fixed perception."
+
+**A variant important for US.** Our weight_delta found the change MLP-biased but **NOT late-concentrated**. The
+graft can test whether, despite *uniform magnitude* across depth, the **late-MLP change is what *causally*
+matters** (late-MLP-only vs early-MLP-only graft). That would reconcile our divergence as "depth-uniform in size,
+late-specific in effect."
+
+**Ties to the research:**
+1. **Identifies the LEVER** — if MLP-graft works, the perception-fix intervention point is the MLP sub-layers
+   (where to model-edit for the always-on route; what readout the tool-call must influence for the on-demand route).
+2. **Makes the surgical-edit thesis causal** — weight_delta: the edit is *small*; module_graft: the small edit is
+   *sufficient*. Together: "a tiny, transplantable MLP edit roughly doubles perception."
+3. **De-risks the end product** — the tool-call premise is "perception is recoverable by a small localized change."
+   The graft is the direct test of that premise.
+
+**Honest caveat.** Grafting assumes a parameter-subset's effect is somewhat *separable*; interactions mean
+MLP-graft + attn-graft accuracies needn't sum to the full gain. We treat the graft as evidence of *sufficiency*,
+not a perfectly clean decomposition.
+
+### 6.3 The synthesis — how it builds to the methodology
+
+| Step | Analysis | Establishes | Role |
+|---|---|---|---|
+| 1 | weight_delta ✅ | fix is *tiny* + *MLP-biased* | "surgical edit not re-learning" → re-access framing |
+| 2 | depth_probe (S4/S5) | perception computed mid-stack, *lost going up*, RL *re-surfaces* it | **defines problem** + proves info already there + gives **tool-call trigger** |
+| 3 | module_graft (S3) | MLP change *causally* produces the fix | **identifies the lever** (what to edit / route through) |
+| → | synthesis | percept exists but lost up-stack; a tiny causal MLP edit re-surfaces it | the **re-inspection tool-call is the on-demand analog of the weight-fix** — re-inject the image *exactly when* perception fails (the depth-probe decay point) |
+
+The RL runs are not the product — they are the **proof-of-recoverability and the map**: the info is reachable
+(depth_probe), a small localized change suffices (module_graft), and *where/when* it's needed (depth_probe decay).
+That map lets us design the re-inspection tool-call by evidence, not guesswork.
+
+**Shared dependencies for both:** a one-time **merge** of selected checkpoints to standard HF format
+(`merge_checkpoints.py`, wraps `scripts/model_merger.py`) + **babyVision wired as the probe/eval set** (388 items;
+reuse existing babyVision grading for accuracy). depth_probe additionally needs forward-hook activation extraction;
+module_graft needs the generate-and-grade eval harness.
+
+---
+
 *Last updated: 2026-06-29 after Condition-1 weight-delta. This document is appended to as each analysis lands.*
