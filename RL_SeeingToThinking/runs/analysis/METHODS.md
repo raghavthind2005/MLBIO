@@ -221,6 +221,14 @@ handled tensor-safe). Three hooks:
 - **patch**: `out[0][:, -1, :] = vec` (overwrite with the trained residual; return modified output).
 - **steer**: `out[0][:, -1, :] += α·vec` (add a fixed direction).
 
+**The role of `α` (steering only):** `α` is a scalar *dose* on the steering vector. Because `v_L` is an
+**average** of per-image nudges, opposing components cancel → the mean is **smaller** than a typical individual
+nudge, so `α>1` compensates by pushing further along the trained direction. There's no a-priori-correct
+magnitude (too small = no effect; too large = overshoot/hurts — e.g. early-layer α=4 went negative), so we
+**sweep `α∈{1,2,4}`** and report the best. The **patch has no α** — it *replaces* the residual with the exact
+trained vector, so no scaling is needed. (This asymmetry is part of the "input-specific" result: the patch
+needs no tuning; the fixed vector needs a knob and still caps at ~40%.)
+
 Returning the modified output from the hook replaces what flows to layer L+1. (We run under `torch.no_grad()`.)
 
 ### H.3 The phased procedure (memory-safe; one model at a time)
