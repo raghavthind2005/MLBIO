@@ -31,12 +31,12 @@
 
 ## Slide 3 — Background: the senior's observation = our starting hypotheses
 **[ON SLIDE]** *(attribute clearly)*
-- **[SENIOR]** compared the paper's **base vs. fully-trained** checkpoints and observed:
-  - **S1** representation geometry / modality gap **unchanged** (a control)
-  - **S2** weight change **tiny, concentrated in late-layer MLPs**, not attention
-  - **S3** grafting **only MLP** deltas → perception ↑; **only attention** → nothing
-  - **S4** in the base model, perception is decodable **mid-stack, lost toward the top**
-  - **S5** *(the hypothesis proper)* the late-MLP edit **re-surfaces** mid-layer perception the upper layers were destroying
+- **[SENIOR]** compared the paper's **base vs. fully-trained** checkpoints and proposed five claims:
+  - **S1 — "Not a new representation" (control).** The model's internal *map* of concepts — how image- and text-features sit in vector space, and the gap between them — is **unchanged** before vs. after RL. So RL didn't reshape *how* the model represents the world; the fix is something narrower.
+  - **S2 — "A tiny edit, in the MLPs" (where).** The weights barely move, and the little that moves sits in the **MLP / feed-forward blocks** (the feature-readout machinery) of the **upper layers** — **not** in attention (the cross-token routing).
+  - **S3 — "The MLP edit is what fixes it" (cause).** Transplant **only the MLP** changes onto the untrained model → perception **improves**; transplant **only attention** → **nothing**. The MLP change is *sufficient*.
+  - **S4 — "The model already sees, then forgets" (precondition).** Even the **untrained** model figures out the right percept around its **middle** layers — but it **fades toward the top**, so by the output it's gone. The information is computed mid-stack and lost before it's used.
+  - **S5 — "Re-access, not re-learning" (the mechanism, his core hypothesis).** RL's late-MLP edit adds **no new information** — it **rescues** the mid-layer perception the upper layers were discarding, surfacing it at the output. *The model could always see; RL lets it keep seeing.*
 - **[OURS]** test these **on our own model**, **across training**, and **under controlled freezes** — reproduce *and* extend.
 
 **[SAY]** "These five claims are my supervisor's — from a two-point (base vs final) analysis on the paper's released 8B model. They're my starting hypotheses. My contribution is to test them prospectively: on our own 4B model, across the whole training trajectory, and with controlled experiments he didn't run."
