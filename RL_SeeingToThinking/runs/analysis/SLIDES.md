@@ -69,17 +69,21 @@
 
 ---
 
-## Slide 6 — Finding 1: the change is *tiny* and MLP-biased  (tests S2)
+## Slide 6 — Finding 1: RL barely moved the weights — and what moved was the MLPs  (tests S2)
 **[ON SLIDE]**
-- Method: for each of 713 weight matrices, **relative change** `‖W_trained − W_base‖_F / ‖W_base‖_F`.
-- **Mean ≈ 0.05%.** Largest single matrix: 0.1%. (`cos ≈ 1` — nudged, not rebuilt.)
-- **MLP matrices moved ~1.4–1.6× more than attention**, at every depth.
+- **Question:** did training *overhaul* the model, or barely touch it — and *where*?
+- **How:** for each of the model's **713 weight-matrices**, measure how far it moved during training, **as a % of its own size** (so big and small matrices are comparable).
+- **Answer: it barely moved — ~0.05% on average** (most-changed matrix: 0.1%). The model was **nudged, not rewritten** (direction essentially unchanged).
+- The little that moved was **MLP-biased**: the **feed-forward ("what it knows") blocks moved ~1.4–1.6× more than attention ("what it looks at")**, at every depth.
 
-| LLM module | early | mid | late |
+| LLM block | early layers | mid | late |
 |---|---|---|---|
-| MLP / attn ratio | 1.59× | 1.40× | 1.37× |
+| how much MLP moved vs attention | **1.59×** | 1.40× | 1.37× |
 
-**[SAY]** "First measurement: how far did the weights move? I rebuild each weight from the 4 GPU shards and take the Frobenius norm of the change, normalized — 'what fraction of itself did the matrix move?' Answer: **0.05%.** A 0.05% nudge nearly doubled accuracy. That's the 'surgical edit' picture — and it's *expected*: lr is 1e-6 and there's a KL leash to base. The change is MLP-biased, matching the senior's S2 in *direction*."
+- **Headline: a 0.05% weight change ≈ *doubled* perception.** → a tiny, targeted edit — not a rebuild.
+- *(Honest note for later: the MLP-bias is roughly **uniform** across depth — not concentrated in the late layers as the senior's S2 predicted. We return to why on Slides 9–10.)*
+
+**[SAY]** "First question: did RL overhaul the model, or barely touch it? For every one of the 713 weight-matrices I measured how far it moved — as a fraction of its *own* size, so a giant matrix and a tiny one are on the same scale. The answer is striking: about **0.05%**. The weights are essentially where they started — yet that 0.05% nudge nearly *doubled* perception accuracy. That's the 'surgical edit, not a rebuild' picture, and it's exactly what our setup predicts: a tiny learning rate plus a leash keeping the model close to its starting point. And the little that *did* move was concentrated in the **MLP** — the feed-forward, 'knowledge-readout' part — about 1.5× more than attention. That matches the senior's S2 *in direction*. One honest caveat I'll come back to: the MLP-bias is uniform across depth, not piled up in the late layers like he found — and the resolution of that, on Slides 9–10, turns out to be the most interesting part of the talk."
 
 ---
 
