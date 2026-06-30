@@ -82,6 +82,7 @@
 
 - **Headline: a 0.05% weight change ≈ *doubled* perception.** → a tiny, targeted edit — not a rebuild.
 - *(Honest note for later: the MLP-bias is roughly **uniform** across depth — not concentrated in the late layers as the senior's S2 predicted. We return to why on Slides 9–10.)*
+- **[condition]** *full (Cond 1); **replicated in llm_only** — same MLP-bias (1.61/1.41/1.38) with the ViT frozen, so the edit is genuinely LLM-internal. N/A for vit_only (LLM frozen).*
 
 **[SAY]** "First question: did RL overhaul the model, or barely touch it? For every one of the 713 weight-matrices I measured how far it moved — as a fraction of its *own* size, so a giant matrix and a tiny one are on the same scale. The answer is striking: about **0.05%**. The weights are essentially where they started — yet that 0.05% nudge nearly *doubled* perception accuracy. That's the 'surgical edit, not a rebuild' picture, and it's exactly what our setup predicts: a tiny learning rate plus a leash keeping the model close to its starting point. And the little that *did* move was concentrated in the **MLP** — the feed-forward, 'knowledge-readout' part — about 1.5× more than attention. That matches the senior's S2 *in direction*. One honest caveat I'll come back to: the MLP-bias is uniform across depth, not piled up in the late layers like he found — and the resolution of that, on Slides 9–10, turns out to be the most interesting part of the talk."
 
@@ -116,6 +117,7 @@ argmax-accuracy (logit-lens) vs. LLM layer
 ```
 - Both curves **identical through layer 23**; **diverge sharply at L24**; trained sustains ~0.62–0.66, base ~0.37.
 - Final-layer values (0.377 / 0.657) **exactly match the real probe** → method calibrated.
+- **[condition]** *full vs base; **replicated in llm_only** (same L24 divergence, final 0.593). Not run on vit_only.*
 
 **[SAY]** "Now *where* in the 36 layers. I use the 'logit-lens': take each layer's internal state and push it through the model's own output head — 'if forced to answer here, would it be right?' Early and middle layers are *identical* in base and trained — RL changes nothing there. They split hard at layer 24: the trained model reads the answer out in the *late* layers; the base model never recovers it. This is the depth signature of the fix."
 
@@ -135,6 +137,7 @@ late_mlp  █                                          3.6%
 ```
 - Method: build base **+ only this subset of trained weights**, measure perception (a *causal* test).
 - MLP ≫ attention (63 vs 30%) → **MLP-dominant** (supports S3). But **`late_mlp` 3.6% ≪ `early_mlp` 19%** → **distributed**, not late-localized.
+- **[condition]** *full (Cond 1); **replicated in llm_only** — near-identical grafts (mlp 0.55/0.55, attn 0.46/0.46). N/A vit_only (LLM frozen).*
 
 **[SAY]** "To get *causation*, not correlation, I transplant only part of the trained weights onto the base model and measure. MLP recovers about twice what attention does — the fix is MLP-dominant, confirming the senior's S3. But here the data **corrected my prediction**: I expected the *late* MLP to carry it; instead late-MLP recovers almost nothing and the effect is spread across the stack, synergistically. I'll show why that isn't a contradiction."
 
@@ -170,6 +173,7 @@ steering vector (single fixed direction): best ≈ 40%
 ```
 - **Per-item patch at L24 → 82% recovery.** The improvement is a **portable representation**.
 - **A fixed steering vector caps at ~40%** → the representation is **input-specific**.
+- **[condition]** *full only — **not yet replicated** across conditions (planned follow-up: `activation_patch llm_only`). Disclose this.*
 
 **[SAY]** "The capstone, and the bridge to a method. I capture the trained model's layer-24 state and inject it into the *base* model — base recovers 82%. So the 'better understanding' is a representation you can extract and re-inject. But a single *averaged* direction only gets ~40% — meaning the useful representation is **input-specific**, different per image. The sanity check (injecting base into itself reproduces base exactly) confirms the method is sound."
 
