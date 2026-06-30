@@ -66,20 +66,25 @@ def fig_graft():
     fig.tight_layout(); fig.savefig(f"{OUT}/fig_graft.png"); plt.close(fig)
 
 
-# ── Fig 3 (Slide 11): activation patch — recovery vs patch layer + steer ceiling ─
+# ── Fig 3 (Slide 11): activation patch — per-item patch vs fixed steering, by layer ─
 patch_layers = [8, 12, 16, 20, 24, 28, 32, 35]
-patch_recov  = [0, 0, 1, 11, 82, 93, 99, 100]
+patch_recov  = [0, 0, 1, 11, 82, 93, 99, 100]      # per-item patch (oracle residual)
+steer_recov  = [-2.4, 0, 1.2, 7.1, 26.2, 29.8, 34.5, 39.3]  # fixed steering vector, best alpha (=4)
 def fig_patch():
     fig, ax = plt.subplots(figsize=(7.5, 4.2))
-    ax.plot(patch_layers, patch_recov, "-o", color=C_TRAIN, ms=6, label="per-item patch (inject trained residual)")
-    ax.axhline(40, color=C_ATTN, ls="--", lw=1.5, label="best fixed steering vector (~40%)")
+    ax.plot(patch_layers, patch_recov, "-o", color=C_TRAIN, ms=6,
+            label="per-item patch (inject trained residual)")
+    ax.plot(patch_layers, steer_recov, "-s", color=C_ATTN, ms=5,
+            label="fixed steering vector (best α=4)")
     ax.axvline(24, color="k", ls="--", lw=1, alpha=0.5)
-    ax.annotate("82% at L24", xy=(24, 82), xytext=(15, 88),
+    ax.annotate("82% at L24", xy=(24, 82), xytext=(14, 86),
                 arrowprops=dict(arrowstyle="->", color="k"), fontsize=11)
-    ax.set_xlabel("inject trained representation at LLM layer L")
+    ax.annotate("steering tops out ~40%", xy=(35, 39), xytext=(24, 62),
+                arrowprops=dict(arrowstyle="->", color=C_ATTN), fontsize=10, color=C_ATTN)
+    ax.set_xlabel("inject at LLM layer L")
     ax.set_ylabel("% of gain recovered (base→trained)")
-    ax.set_title("Activation patch: representation PORTABLE (≈L24) but INPUT-SPECIFIC")
-    ax.set_ylim(-3, 105); ax.legend(loc="center right")
+    ax.set_title("Activation patch: per-item works (≈full), a fixed vector does NOT (input-specific)")
+    ax.set_ylim(-6, 108); ax.legend(loc="upper left", bbox_to_anchor=(0.02, 0.62))
     fig.tight_layout(); fig.savefig(f"{OUT}/fig_patch.png"); plt.close(fig)
 
 
