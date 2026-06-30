@@ -133,6 +133,8 @@ argmax-accuracy (logit-lens) vs. LLM layer
 
 **🖼 FIGURE: `figures/fig_depth.png`**  *(plot spec: x=layer, y=argmax_acc, base vs trained, marker at L24)*
 
+> **How can a middle layer "pick" one of the 4 answers at all?** The output head turns *any* layer's internal vector into a score for **every** word in the vocabulary. We just look at the scores it assigns the four option-letters (A/B/C/D) and take the highest — so **one of them always "wins," at every layer.** At middle layers that winner is essentially arbitrary (the answer isn't encoded there yet), so it's right only ~25% of the time (chance); at late layers the winner is the true answer, so it's right ~66%. **The curve is simply how often that forced pick is correct, layer by layer.**
+
 ---
 
 ## Slide 9 — Finding 4: **MLP causes it — but distributed, not late-localized**  (tests S3; revises a prediction)
