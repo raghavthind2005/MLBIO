@@ -252,9 +252,24 @@ fidelity is required, pin them explicitly; otherwise accept EasyR1 defaults and 
   Direct behavioral support for "the fix is LLM-internal" + the "re-access, not re-representation" reframe.
 - Full H verdict pending Condition 3: needs `vit_only ≪ llm_only ≈ full`.
 
-### Condition 3 (vit_only, LLM frozen) — *(fill after run)*
-- The decisive test: if training the ViT alone barely helps → H complete (`llm_only ≈ full ≫ vit_only`).
-- Per-condition checkpoints feed the offline analyses (weight-delta MLP-vs-attn, depth-probing).
+### Condition 3 (vit_only, LLM frozen) — job 2647720, 2026-06-30 ✅ COMPLETE
+- **96/96 steps**, clean, **16 checkpoints** → `runs/stage1_vit_only/checkpoints/`.
+- **Final training reward accuracy = 0.443** (base 0.365 → 0.443: a modest +0.078). **DOCCI probe = 0.423.**
+- **Freeze proof (weight-level): `llm mean_rel_fro = 0.000` (all 397 LLM tensors bit-identical to base)**,
+  `vision = 4.1e-4` (ViT trained). Second gold-standard freeze proof (mirror of Cond 2).
+
+### H — the complete freeze ablation (all three conditions)
+| condition | trains | train-reward acc | DOCCI probe | freeze proof |
+|---|---|---|---|---|
+| base | — | 0.365 | 0.377 | — |
+| **full** | ViT+LLM | **0.746** | **0.657** | both > 0 |
+| **llm_only** | LLM | **0.749** | **0.593** | vision = 0 |
+| **vit_only** | ViT | **0.443** | **0.423** | llm = 0 |
+
+**`llm_only ≈ full ≫ vit_only > base`** — confirmed on training reward *and* probe; both freeze proofs exact.
+The perception fix is **overwhelmingly LLM-internal** (llm_only recovers ~100% of the gain; vit_only ~16–20%).
+Honest nuance: the ViT is **not zero** (vit_only > base) — the encoder *can* contribute a little — but the LLM
+dominates. Full per-analysis write-up: `analysis/FINDINGS.md` (Parts 0–12) and `analysis/PRESENTATION.md`.
 
 ## 10. ANALYSES toward the research question
 

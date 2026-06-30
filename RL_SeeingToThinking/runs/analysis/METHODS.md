@@ -103,8 +103,9 @@ merger/patch_embed. `q_norm`/`k_norm` go in the **attn** bucket. "Late layer" = 
 ### C.4 Output & key results
 CSV: `condition, step, key, component, module, layer_idx, n_params, base_fro, abs_fro, rel_fro, mean_abs,
 cos_sim`. **Findings:** mean rel_fro ≈ **5e-4 (0.05%)**, MLP/attn ratio 1.4–1.6× at every depth, roughly uniform
-across depth. **Freeze proof:** `llm_only` → vision rel_fro = **exactly 0.000** (all 315 vision tensors); the
-optimizer never touched them.
+across depth. **Freeze proofs (both exact, mean *and* max = 0):** `llm_only` → vision rel_fro = **0.000** (all
+315 vision tensors); `vit_only` → llm rel_fro = **0.000** (all 397 LLM tensors). The optimizer's
+`filter(p.requires_grad)` never touches frozen params, so the saved weights equal base bit-for-bit → Δ = 0.
 
 ---
 

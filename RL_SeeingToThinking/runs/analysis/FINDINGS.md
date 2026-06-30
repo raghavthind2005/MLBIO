@@ -701,6 +701,39 @@ fix is real but not a single universal knob.
 
 ---
 
+<a name="part-12"></a>
+## Part 12 — RESULT: the complete freeze ablation (hypothesis H), all three conditions
+
+### 12.1 The table (every axis)
+| condition | trains | train-reward acc | direct DOCCI probe | freeze proof (weight-level) |
+|---|---|---|---|---|
+| base | — | 0.365 | 0.377 | — |
+| **full** | ViT + LLM | **0.746** | **0.657** | both components > 0 |
+| **llm_only** | LLM (ViT frozen) | **0.749** | **0.593** | vision `rel_fro = 0.000` (315 tensors) |
+| **vit_only** | ViT (LLM frozen) | **0.443** | **0.423** | **llm `rel_fro = 0.000` (397 tensors)** |
+
+### 12.2 Verdict — H confirmed
+**`llm_only ≈ full ≫ vit_only > base`**, on *both* the training reward and the held-out direct probe:
+- `llm_only` recovers ~**100%** of the gain (≈ full); freezing the vision tower costs essentially nothing.
+- `vit_only` recovers only ~**16–20%** (probe: (0.423−0.377)/(0.657−0.377)=16%; reward: 20%).
+→ the perception fix is **overwhelmingly LLM-internal**.
+
+### 12.3 How we verified each piece (the "how")
+- **Behavioral:** final accuracy per condition, on the training reward *and* the independent DOCCI probe (Part D).
+- **Weight-level freeze proof:** `weight_delta` (Part C) over each condition's checkpoints. A frozen component
+  must have `rel_fro = 0.000` *exactly* (the optimizer's `filter(p.requires_grad)` never touches it). Confirmed:
+  `llm_only` → vision = 0; `vit_only` → llm = 0. Both `max` rel_fro = 0 too (every tensor, not just the mean).
+- **Config equivalence:** the three runs were diffed and shown byte-identical except the two freeze flags (same
+  seed=1, lr, KL, batch sizes, epochs) — so the comparison is a clean controlled ablation, not a confound.
+
+### 12.4 Honest nuance
+The ViT is **not** strictly epiphenomenal: `vit_only` (0.443/0.423) exceeds base (0.365/0.377), so the encoder
+*can* improve perception a little on its own. But it is far below the LLM conditions. Consistent with the
+graft's non-zero attention (Part 9) and the small full-vs-llm_only probe gap (Part 9.9). **Core claim:
+overwhelmingly LLM; footnote: the encoder contributes a minor amount.**
+
+---
+
 <a name="part-6"></a>
 ## Part 6 — The next two analyses, explained from scratch (depth_probe + module_graft)
 

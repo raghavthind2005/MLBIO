@@ -120,16 +120,23 @@ vit_only). Two checks:
 We also verified the three runs were truly identical except the freeze (same data seed, learning rate,
 batch sizes, etc.) by diffing their configs.
 
-### What we found
-- **`llm_only` reached the same accuracy as `full`** (0.749 vs 0.746) — freezing the vision tower **cost
-  nothing**.
-- The weight-level proof was perfect: in `llm_only`, **every vision-tower matrix had relative change exactly
-  0.000** (bit-identical to base) while the LLM moved normally.
-- (`vit_only` — training only the vision tower — is the final comparison, completing soon.)
+### What we found — all three conditions
+| condition | trains | train-reward acc | direct probe | freeze proof |
+|---|---|---|---|---|
+| base | — | 0.365 | 0.377 | — |
+| **full** | ViT + LLM | **0.746** | **0.657** | both > 0 |
+| **llm_only** | LLM | **0.749** | **0.593** | vision = 0 (bit-identical) |
+| **vit_only** | ViT | **0.443** | **0.423** | llm = 0 (bit-identical) |
+
+- **`llm_only ≈ full`** — freezing the vision tower cost essentially nothing (recovers ~100% of the gain).
+- **`vit_only ≫` below** — training *only* the vision tower reaches just 0.443/0.423, recovering only ~16–20%.
+- **Both freeze proofs are exact:** the frozen component's weights are bit-identical to base (rel-change 0.000)
+  — `llm_only` froze the ViT, `vit_only` froze the LLM.
 
 ### What it means
-The perception fix is an **LLM operation, not better seeing**. Training the LLM alone reproduces the entire
-gain; the vision tower contributes (essentially) nothing. This is direct support for *"re-access, not
+**`llm_only ≈ full ≫ vit_only > base`.** The perception fix is an **LLM operation, not better seeing**. Training
+the LLM alone reproduces the entire gain; training only the encoder gets ~⅕ of the way. (Honest nuance: the ViT
+is *not* zero — it can contribute a little — but the LLM dominates.) This is direct support for *"re-access, not
 re-representation"* — the image features were already good enough; the bottleneck was downstream, in the LLM.
 
 ---
