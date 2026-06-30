@@ -133,7 +133,7 @@ argmax-accuracy (logit-lens) vs. LLM layer
 
 **🖼 FIGURE: `figures/fig_depth.png`**  *(plot spec: x=layer, y=argmax_acc, base vs trained, marker at L24)*
 
-> **How can a middle layer "pick" one of the 4 answers at all?** The output head turns *any* layer's internal vector into a score for **every** word in the vocabulary. We just look at the scores it assigns the four option-letters (A/B/C/D) and take the highest — so **one of them always "wins," at every layer.** At middle layers that winner is essentially arbitrary (the answer isn't encoded there yet), so it's right only ~25% of the time (chance); at late layers the winner is the true answer, so it's right ~66%. **The curve is simply how often that forced pick is correct, layer by layer.**
+> **How can a middle layer even "pick" an answer?** At every layer the model is holding a bunch of internal numbers. We run those numbers through the model's normal "answer-picker" — the part that scores how likely each possible word is — and just check the four letters A, B, C, D, keeping whichever scores highest. So there's **always a winner at every layer**, even when it's a wild guess. In the middle layers the model hasn't figured out the answer yet, so that winner is basically a coin-flip — right about **1 in 4 times (25%)**. By the late layers the winner is the actual correct answer — right about **2 in 3 times (66%)**. The line on the graph is simply: at each layer, **how often is that forced pick correct?**
 
 ---
 
