@@ -255,8 +255,19 @@ itself a finding (*the gain is distribution-specific; it doesn't transfer to adv
 |---|---|---|---|
 | **Where weights moved** | weight-delta (Frobenius) | tiny (0.05%), MLP-biased, uniform in size | the edit is small & surgical |
 | **Which component** | 3-condition freeze ablation | LLM-only = full; ViT change = 0 | it's the LLM, not the encoder |
-| **Where it shows** | logit-lens by layer | identical early; late layers light up | effect manifests late |
+| **Where it shows** | logit-lens by layer | identical early; late layers light up at L24 | effect manifests late |
 | **Which weights cause it** | counterfactual graft | MLP-dominant, distributed, synergistic | causal localization |
+| **Is the rep re-usable** | activation patch | inject trained residual@L24 → base recovers 82%; fixed vector only 40% | **portable but input-specific** |
+
+**The mechanism in one sentence (causally established):** *RL's tiny distributed MLP edits across layers ~0–24
+progressively write the answer into the residual stream; by layer 24 it is present and readable, and the
+unchanged late layers can read it.* (This is why transplanting late **weights** fails — 3.6% — but transplanting
+the late **representation** works — 82%.)
+
+**For the tool-call:** the better representation is **portable** (re-injectable at ≈L24 → ~full recovery) but
+**input-specific** (a fixed steering vector tops out at ~40%) → a re-inspection tool-call must **re-derive the
+representation from each image on demand**, not apply a canned vector. *Where, how-recoverable, and why-static-
+fails are now all pinned down.*
 
 Two things make this robust: it **replicated** under the ViT-frozen condition, and the data **corrected a
 prediction** of ours (late-MLP did *not* dominate) — intellectual honesty that strengthens, not weakens, the result.

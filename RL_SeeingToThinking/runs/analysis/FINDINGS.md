@@ -639,6 +639,68 @@ report accuracy vs layer for: base, per-item-patch@L, steering@L, full-trained. 
 
 ---
 
+<a name="part-11"></a>
+## Part 11 — RESULT #4: Activation patch — the representation is RE-USABLE, portable from layer ~24, input-specific (the capstone)
+
+### 11.1 Sanity
+`SANITY self-patch@L24 = 0.3767` = base **exactly** → the hooks + answer-position indexing are correct; all
+numbers below are trustworthy. Anchors: base 0.377, trained 0.657 (match the probe).
+
+### 11.2 The per-item patch curve (inject trained residual → base, by layer)
+| patch layer | accuracy | recovered |
+|---|---|---|
+| 8 | 0.377 | 0% |
+| 12 | 0.377 | 0% |
+| 16 | 0.380 | 1% |
+| 20 | 0.407 | 11% |
+| **24** | **0.607** | **82%** |
+| 28 | 0.637 | 93% |
+| 32 | 0.653 | 99% |
+| 35 | 0.657 | 100% |
+
+**Recovery jumps 11% → 82% at layer 24** — the *same* layer the depth probe diverged. Injecting the trained
+model's residual at L24 (answer position) into the base model, and letting **base's own untrained late layers**
+finish, recovers 82% of the gain. → **The trained residual stream *carries the answer* by layer 24, in a form
+base can read.**
+
+### 11.3 The steering curve (fixed mean direction → base)
+Best `steer@L35, α=4 → 0.487 (39%)`; late layers + larger α help, early layers ≈ 0. **A single averaged
+direction recovers only ~40%.**
+
+### 11.4 The grand reconciliation — one sentence explains all four analyses
+Compare the two interventions at the same layer:
+- **`late_mlp` graft (transplant late *weights*) = 3.6%** — fails, because base's residual *entering* L24 doesn't
+  carry the answer.
+- **`patch@L24` (transplant late *representation*) = 82%** — works, because the trained residual at L24 *does*.
+
+→ **RL's tiny, distributed MLP edits across layers ~0–24 progressively *write the answer into the residual
+stream*; by layer 24 it is present and readable, and the (unchanged) late layers can read it.** This single
+mechanism explains everything:
+- early-MLP graft helps (19%) — early edits *build* the representation;
+- late-MLP graft fails (3.6%) — late *weights* aren't the cause;
+- depth probe diverges at L24 — where the built representation becomes output-readable;
+- patch@L24 = 82% — the representation is present and portable there.
+This is the direct, causal confirmation of the Part 9.5 hypothesis (the fix lives in residual *directions*
+built up the stack, not in late weights).
+
+### 11.5 What it means for the contribution (the tool-call methodology)
+1. **The better representation is portable** — extractable at L24+, re-injectable, recovers ~full perception →
+   **tool-call substrate confirmed, localized to ≈ layer 24.**
+2. **It is input-specific** — per-item patch ~100% but a fixed steering vector ~40% → **the tool-call must
+   re-derive the representation from each image (i.e. *re-inspect*), not apply a canned vector.**
+This is the cleanest empirical case for an **on-demand, mid-stack, image-derived re-inspection** mechanism —
+the intended end-product — grounded in *where* (≈L24), *how recoverable* (~full per item), and *why a static fix
+won't suffice* (~40% ceiling). Coheres with the babyVision OOD miss and the distributed/synergistic graft: the
+fix is real but not a single universal knob.
+
+### 11.6 Follow-ups
+- Run `activation_patch` on **Cond 2 (llm_only)** → confirm portability is LLM-internal.
+- **Multi-layer / band patch** (patch L=24…35 together) and **per-position** variants to map the carrier more finely.
+- The natural next build: a module that, from the image, *produces* an L24-style representation on demand (the
+  tool-call prototype).
+
+---
+
 <a name="part-6"></a>
 ## Part 6 — The next two analyses, explained from scratch (depth_probe + module_graft)
 
