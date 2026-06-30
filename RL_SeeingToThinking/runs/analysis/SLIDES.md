@@ -96,8 +96,13 @@
 | **full** | both | **0.746** | **0.657** | both > 0 |
 | **llm_only** | LLM | **0.749** | **0.593** | **vision = 0.000** |
 | **vit_only** | ViT | **0.443** | **0.423** | **llm = 0.000** |
-- **`llm_only ≈ full ≫ vit_only > base`** — on *both* training reward and the probe.
-- Freeze proofs are **exact**: the frozen component's weights are bit-identical to base.
+
+**What the three measurements mean (define before showing):**
+- **train-reward** — the RL training signal itself: the fraction of the model's answers (generated *with* reasoning, in `\boxed{…}`) that are correct.
+- **direct probe** — our perception test: show image + a multiple-choice question, do **one forward pass**, read **which option-letter the model scores highest** (no reasoning), and check it against the correct letter → accuracy. *(Mechanism detailed on Slide 8.)*
+- **freeze proof** — a **weight-level** check that a "frozen" part truly never trained: we compare its weights before vs. after and find them **bit-identical** (relative change = **exactly 0.000**). `vision = 0.000` → the vision tower never moved; `llm = 0.000` → the LLM never moved.
+
+- **Verdict: `llm_only ≈ full ≫ vit_only > base`** — on *both* the training reward and the direct probe.
 - **🖼 FIGURE: `figures/fig_ablation.png`**
 
 **[SAY]** "Freezing the vision tower costs *nothing* — LLM-only matches full. Training only the encoder gets ~⅕ of the way. So the fix is overwhelmingly **LLM-internal — re-reading what's seen, not seeing better.** And the freeze 'proof' is literal: the frozen part's weights moved *exactly* zero, because the optimizer never receives its gradients. Honest nuance: the ViT isn't strictly zero — it can help a little — but the LLM dominates."
@@ -105,7 +110,11 @@
 ---
 
 ## Slide 8 — Finding 3: the answer becomes readable **late** (~layer 24)  (tests S4/S5)
-**[ON SLIDE]** — *figure: decodability vs. depth, base vs. trained*
+**[ON SLIDE]**
+- **First, two terms:**
+  - **hidden state / residual** — the model's internal vector at a given layer (its running "notes" on the input so far). Information flows *up* through the 36 layers.
+  - **logit-lens** — take *any* layer's hidden state and run it through the model's **own** output head, as if it had to answer right there → "**is the correct answer already readable at this depth?**" (y-axis = how often it's right).
+- *figure: this "readability" vs. depth, for base vs. trained:*
 ```
 argmax-accuracy (logit-lens) vs. LLM layer
 0.66 |                                          ╭─────●─●─● trained
@@ -127,7 +136,9 @@ argmax-accuracy (logit-lens) vs. LLM layer
 ---
 
 ## Slide 9 — Finding 4: **MLP causes it — but distributed, not late-localized**  (tests S3; revises a prediction)
-**[ON SLIDE]** — *figure: % of gain recovered by each graft*
+**[ON SLIDE]**
+- **What a "graft" is:** take the **untrained base model** and copy onto it **only one subset** of the trained weights (e.g. just the MLPs), leaving everything else untrained → measure perception. If that subset alone recovers the gain, it is **sufficient** → a *causal* test (we *built* the model and measured it). `% recovered = (grafted − base) / (full − base)`.
+- *figure: % of the +0.28 gain each subset recovers:*
 ```
 % of the +0.28 perception gain recovered (graft = base + only-this-subset)
 full      ████████████████████████████████████████ 100%
@@ -136,7 +147,6 @@ attn      ████████████                              30%
 early_mlp ███████                                   19%
 late_mlp  █                                          3.6%
 ```
-- Method: build base **+ only this subset of trained weights**, measure perception (a *causal* test).
 - MLP ≫ attention (63 vs 30%) → **MLP-dominant** (supports S3). But **`late_mlp` 3.6% ≪ `early_mlp` 19%** → **distributed**, not late-localized.
 - **[condition]** *full (Cond 1); **replicated in llm_only** — near-identical grafts (mlp 0.55/0.55, attn 0.46/0.46). N/A vit_only (LLM frozen).*
 
@@ -159,7 +169,11 @@ late_mlp  █                                          3.6%
 ---
 
 ## Slide 11 — Capstone: is the better representation **RE-USABLE**?  **[OURS]**
-**[ON SLIDE]** — *figure: recovery vs. patch layer*
+**[ON SLIDE]**
+- **Two interventions (define both):**
+  - **per-item patch** — run the *trained* model on an image, copy its layer-L hidden state, and **paste it into the *base* model** at layer L; let base finish → does base now answer right? *(needs the trained model as an oracle — proves the representation is portable.)*
+  - **steering vector** — instead of per-image copying, compute **one fixed direction** = average(trained − base) and add it to base. *(a static, deployable knob — no trained model needed.)*
+- *figure: how much of the gain each recovers, vs. the layer where we inject:*
 ```
 % of gain recovered by injecting trained's residual into base, at layer L
 100% |                                    ●─────●─────●  (L28,32,35)
