@@ -98,6 +98,7 @@
 | **vit_only** | ViT | **0.443** | **0.423** | **llm = 0.000** |
 - **`llm_only ≈ full ≫ vit_only > base`** — on *both* training reward and the probe.
 - Freeze proofs are **exact**: the frozen component's weights are bit-identical to base.
+- **🖼 FIGURE: `figures/fig_ablation.png`**
 
 **[SAY]** "Freezing the vision tower costs *nothing* — LLM-only matches full. Training only the encoder gets ~⅕ of the way. So the fix is overwhelmingly **LLM-internal — re-reading what's seen, not seeing better.** And the freeze 'proof' is literal: the frozen part's weights moved *exactly* zero, because the optimizer never receives its gradients. Honest nuance: the ViT isn't strictly zero — it can help a little — but the LLM dominates."
 
@@ -121,7 +122,7 @@ argmax-accuracy (logit-lens) vs. LLM layer
 
 **[SAY]** "Now *where* in the 36 layers. I use the 'logit-lens': take each layer's internal state and push it through the model's own output head — 'if forced to answer here, would it be right?' Early and middle layers are *identical* in base and trained — RL changes nothing there. They split hard at layer 24: the trained model reads the answer out in the *late* layers; the base model never recovers it. This is the depth signature of the fix."
 
-**[plot spec]** line plot, x=`layer` (0–36), y=`argmax_acc`, two series from `depth_base.csv` & `depth_full_96.csv`; vertical marker at L24.
+**🖼 FIGURE: `figures/fig_depth.png`**  *(plot spec: x=layer, y=argmax_acc, base vs trained, marker at L24)*
 
 ---
 
@@ -141,7 +142,7 @@ late_mlp  █                                          3.6%
 
 **[SAY]** "To get *causation*, not correlation, I transplant only part of the trained weights onto the base model and measure. MLP recovers about twice what attention does — the fix is MLP-dominant, confirming the senior's S3. But here the data **corrected my prediction**: I expected the *late* MLP to carry it; instead late-MLP recovers almost nothing and the effect is spread across the stack, synergistically. I'll show why that isn't a contradiction."
 
-**[plot spec]** horizontal bar, y=`mode`, x=recovery% from `graft_full_96.csv`.
+**🖼 FIGURE: `figures/fig_graft.png`**  *(plot spec: bars of recovery% per graft mode)*
 
 ---
 
@@ -177,7 +178,7 @@ steering vector (single fixed direction): best ≈ 40%
 
 **[SAY]** "The capstone, and the bridge to a method. I capture the trained model's layer-24 state and inject it into the *base* model — base recovers 82%. So the 'better understanding' is a representation you can extract and re-inject. But a single *averaged* direction only gets ~40% — meaning the useful representation is **input-specific**, different per image. The sanity check (injecting base into itself reproduces base exactly) confirms the method is sound."
 
-**[plot spec]** line plot, x=`layer`, y=recovery% (patch rows of `actpatch_full_96.csv`); annotate steering ceiling.
+**🖼 FIGURE: `figures/fig_patch.png`**  *(plot spec: recovery% vs patch layer + steering ceiling line)*
 
 ---
 
