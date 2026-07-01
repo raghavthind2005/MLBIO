@@ -21,7 +21,15 @@
       "Bash(/opt/homebrew/Caskroom/miniconda/base/envs/llmsr/bin/python -c \"import huggingface_hub; print\\(huggingface_hub.__version__\\)\")",
       "Bash(/opt/homebrew/Caskroom/miniconda/base/bin/pip show *)",
       "Bash(pip3 install *)",
-      "Bash(python image_toolCalling/verify_results.py)"
+      "Bash(python image_toolCalling/verify_results.py)",
+      "Bash(git commit -q -m ' *)",
+      "Bash(git commit -q -m 'SLIDES: rewrite S1-S5 with intuitive one-phrase handles + plain-English glosses *)",
+      "Bash(git commit -q -m 'SLIDES: rewrite Slide 6 \\(Finding 1\\) to be intuitive — plain method, 0.05% intuition, MLP-vs-attn in human terms, honest depth caveat *)",
+      "Bash(git commit -q -m 'SLIDES: annotate each finding slide with condition + replication status *)",
+      "Bash(python3 make_figures.py)",
+      "Bash(cat VLM-CapCurriculum/training/format_prompts/math.jinja)",
+      "Bash(find . -path ./.git -prune -o -name \"*.jinja\" -print)",
+      "Bash(grep -vE '^\\\\s*$')"
     ],
     "additionalDirectories": [
       "/Users/ragha/Documents/MLBIO"

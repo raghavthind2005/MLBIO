@@ -20,17 +20,17 @@
 # PART I — THE TALK (the narrative arc, in 7 beats)
 
 1. **The problem.** VLMs make *perception* errors that more reasoning can't fix. We post-trained one with RL on
-   perception and it improved a lot (perception reward 0.365→0.746). **Where and how, inside 4.4B numbers, does
+  perception and it improved a lot (perception reward 0.365→0.746). **Where and how, inside 4.4B numbers, does
    that improvement live?**
 2. **The lever.** Three byte-identical training runs, differing only in which part is frozen: full / LLM-only /
-   ViT-only.
+  ViT-only.
 3. **Finding 1 (weights):** the change is *tiny* (0.05%) and biased toward the MLP.
 4. **Finding 2 (component):** it's the **LLM, not the vision encoder** (LLM-only = full; ViT-only ≈ base; frozen
-   parts provably move 0).
+  parts provably move 0).
 5. **Finding 3 (depth):** the answer becomes readable only in the **late layers (~24+)**; early/mid are untouched.
 6. **Finding 4 (causation):** an **MLP-dominant, depth-distributed** edit causes it (graft).
 7. **Capstone (re-usability):** the better **representation** is portable — inject it at layer 24 and base
-   recovers 82% — but **input-specific** (a fixed steering vector caps at ~40%). → the empirical case for an
+  recovers 82% — but **input-specific** (a fixed steering vector caps at ~40%). → the empirical case for an
    **on-demand, image-derived re-inspection tool-call.**
 
 **One-sentence mechanism (the thing to be able to defend):** *RL's tiny, MLP-dominated, depth-distributed edits
@@ -44,77 +44,86 @@ readable, and the unchanged late layers read it out.*
 *(This is where supervisors grill hardest. Every claim below cites the file that implements it.)*
 
 ## II.0 What "training the model" means here
+
 The model is a **policy** `π_θ` — a probability distribution over the next token given the context. "Training"
 changes `θ` (the 4.4B weights) so that token sequences with **higher reward** become **more probable**. We use
 **RLVR** (RL with *Verifiable* Rewards): the reward is a deterministic program (is the answer correct?), not a
 learned reward model.
 
 ## II.1 The exact data + prompt the model sees
+
 - **Data:** `perception_difficulty_curriculum.jsonl`, 3360 DOCCI perception MCQs. Each item:
-  `problem` (a question + 4 lettered options + "Respond using only the letter…"), `answer` (a single letter),
-  one `image`.
+`problem` (a question + 4 lettered options + "Respond using only the letter…"), `answer` (a single letter),
+one `image`.
 - **Prompt actually fed to the model:** the problem is wrapped by `format_prompts/math.jinja`, which **appends**:
-  *"You FIRST think … within `<think> </think>` tags. The final answer MUST BE put in `\boxed{}`."* So **during
-  training the model reasons inside `<think>…</think>` and then emits `\boxed{<letter>}`.** (Keep this in mind —
-  it differs from how the *probe* later reads the model; Part IV.D.)
+*"You FIRST think … within `<think> </think>` tags. The final answer MUST BE put in `\boxed{}`."* So **during
+training the model reasons inside `<think>…</think>` and then emits `\boxed{<letter>}`.** (Keep this in mind —
+it differs from how the *probe* later reads the model; Part IV.D.)
 
 ## II.2 The reward — exactly (`VLM-CapCurriculum/.../math.py:74-91`)
+
 For each generated response:
+
 - `accuracy_reward` (`math.py:54`): `extract_boxed_content(response)` pulls the text inside `\boxed{}`;
-  `grade_answer(answer, ground_truth)` (from `mathruler`) checks correctness; returns **1.0 if correct else 0.0**.
-  (Guarded by `too_complex` and a 1s timeout.)
+`grade_answer(answer, ground_truth)` (from `mathruler`) checks correctness; returns **1.0 if correct else 0.0**.
+(Guarded by `too_complex` and a 1s timeout.)
 - `format_reward` (`math.py:63`): returns **1.0** iff the response **fullmatches** the regex
-  `<think>.*</think>.*\boxed\{.*\}.*` (DOTALL), else 0.0.
+`<think>.*</think>.*\boxed\{.*\}.*` (DOTALL), else 0.0.
 - `compute_score` (`math.py:85`): `overall = (1 − 0.1)·accuracy + 0.1·format = 0.9·accuracy + 0.1·format`
-  (`format_weight = 0.1`).
+(`format_weight = 0.1`).
 
 **So the number we report as "accuracy 0.365→0.746" is the `accuracy` component** — the fraction of sampled
 completions whose `\boxed{}` letter is correct. `overall` (0.9·acc+0.1·format) is the headline reward the
 optimizer maximizes.
 
 ## II.3 GRPO — the exact advantage (`EasyR1/.../core_algos.py:176-216`)
+
 GRPO = **Group Relative Policy Optimization**. There is **no value/critic network**; the baseline is the group
 mean. Per training step:
+
 1. For each prompt, sample **n = 5** completions (`rollout.n=5`, `temperature=1.0`, `config.yaml:61-63`).
 2. Each completion's reward is placed on its **last token** → a token-level reward tensor `(batch,
-   response_len)`; `scores = token_level_rewards.sum(dim=-1)` (`core_algos.py:199`) recovers the scalar.
+  response_len)`;` scores = token_level_rewards.sum(dim=-1) `(`core_algos.py:199`) recovers the scalar.
 3. Group the 5 scores by prompt `index`; compute group mean and **std** (`core_algos.py:209-210`).
 4. **Advantage = group-relative z-score** (`core_algos.py:213`):
-   `A_i = (score_i − mean_group) / (std_group + 1e-6)`.
+  `A_i = (score_i − mean_group) / (std_group + 1e-6)`.
 5. Broadcast the scalar advantage onto every response token via `response_mask` (`core_algos.py:215`):
-   `returns = A.unsqueeze(-1) * response_mask`. (`assert len(group) > 1` — GRPO needs n>1, `core_algos.py:208`.)
+  `returns = A.unsqueeze(-1) * response_mask`. (`assert len(group) > 1` — GRPO needs n>1, `core_algos.py:208`.)
 
-**Interpret:** a completion is rewarded for being *better than its 5-sample peers on the same prompt*, scaled by
+**Interpret:** a completion is rewarded for being *bette r than its 5-sample peers on the same prompt*, scaled by  
 how spread-out the group is. The std-division is the (debated) GRPO normalization — see Part VII Q2.
 
 ## II.4 The policy loss — exact, with dual-clip (`core_algos.py:464-509`)
+
 - **Importance ratio** `r = exp(log π_θ − log π_θ_old)` (`negative_approx_kl = log_probs − old_log_probs`,
-  `core_algos.py:464`; `ratio = exp(clamp(·, −20, 20))`, `:478`). `π_θ_old` = the policy that *generated* the
-  rollouts (recomputed log-probs); ratio≈1 at the start of each update.
+`core_algos.py:464`; `ratio = exp(clamp(·, −20, 20))`, `:478`). `π_θ_old` = the policy that *generated* the
+rollouts (recomputed log-probs); ratio≈1 at the start of each update.
 - **Clipped ratio** uses **asymmetric DAPO clipping**: `exp(clamp(·, log(1−0.2), log(1+0.3)))`
-  (`:479-481`), i.e. `clip_ratio_low=0.2`, `clip_ratio_high=0.3` (`config.py:108-110`).
+(`:479-481`), i.e. `clip_ratio_low=0.2`, `clip_ratio_high=0.3` (`config.py:108-110`).
 - `pg_loss = −A·r`, `pg_loss2 = −A·clipped_r`, take `max` (the standard PPO pessimistic bound, `:497-501`).
 - **Dual-clip** (`clip_ratio_dual=3.0`, `config.py:112`): for negative-advantage tokens, also lower-bound by
-  `−A·3.0` (`pg_loss3`, `:499,503-504`) to prevent destabilizing updates when `A<0`.
+`−A·3.0` (`pg_loss3`, `:499,503-504`) to prevent destabilizing updates when `A<0`.
 - Averaged over tokens (`loss_avg_mode="token"`, `config.py:114`).
 
 **Interpret:** standard PPO-clip stops any single update from moving the policy too far; the asymmetric 0.2/0.3
 and dual-clip 3.0 are DAPO/Dual-clip-PPO defaults. *These are engine defaults, not paper-set — flag as such.*
 
 ## II.5 The KL leash — exact (`core_algos.py:590-594`, applied `dp_actor.py:272-281`)
+
 We use **loss-side KL** (`use_kl_loss=true`, `config.yaml:26`), **not** reward-side. The penalty is the
 **k3 (low-variance) estimator** of `KL(π_θ ‖ π_ref)`:
 `x = (ref_log_probs − log_probs).clamp(−20,20); kld = exp(x) − x − 1` (`core_algos.py:592-593`). This is always
 ≥ 0, unbiased, and lower-variance than the naive `log_probs−ref_log_probs`. It's added to the loss:
-`loss = pg_loss + kl_loss · kl_coef` with **`kl_coef = 1e-2`** (`dp_actor.py:281`, `config.yaml:28`).
+`loss = pg_loss + kl_loss · kl_coef` with `**kl_coef = 1e-2`** (`dp_actor.py:281`, `config.yaml:28`).
 `π_ref` = the frozen base policy.
 
 **Interpret + why it matters for our results:** this term *actively penalizes drifting from the base model*.
-Together with **`lr = 1e-6`** (`config.yaml:49`, `weight_decay=1e-2`, warmup 0, optimizer `adamw_bf16`), it is
+Together with `**lr = 1e-6`** (`config.yaml:49`, `weight_decay=1e-2`, warmup 0, optimizer `adamw_bf16`), it is
 the reason the weights barely move (Part IV.A: 0.05%). *This is not an accident — it's the designed regime, and
 it's exactly the regime in which "tiny surgical edit" is the right description.*
 
 ## II.6 The fit loop, per step (conceptually, `ray_trainer.py` fit())
+
 generate (vLLM, n=5) → compute reward (math.py) → recompute old log-probs → compute ref log-probs (for KL) →
 GRPO advantage → policy update (FSDP). **Sizes (verified in config):** `rollout_batch_size=512` prompts/step,
 `global_batch_size=128` prompts/optimizer-update (so 512/128 = 4 updates/step; divisibility is required),
@@ -123,45 +132,52 @@ is identical, only memory differs). **16 epochs over 3360 items ≈ 96 optimizer
 logs). `seed=1`.
 
 ## II.7 The three conditions and the freeze mechanism — exact (`fsdp_workers.py:263-287`)
+
 All three runs are byte-identical except two flags. Freezing is *not* a soft penalty — it removes parameters
 from the optimizer:
+
 - `freeze_vision_tower=true` → `model.model.visual.requires_grad_(False)` (`:265`), prints
-  *"Vision tower is set to not trainable."* (`:267`).
-- `freeze_language_model=true` (our added flag) → `model.model.language_model.requires_grad_(False)` +
-  `model.lm_head.requires_grad_(False)` (`:280-282`), prints *"Language model is set to not trainable (ViT-only
-  condition)."* (`:285`).
+*"Vision tower is set to not trainable."* (`:267`).
+- `freeze_language_model=true` (our added flag) → `model.model.language_model.requires_grad_(False)` +  
+`model.lm_head.req uires_grad_(False)` (`:280-282`), prints *"Language model is set to not trainable (ViT-only
+condition)."* (`:285`).
 - Both set `fsdp_config.use_orig_params = True` (`:266/283`) so FSDP can flatten a mixed-trainability module.
 - The optimizer is built over `filter(lambda p: p.requires_grad, …)` (`:343,351`) → **frozen params receive no
-  gradient and no update → their saved weights equal the base bit-for-bit → Δ = exactly 0.** *(This is precisely
-  why the weight-level freeze proofs read 0.000 — Part IV.B.)*
+gradient and no update → their saved weights equal the base bit-for-bit → Δ = exactly 0.** *(This is precisely
+why the weight-level freeze proofs read 0.000 — Part IV.B.)*
 
 ---
 
 # PART III — FOUNDATIONS (model, weights, checkpoints — 4 concepts)
 
 ## III.1 The model anatomy (verified by our parameter census, Part IV.A)
+
 `Qwen3-VL-4B-Instruct = Qwen3VLForConditionalGeneration`:
+
 - `model.model.visual` — **vision tower**, ~0.42B params, **24 transformer blocks** (verified: 96 attn tensors /
-  4 per block = 24); turns the image into image-tokens.
+4 per block = 24); turns the image into image-tokens.
 - `model.model.language_model` — the **LLM**, ~4.0B params, **36 decoder layers** (verified: 216 attn tensors / 6
-  per layer = 36); reads image-tokens + question, writes the answer.
+per layer = 36); reads image-tokens + question, writes the answer.
 - `lm_head` — output projection, **tied** to `embed_tokens` (so the *base* model lists it once → **713 named
-  tensors**; a checkpoint re-saves an untied copy → 714).
+tensors**; a checkpoint re-saves an untied copy → 714).
 - A decoder layer = **attention** (`q,k,v,o_proj` + `q_norm,k_norm`) + **MLP** (`gate,up,down_proj`) + two norms.
-  Attention mixes information *across token positions*; the MLP transforms *each token independently* (and in
-  interpretability is associated with feature/knowledge readout — why "is the fix in the MLP?" matters).
+Attention mixes information *across token positions*; the MLP transforms *each token independently* (and in
+interpretability is associated with feature/knowledge readout — why "is the fix in the MLP?" matters).
 
 ## III.2 What a "weight" is, and what "learning" is
+
 Every weight is a number in a matrix; a forward pass multiplies activations by these matrices. **Everything the
 model learned is the difference `Δ = W_trained − W_base`.** Studying Δ (Part IV.A) and what it does to activations
 (IV.D) and behavior (IV.E, IV.F) *is* studying the learning.
 
 ## III.3 Checkpoints + the residual stream
+
 `save_freq=6` → 16 checkpoints (`global_step_6…96`); **base = step 0**. The **residual stream** is a running
 vector that each layer *adds to*; "information flows up the residual stream" is literal, and is the object the
 depth-probe and activation-patch read.
 
 ## III.4 Why a checkpoint is 4 files, and how we rebuild a weight (`ckpt_model.reconstruct_full_state_dict`, mirrors `scripts/model_merger.py`)
+
 We trained on **4 GPUs with FSDP**, which splits each weight matrix into 4 slices (one per GPU) → each checkpoint
 is `model_world_size_4_rank_{0,1,2,3}.pt`. Each slice is a **DTensor** carrying its `placement` (`Shard(dim)` = a
 slice along `dim`, or `Replicate` = a full copy). To get the full weight:
@@ -179,10 +195,11 @@ ignored.
 **Inputs.** Base safetensors + a checkpoint's 4 shards → 713 tensor pairs `(W_base, W_ckpt)`.
 
 **Exact computation** (`weight_delta.compute_metrics`, both cast fp32):
+
 - `Δ = W_ckpt − W_base`.
 - `abs_fro = ‖Δ‖_F = sqrt(Σ_ij Δ_ij²)` = `delta.norm()`.
-- **`rel_fro = abs_fro / max(‖W_base‖_F, 1e-12)`** ← primary. *In model terms:* the fraction of its own
-  length the weight matrix moved in parameter space.
+- `**rel_fro = abs_fro / max(‖W_base‖_F, 1e-12)*`* ← primary. *In model terms:* the fraction of its own
+length the weight matrix moved in parameter space.
 - `mean_abs = mean(|Δ|)`; `cos = F.cosine_similarity(vec(W_base), vec(W_ckpt))`.
 - Each tensor is tagged `(component, module, layer_idx)` by `qwen3vl_param_map.classify` (regex on the name).
 
@@ -205,12 +222,15 @@ MLP-biased adjustment suffices.
 (3) the **weight-level freeze proof** (Part IV.A `rel_fro = 0` for the frozen part).
 
 **The numbers (all verified):**
-| condition | trains | train-reward acc | direct probe | freeze proof |
-|---|---|---|---|---|
-| base | — | 0.365 | 0.377 | — |
-| full | ViT+LLM | 0.746 | 0.657 | both > 0 |
-| llm_only | LLM | 0.749 | 0.593 | vision = 0.000 |
-| vit_only | ViT | 0.443 | 0.423 | **llm = 0.000** |
+
+
+| condition | trains  | train-reward acc | direct probe | freeze proof    |
+| --------- | ------- | ---------------- | ------------ | --------------- |
+| base      | —       | 0.365            | 0.377        | —               |
+| full      | ViT+LLM | 0.746            | 0.657        | both > 0        |
+| llm_only  | LLM     | 0.749            | 0.593        | vision = 0.000  |
+| vit_only  | ViT     | 0.443            | 0.423        | **llm = 0.000** |
+
 
 **Interpret.** `llm_only ≈ full ≫ vit_only > base`. LLM-only recovers ~100%; ViT-only ~16–20%
 ((0.423−0.377)/(0.657−0.377)=16%; reward 20%). The fix is **overwhelmingly LLM-internal.** *Honest:* the ViT is
@@ -224,12 +244,13 @@ also *redirects* the original "re-inspect in a different representation" framing
 ## IV.D — Depth-probe / logit-lens: *where does the answer become readable?* (`depth_probe.py`, S4/S5)
 
 **The probe mechanism first (also the perception metric reused everywhere — `mc_eval.run_mc_probe`):**
+
 1. Build the prompt: the DOCCI problem (native "respond with the letter") via `apply_chat_template(…,
-   add_generation_prompt=True)` — **note: we do *not* append the `<think>/\boxed` wrapper**, so this is a
-   *direct, no-reasoning* readout (differs from training — Part VII Q6).
+  add_generation_prompt=True)`— **note: we do *not* append the``/\boxed` wrapper**, so this is a
+   `*direct, no-reasoning* readout (differs from training — Part VII Q6).
 2. One forward → `logits = out.logits[0, -1, :]` (the next-token distribution at the last prompt position).
 3. Pre-compute letter token-ids (`A→32,…` verified by decoding back). Restrict `logits` to the present options'
-   letter-ids, `argmax` → predicted letter; compare to gold (`chr(65+choiceAns)`). Deterministic.
+  letter-ids, `argmax` → predicted letter; compare to gold (`chr(65+choiceAns)`). Deterministic.
 
 **The logit-lens, exact (`depth_probe.py`):** one forward with `output_hidden_states=True` → `hs` = tuple of 37
 (`hs[0]`=embeddings, `hs[L]`=output of decoder layer L). For each L: take the answer-position vector
@@ -257,14 +278,17 @@ masked keys using the **same** classifier as weight-delta). Modes: `mlp`/`attn` 
 (layer≥24)/`early_mlp` (<12), `full`/`base`.
 
 **The numbers:**
-| graft | accuracy | recovers % of +0.28 |
-|---|---|---|
-| base | 0.377 | 0% |
-| full | 0.657 | 100% |
-| mlp | 0.553 | 63% |
-| attn | 0.460 | 30% |
-| early_mlp | 0.430 | 19% |
-| late_mlp | 0.387 | 3.6% |
+
+
+| graft     | accuracy | recovers % of +0.28 |
+| --------- | -------- | ------------------- |
+| base      | 0.377    | 0%                  |
+| full      | 0.657    | 100%                |
+| mlp       | 0.553    | 63%                 |
+| attn      | 0.460    | 30%                 |
+| early_mlp | 0.430    | 19%                 |
+| late_mlp  | 0.387    | 3.6%                |
+
 
 **What each number means.** `mlp 0.553` = "*if only the 108 LLM MLP matrices had been trained*, accuracy." It's
 **causal** because we *built* the model and measured it (an intervention).
@@ -282,20 +306,24 @@ the residual stream; the late layers don't need new weights, they read what's no
 
 **Exact computation (forward hooks).** "Residual at layer L" = output of decoder layer L at the **last token**. A
 PyTorch forward hook on `model.model.language_model.layers[L]` reads/writes `out[0][:, -1, :]` (tuple-safe).
+
 - **capture**: store `out[0][:,-1,:]` (no change). **patch**: `out[0][:,-1,:] = trained_vec` (return modified).
-  **steer**: `out[0][:,-1,:] += α·v_L`. Under `torch.no_grad()`.
+**steer**: `out[0][:,-1,:] += α·v_L`. Under `torch.no_grad()`.
 - **Phased:** (1) trained model → cache its residual at every layer + trained acc; (2) base model → cache + base
-  acc + steering vectors `v_L = mean_items(r^trained_L − r^base_L)`; (3) **sanity** self-patch base→base must
-  reproduce base acc; (4) per-item **patch** sweep; (5) **steer** sweep.
+acc + steering vectors `v_L = mean_items(r^trained_L − r^base_L)`; (3) **sanity** self-patch base→base must
+reproduce base acc; (4) per-item **patch** sweep; (5) **steer** sweep.
 
 **The numbers** *(sanity `self-patch@L24 = 0.3767 = base` exactly → hooks correct)*:
-| patch at layer | accuracy | recovered |
-|---|---|---|
-| 8 / 12 | 0.377 | 0% |
-| 16 | 0.380 | 1% |
-| 20 | 0.407 | 11% |
-| **24** | **0.607** | **82%** |
-| 28 / 32 / 35 | 0.637 / 0.653 / 0.657 | 93 / 99 / 100% |
+
+
+| patch at layer | accuracy              | recovered      |
+| -------------- | --------------------- | -------------- |
+| 8 / 12         | 0.377                 | 0%             |
+| 16             | 0.380                 | 1%             |
+| 20             | 0.407                 | 11%            |
+| **24**         | **0.607**             | **82%**        |
+| 28 / 32 / 35   | 0.637 / 0.653 / 0.657 | 93 / 99 / 100% |
+
 
 Steering (fixed mean direction): best `L35, α=4 → 0.487 (39%)`; ~40% ceiling.
 
@@ -316,13 +344,15 @@ on-demand, mid-stack, image-derived re-inspection mechanism.
 
 # PART V — THE SYNTHESIS (one story, five angles)
 
-| angle | method (script) | exact result | role |
-|---|---|---|---|
-| where weights moved | Frobenius rel-change (`weight_delta`) | 0.05%, MLP-biased, uniform-magnitude | small surgical edit |
-| which component | 3-cond ablation + freeze proof | llm_only=full≫vit_only; frozen Δ=0 | it's the LLM |
-| where it shows | logit-lens (`depth_probe`) | identical 0–23, diverge at L24 | manifests late |
-| which weights cause it | counterfactual graft (`module_graft`) | MLP 63% > attn 30%; distributed | MLP, depth-spread |
-| is the rep re-usable | residual patch/steer (`activation_patch`) | patch@L24 82%; steer ≤40% | portable, input-specific |
+
+| angle                  | method (script)                           | exact result                         | role                     |
+| ---------------------- | ----------------------------------------- | ------------------------------------ | ------------------------ |
+| where weights moved    | Frobenius rel-change (`weight_delta`)     | 0.05%, MLP-biased, uniform-magnitude | small surgical edit      |
+| which component        | 3-cond ablation + freeze proof            | llm_only=full≫vit_only; frozen Δ=0   | it's the LLM             |
+| where it shows         | logit-lens (`depth_probe`)                | identical 0–23, diverge at L24       | manifests late           |
+| which weights cause it | counterfactual graft (`module_graft`)     | MLP 63% > attn 30%; distributed      | MLP, depth-spread        |
+| is the rep re-usable   | residual patch/steer (`activation_patch`) | patch@L24 82%; steer ≤40%            | portable, input-specific |
+
 
 **Mechanism (causally established):** *RL's tiny distributed MLP edits across layers ~0–24 write the answer into
 the residual stream; by L24 it is present and readable, and the unchanged late layers read it.* (Proof of the
@@ -337,23 +367,23 @@ image-derived re-inspection**, localized to ≈L24.
 # PART VI — IMPLEMENTATION & SYSTEMS DETAILS (memory, parameters, the things they'll probe)
 
 - **Hardware:** 1 node = 4× GH200 (96 GB GPU each), aarch64/ARM. Paper used 8× H200 (141 GB). → our
-  result-neutral deviations: 4 GPUs (sharding only; global/rollout batch held → same optimization),
-  micro-batch 4/8 vs paper 16/32 (gradient-accumulation chunking; **identical gradient**, only memory differs;
-  the paper's 16 OOMs at response=2048 on 96 GB).
+result-neutral deviations: 4 GPUs (sharding only; global/rollout batch held → same optimization),
+micro-batch 4/8 vs paper 16/32 (gradient-accumulation chunking; **identical gradient**, only memory differs;
+the paper's 16 OOMs at response=2048 on 96 GB).
 - **A vision-forward speed fix (result-neutral):** Qwen3-VL's patch-embed is a kernel==stride `Conv3d`; on
-  aarch64/cuDNN it was ~3.4e5× slower than the equivalent matmul. We monkey-patched it to a `matmul`
-  (`maxdiff = 0.0`, bit-identical). Applied in training *and* in `ckpt_model` for the analyses. *(Pure speed;
-  zero effect on any number.)*
+aarch64/cuDNN it was ~3.4e5× slower than the equivalent matmul. We monkey-patched it to a `matmul`
+(`maxdiff = 0.0`, bit-identical). Applied in training *and* in `ckpt_model` for the analyses. *(Pure speed;
+zero effect on any number.)*
 - **Precision:** bf16 weights (`adamw_bf16`). The analyses cast to fp32 for the Frobenius/cosine math.
-- **Checkpoint analysis memory:** weight-delta holds the 4 shards (~9 GB) + one rebuilt tensor at a time (CPU,
-  no GPU). Graft/activation-patch hold one 4B model (~9 GB) on GPU + a CPU residual cache (~28 M floats). Node
-  RAM 450 GB → comfortable.
+- **Checkpoint analysis memory:** weight-delta holds the 4 shards (~~9 GB) + one rebuilt tensor at a time (CPU,
+no GPU). Graft/activation-patch hold one 4B model (~~9 GB) on GPU + a CPU residual cache (~28 M floats). Node
+RAM 450 GB → comfortable.
 - **Probe cost:** 300 items × 1 forward per condition; depth-probe adds 37 cheap head applications per item;
-  activation-patch ≈ 10k forwards (~40–60 min). All 1-GPU jobs; weight-delta is CPU-only.
+activation-patch ≈ 10k forwards (~40–60 min). All 1-GPU jobs; weight-delta is CPU-only.
 - **Determinism:** `seed=1` (identical across the 3 conditions, verified by config diff); the probe/graft/patch
-  use greedy/argmax readout → deterministic.
+use greedy/argmax readout → deterministic.
 - **Python gotcha (real):** the cluster *login node* is Python 3.6 (no `dataclasses`, no `list[…]` subscripts);
-  the *container* is 3.12. The loaders use `namedtuple` + bare annotations so they run on both.
+the *container* is 3.12. The loaders use `namedtuple` + bare annotations so they run on both.
 
 ---
 
@@ -439,6 +469,7 @@ ignore the duplicate in weight-delta.
 ---
 
 # PART VIII — HONEST CAVEATS (say these; they build credibility)
+
 - **Probe ≠ training protocol** (direct letter vs reasoning+boxed) — Q6.
 - **Contamination** (train-distribution probe) — Q7; generalization limited (babyVision OOD).
 - **Logit-lens mid-layer approximation** — Q8.
@@ -446,19 +477,23 @@ ignore the duplicate in weight-delta.
 - **Clip ratios 0.2/0.3/3.0 are engine defaults**, not paper-set (flag for fidelity-minded reviewers).
 - **Single 4B / seed 1 / Stage-1-only mechanism study** — Q14.
 - **Residual-direction mechanism (IV.E reconciliation)** is the best-supported reading (patch vs graft), not a
-  formal proof; the activation-patch is the most direct test we have.
+formal proof; the activation-patch is the most direct test we have.
 - **What we do NOT yet claim:** the *temporal* "perception decays as reasoning proceeds" axis (needs Stage-3 or
-  long-reasoning probes), and a *working tool-call prototype* (next experiment, now de-risked: a module that
-  produces an L24-style representation from the image on demand).
+long-reasoning probes), and a *working tool-call prototype* (next experiment, now de-risked: a module that
+produces an L24-style representation from the image on demand).
 
 ---
 
 ## Appendix — exact result provenance (so you can re-derive any number live)
-| number | produced by |
-|---|---|
-| training reward 0.365→0.746 | the run logs (`accuracy_reward`, Part II.2) |
-| weight-delta 0.05%, mlp/attn ratios, freeze=0 | `weight_delta.py` → `deltas.csv` → `summarize_deltas.py` |
-| probe base 0.377 / trained 0.657 / cond accuracies | `mc_eval.py` (DOCCI 300) |
-| depth curve (L24 divergence) | `depth_probe.py` → `depth_*.csv` |
-| graft 63/30/19/3.6% | `module_graft.py` → `graft_full_96.csv` |
-| patch@L24 82%, steer ≤40%, sanity 0.377 | `activation_patch.py` → `actpatch_full_96.csv` |
+
+
+| number                                             | produced by                                              |
+| -------------------------------------------------- | -------------------------------------------------------- |
+| training reward 0.365→0.746                        | the run logs (`accuracy_reward`, Part II.2)              |
+| weight-delta 0.05%, mlp/attn ratios, freeze=0      | `weight_delta.py` → `deltas.csv` → `summarize_deltas.py` |
+| probe base 0.377 / trained 0.657 / cond accuracies | `mc_eval.py` (DOCCI 300)                                 |
+| depth curve (L24 divergence)                       | `depth_probe.py` → `depth_*.csv`                         |
+| graft 63/30/19/3.6%                                | `module_graft.py` → `graft_full_96.csv`                  |
+| patch@L24 82%, steer ≤40%, sanity 0.377            | `activation_patch.py` → `actpatch_full_96.csv`           |
+
+
