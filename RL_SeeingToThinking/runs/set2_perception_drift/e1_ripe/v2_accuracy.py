@@ -27,13 +27,15 @@ SJSON  = f"{ROOT}/scenes/CLEVR_val_scenes.json"
 IMGDIR = f"{ROOT}/images/val"
 OUT    = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/out"
 
-N            = 5 if MODE == "smoke" else 200
+DSET         = os.environ.get("DSET", MODE)                                   # full | smoke | hard
+N            = int(os.environ.get("N_ITEMS", 5 if MODE == "smoke" else 200))
+MIN_DEPTH    = int(os.environ.get("MIN_DEPTH", "0"))                          # depth-bias: keep only program-depth >= this
 N_LEVELS     = 5
 MAX_TOKENS   = 32768
 SAVE_LOGPROBS = True
 TOPK         = 5
 BOXED        = "\n\nPut your final answer in \\boxed{}."
-RECFILE      = f"{OUT}/v2_{MODE}_records.jsonl"
+RECFILE      = f"{OUT}/v2_{DSET}_records.jsonl"
 CLEVR_VOCAB = set("""gray grey red blue green brown purple cyan yellow cube cubes sphere spheres
 ball balls cylinder cylinders large small big tiny metal metallic shiny rubber matte
 behind front left right""".split())
@@ -64,20 +66,21 @@ def main():
         f"p75={int(np.percentile(depths,75))} max={depths.max()}")
 
     rng = random.Random(0)
-    order = sorted(range(len(Q)), key=lambda i: len(Q[i]["program"]))
+    cand = [i for i in range(len(Q)) if Q[i]["image_filename"] in PRESENT and len(Q[i]["program"]) >= MIN_DEPTH]
+    log(f"candidates (present image & depth>={MIN_DEPTH}): {len(cand)}")
+    order = sorted(cand, key=lambda i: len(Q[i]["program"]))
     ed = [len(Q[order[int(k*(len(order)-1)/N_LEVELS)]]["program"]) for k in range(N_LEVELS+1)]
     chosen, per = [], max(1, N // N_LEVELS)
     for lv in range(N_LEVELS):
         lo, hi = ed[lv], ed[lv+1]
-        bucket = [i for i in range(len(Q)) if Q[i]["image_filename"] in PRESENT and
-                  ((lo <= len(Q[i]["program"]) < hi) or (lv == N_LEVELS-1 and len(Q[i]["program"]) >= hi))]
+        bucket = [i for i in cand if (lo <= len(Q[i]["program"]) < hi) or (lv == N_LEVELS-1 and len(Q[i]["program"]) >= hi)]
         rng.shuffle(bucket)
         for i in bucket[:per]:
             chosen.append(dict(qi=i, level=lv, depth=len(Q[i]["program"]), q=Q[i]["question"],
                                ans=norm(Q[i]["answer"]), clevr_answer=Q[i]["answer"], program=Q[i]["program"],
                                img=Q[i]["image_filename"], image_index=Q[i]["image_index"], scene=SC[Q[i]["image_index"]]))
     chosen = chosen[:N]
-    log(f"selected {len(chosen)} items; depths={[c['depth'] for c in chosen]}")
+    log(f"selected {len(chosen)} items; depth range {min(c['depth'] for c in chosen)}-{max(c['depth'] for c in chosen)}")
 
     def b64(path):
         im = Image.open(path).convert("RGB"); buf = io.BytesIO(); im.save(buf, format="PNG")
@@ -193,8 +196,8 @@ def main():
                    summary=dict(acc=acc, trunc=trunc, no_close=noclose, no_boxed=nobox,
                                 chain_min=min(ct), chain_median=int(np.median(ct)), chain_max=max(ct),
                                 corr_depth_chain=[dp, ds], corr_nobj_chain=[op, o2], corr_depth_logchain=[ldp, lds])),
-              open(f"{OUT}/v2_{MODE}_summary.json", "w"), indent=2, default=str)
-    log(f"saved summary -> {OUT}/v2_{MODE}_summary.json")
+              open(f"{OUT}/v2_{DSET}_summary.json", "w"), indent=2, default=str)
+    log(f"saved summary -> {OUT}/v2_{DSET}_summary.json")
 
 
 if __name__ == "__main__":

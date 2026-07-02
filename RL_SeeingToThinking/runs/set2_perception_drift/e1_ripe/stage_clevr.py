@@ -13,7 +13,8 @@ import os, io, json, struct, zlib, random, glob, time, urllib.request
 
 URL      = "https://dl.fbaipublicfiles.com/clevr/CLEVR_v1.0.zip"
 DEST     = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/data"
-N_POOL   = 1500
+N_POOL   = int(os.environ.get("N_POOL", "1500"))
+MIN_DEPTH= int(os.environ.get("MIN_DEPTH", "0"))            # depth-bias the staged pool (harder run)
 N_LEVELS = 5
 QMEM = "CLEVR_v1.0/questions/CLEVR_val_questions.json"
 SMEM = "CLEVR_v1.0/scenes/CLEVR_val_scenes.json"
@@ -82,12 +83,14 @@ Q = json.load(open(os.path.join(DEST, QMEM)))["questions"]
 print(f"val questions: {len(Q)}", flush=True)
 
 # ---- pool selection (same depth-bin logic/seed as v2 -> v2's picks are a subset) ----
-order = sorted(range(len(Q)), key=lambda x: len(Q[x]["program"]))
+cand = [x for x in range(len(Q)) if len(Q[x]["program"]) >= MIN_DEPTH]
+print(f"candidates depth>={MIN_DEPTH}: {len(cand)}", flush=True)
+order = sorted(cand, key=lambda x: len(Q[x]["program"]))
 ed = [len(Q[order[int(k*(len(order)-1)/N_LEVELS)]]["program"]) for k in range(N_LEVELS+1)]
 r, picks, per = random.Random(0), [], N_POOL // N_LEVELS
 for lv in range(N_LEVELS):
     lo, hi = ed[lv], ed[lv+1]
-    b = [x for x in range(len(Q)) if (lo <= len(Q[x]["program"]) < hi) or (lv == N_LEVELS-1 and len(Q[x]["program"]) >= hi)]
+    b = [x for x in cand if (lo <= len(Q[x]["program"]) < hi) or (lv == N_LEVELS-1 and len(Q[x]["program"]) >= hi)]
     r.shuffle(b); picks += b[:per]
 imgs = sorted({Q[x]["image_filename"] for x in picks})
 print(f"pool={len(picks)} items -> {len(imgs)} unique images", flush=True)

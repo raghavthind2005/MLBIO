@@ -16,12 +16,13 @@ import numpy as np
 from collections import Counter
 
 MODE   = (sys.argv[1] if len(sys.argv) > 1 else "smoke").lower()
+DSET   = os.environ.get("DSET", "full")                    # which v2 dataset to gate: full | hard
 K      = 5
 MODEL  = "/capstor/store/cscs/swissai/a0174/models/Qwen3-VL-4B-Thinking"
 IMGDIR = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/data/CLEVR_v1.0/images/val"
-RECIN  = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/out/v2_full_records.jsonl"
 OUT    = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/out"
-RECOUT = f"{OUT}/e1_gate_multi_{MODE}.jsonl"
+RECIN  = f"{OUT}/v2_{DSET}_records.jsonl"
+RECOUT = f"{OUT}/e1_gate_multi_{DSET}.jsonl"
 MAX_TOKENS = 8192
 ENUM = ("List every object in the image. Output ONE object per line in EXACTLY this format:\n"
         "<size> <color> <material> <shape>\n"
@@ -135,7 +136,7 @@ def main():
             f"D={x['D_samples']} -> {tag}")
     json.dump(dict(mode=MODE, K=K, n=n, n_err=len(err),
                    ripe_any=ripe('D_any'), ripe_maj=ripe('D_maj'), ripe_all=ripe('D_all')),
-              open(f"{OUT}/e1_gate_multi_{MODE}_summary.json", "w"), indent=2)
+              open(f"{OUT}/e1_gate_multi_{DSET}_summary.json", "w"), indent=2)
 
 
 if __name__ == "__main__":

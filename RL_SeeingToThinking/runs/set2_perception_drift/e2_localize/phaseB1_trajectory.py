@@ -17,11 +17,12 @@ import os, sys, io, re, json, time
 import numpy as np
 
 MODE   = (sys.argv[1] if len(sys.argv) > 1 else "smoke").lower()
+DSET   = os.environ.get("DSET", "full")                    # which dataset's RIPE to analyze: full | hard
 MODEL  = "/capstor/store/cscs/swissai/a0174/models/Qwen3-VL-4B-Thinking"
 IMGDIR = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/data/CLEVR_v1.0/images/val"
-V2     = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/out/v2_full_records.jsonl"
-MULTI  = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/out/e1_gate_multi_full.jsonl"
 OUT    = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/out"
+V2     = f"{OUT}/v2_{DSET}_records.jsonl"
+MULTI  = f"{OUT}/e1_gate_multi_{DSET}.jsonl"
 BOXED  = "\n\nPut your final answer in \\boxed{}."
 THINK_CLOSE = 151668
 LAYERS = [24, 30]
@@ -110,7 +111,7 @@ def main():
     log(f"RIPE={len(ripe)} correct-controls={len(correct)}")
 
     recs=[]
-    fout=open(f"{OUT}/phaseB1_{MODE}_traj.jsonl","w")
+    fout=open(f"{OUT}/phaseB1_{DSET}_{MODE}_traj.jsonl","w")
     for qi,is_ripe in items:
         r=v2[qi]; gt=canon(r["gt_norm"]); model_ans=canon(extract_boxed(r["full_text"]))
         wrong_target=model_ans if is_ripe else distractor(gt)      # controls: plausible distractor, not gt
@@ -162,8 +163,8 @@ def main():
     summ([g for g in recs if not g["is_ripe"]],"correct")
     log("\nread: RIPE early_margin>0 & think_margin<0 with FLIPs => belief flips during reasoning (Method B ALIVE).")
     log("      RIPE margins ~0 throughout => no maintained belief (Method B closed); ans-anchor>0 validates endpoint.")
-    log(f"saved trajectories -> {OUT}/phaseB1_{MODE}_traj.jsonl")
-    json.dump(dict(mode=MODE,n_ripe=len(ripe),n_correct=len(correct)),open(f"{OUT}/phaseB1_{MODE}_summary.json","w"),indent=2)
+    log(f"saved trajectories -> {OUT}/phaseB1_{DSET}_{MODE}_traj.jsonl")
+    json.dump(dict(mode=MODE,n_ripe=len(ripe),n_correct=len(correct)),open(f"{OUT}/phaseB1_{DSET}_{MODE}_summary.json","w"),indent=2)
 
 
 if __name__=="__main__":
