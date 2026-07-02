@@ -1,0 +1,6 @@
+# PUBLIC repo — Set-2 design/findings docs stay LOCAL ONLY (never pushed).
+# Only executable scripts (*.py, *.sbatch) are synced to the cluster via git.
+*.md
+__pycache__/
+*.pyc
+data/
