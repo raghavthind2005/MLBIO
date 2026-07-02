@@ -31,7 +31,16 @@ FRACS  = [0.05,0.15,0.25,0.35,0.45,0.55,0.65,0.75,0.85,0.95]
 COLORS=["gray","red","blue","green","brown","purple","cyan","yellow"]; SHAPES=["cube","sphere","cylinder"]
 SIZES=["large","small"]; MATS=["rubber","metal"]
 SYN={"grey":"gray","matte":"rubber","metallic":"metal","shiny":"metal","big":"large","tiny":"small","block":"cube","ball":"sphere"}
-VALUES=[str(i) for i in range(11)]+["yes","no"]+COLORS+SHAPES+SIZES+MATS
+VALUES=[str(i) for i in range(11)]+["yes","no","medium"]+COLORS+SHAPES+SIZES+MATS
+
+def distractor(gt):
+    if gt.isdigit(): return str(int(gt)+1) if int(gt)<10 else "9"
+    if gt in ("yes","no"): return "no" if gt=="yes" else "yes"
+    if gt in ("large","small"): return "small" if gt=="large" else "large"
+    if gt in ("rubber","metal"): return "rubber" if gt=="metal" else "metal"
+    if gt in ("cube","sphere","cylinder"): return next((s for s in ("cube","sphere","cylinder") if s!=gt),None)
+    if gt in COLORS: return next((c for c in COLORS if c!=gt),None)
+    return None
 
 def log(*a): print(*a, flush=True)
 def canon(s):
@@ -104,6 +113,7 @@ def main():
     fout=open(f"{OUT}/phaseB1_{MODE}_traj.jsonl","w")
     for qi,is_ripe in items:
         r=v2[qi]; gt=canon(r["gt_norm"]); model_ans=canon(extract_boxed(r["full_text"]))
+        wrong_target=model_ans if is_ripe else distractor(gt)      # controls: plausible distractor, not gt
         img=Image.open(f"{IMGDIR}/{r['image_filename']}").convert("RGB")
         msgs=[{"role":"user","content":[{"type":"image"},{"type":"text","text":r["question"]+BOXED}]}]
         text=proc.apply_chat_template(msgs,tokenize=False,add_generation_prompt=True)
@@ -125,15 +135,15 @@ def main():
         for L in LAYERS:
             for lab,idx in POS:
                 pp=patchscope_probs(hs[L][0,idx],L)
-                traj[f"{L}|{lab}"]=dict(pgt=round(pp.get(gt,0.0),4), pwrong=round(pp.get(model_ans,0.0),4))
+                traj[f"{L}|{lab}"]=dict(pgt=round(pp.get(gt,0.0),4), pwrong=round(pp.get(wrong_target,0.0),4))
             traj[f"{L}|ans_ll"]=dict(pgt=round(ll_probs(hs[L][0,ans_predict]).get(gt,0.0),4),
-                                     pwrong=round(ll_probs(hs[L][0,ans_predict]).get(model_ans,0.0),4))
-        rec=dict(qi=qi,is_ripe=is_ripe,gt=gt,model_ans=model_ans,depth=r["depth"],traj=traj)
+                                     pwrong=round(ll_probs(hs[L][0,ans_predict]).get(wrong_target,0.0),4))
+        rec=dict(qi=qi,is_ripe=is_ripe,gt=gt,model_ans=model_ans,wrong_target=wrong_target,depth=r["depth"],traj=traj)
         recs.append(rec); fout.write(json.dumps(rec)+"\n")
         # per-item margin at L30
         m=lambda lab: traj[f"30|{lab}"]["pgt"]-traj[f"30|{lab}"]["pwrong"]
         early=np.mean([m("f%.2f"%f) for f in FRACS[:3]]); late=m("think"); anc=m("ans")
-        log(f"[{'RIPE' if is_ripe else 'corr'} qi{qi}] gt={gt!r} wrong={model_ans!r} | L30 margin early={early:+.3f} think={late:+.3f} ans_anchor={anc:+.3f}")
+        log(f"[{'RIPE' if is_ripe else 'corr'} qi{qi}] gt={gt!r} wrong={wrong_target!r} | L30 margin early={early:+.3f} think={late:+.3f} ans_anchor={anc:+.3f}")
     fout.close()
 
     # ---- flip analysis (L30 patchscope) ----
