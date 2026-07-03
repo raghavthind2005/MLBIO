@@ -135,12 +135,14 @@ def main():
         for plabel,ptok in [p for p in pos if p[0] in ("think","ans")]:
             for cond in ("V0","V1"):
                 add("ctrl", qi, plabel, ptok, resp, cond)
-    # conflict: inject a DIFFERENT scene at think on correct items -> answer must move (2-image attention)
+    # conflict: inject a DIFFERENT scene at EVERY position on correct items -> answer must move if the
+    # 2nd (re-injected) copy is actually attended. Low conflict-acc at a position => 2-image attention there
+    # => a V1-null at that position means "looked, didn't help" (not "never looked"). This disambiguates nulls.
     pool=corr_items[:N_CTRL]
     for k,qi in enumerate(pool[:min(10,len(pool))]):
-        resp,pos=positions(qi); ti=[p for p in pos if p[0]=="think"][0][1]
-        other=pool[(k+1)%len(pool)]
-        add("conflict", qi, "think", ti, resp, "conflict", second_qi=other)
+        resp,pos=positions(qi); other=pool[(k+1)%len(pool)]
+        for plabel,ptok in pos:
+            add("conflict", qi, plabel, ptok, resp, "conflict", second_qi=other)
     log(f"total generations: {len(jobs)}")
 
     # ---- vLLM greedy ----
@@ -178,10 +180,12 @@ def main():
     for p in ("think","ans"):
         b0,_=rate("ctrl",p,"V0"); b1,n=rate("ctrl",p,"V1")
         log(f"  [specificity {p}] correct-item acc  V0={b0:.3f}  V1={b1:.3f}  (breakage if V1<V0, n={n})")
-    cf=[r for r in recs if r["tag"]=="conflict"]
-    if cf:
-        moved=sum(1 for r in cf if not r["ok"])   # correct item, conflicting image -> answer should move OFF gt
-        log(f"  [conflict] {moved}/{len(cf)} correct items MOVED off gt when a different scene was injected (2-image attention confirmed if high)")
+    log("  [conflict] correct-item acc when a DIFFERENT scene is injected at p (LOW acc => 2nd copy IS attended there):")
+    for p in ORDER:
+        s=[r for r in recs if r["tag"]=="conflict" and r["pos"]==p]
+        if s:
+            acc=sum(r["ok"] for r in s)/len(s)
+            log(f"     {p:7} stay-correct={acc:.3f}  moved-off-gt={1-acc:.3f}  (n={len(s)})")
     log(f"\nread: a positive dCorr(V1-V0) at some position = re-accessing the image CAUSALLY corrects RIPE there;")
     log(f"      peak position = the localizer; V1-V_scr>0 confirms it's visual CONTENT not insertion.")
     log(f"saved -> {OUT}/phaseA2_sweep_{MODE}.jsonl")
