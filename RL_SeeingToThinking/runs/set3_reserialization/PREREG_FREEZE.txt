@@ -46,3 +46,8 @@ e25d60a9aabcdd5fd493309ee2f0a7e645d8e09dcfb0e1808e5d1821714b69ee SET3_EXPERIMENT
 === AMENDMENT 6 — 2026-07-06T13:54:46Z (parity gate: trajectory metric + riders R1/R2/R3; pre-outcome) ===
 Reason: record Part 4 (chain of trust + design change + riders). Supervisor-approved. Pre-reg UNCHANGED (86cab627).
 dfac986d881861279e41350c9ef1dd840cda34b493ad63f02a839f1104537738 SET3_EXPERIMENT_RECORD.md
+
+=== AMENDMENT 7 — 2026-07-06T15:32:52Z (parity v2 retracted; v3 within-vLLM gate approved; pre-outcome) ===
+Reason: record Part 4b (V0 control retracts trajectory metric; cross-engine parity not required; Layer A/B gate).
+Pre-registration UNCHANGED (86cab627).
+79094f07d76a188f8c1f71678f8f6a18942e3aa052a8901fa9c22192efabf0c3 SET3_EXPERIMENT_RECORD.md
