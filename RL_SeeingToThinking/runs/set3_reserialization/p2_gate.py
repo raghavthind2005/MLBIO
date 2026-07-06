@@ -2,12 +2,14 @@
 """
 Set 3 / Phase 2 — HF-vs-vLLM PARITY GATE for the NEW Set-3 injection configs (blocking, directive §6, ≥14/16).
 Set-2 validated only 2-IMAGE injection; Set 3 adds TEXT injection (V_self/V_text). This re-validates that
-vLLM reproduces HF for text AND image payloads before the sweep is trusted. HF and vLLM in ONE process on
-byte-identical inputs (HF first, freed, then vLLM at modest gpu_mem). Disagreements at the token cap are
-truncation, not injection-faithfulness (cf. Set-2 gate 14/16).
+vLLM reproduces HF for text AND image payloads before the sweep is trusted.
 
-Also prints a V_viz2 crop SANITY line per case (question + executor-relevant objects + bbox) so the crop's
-object selection can be eyeballed. Guarded under __main__ (vLLM spawn).
+METHOD (fast + strict): greedy is deterministic, so if the injection produces the SAME model state in HF and
+vLLM, they emit the SAME token trajectory. We compare the FIRST N greedy tokens after injection (token-id
+exact prefix), NOT the final boxed answer — this needs no long mid-think re-think (which made the answer-based
+gate too slow), and an identical prefix is stronger evidence of faithfulness than a matching final answer.
+Early divergence => vLLM mishandles the injected payload. HF and vLLM in ONE process on byte-identical inputs.
+Guarded under __main__ (vLLM spawn).
 """
 import os, sys, io, json, time, base64, gc, re
 import torch
@@ -15,7 +17,8 @@ from common import canon_ans, extract_boxed
 from p2_common import vself_text, render_scene_text, scramble
 
 N_ITEMS = int(os.environ.get("N_ITEMS", "4"))
-MAXNEW  = int(os.environ.get("MAX_NEW", "8192"))
+MAXNEW  = int(os.environ.get("MAX_NEW", "128"))
+LOCK    = int(os.environ.get("LOCK", "64"))            # require identical trajectory for >= this many tokens
 MODEL  = "/capstor/store/cscs/swissai/a0174/models/Qwen3-VL-4B-Thinking"
 IMGDIR = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/data/CLEVR_v1.0/images/val"
 OUT    = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/out"
@@ -62,7 +65,7 @@ def main():
     for qi,c,prompt,imgs in cases:
         enc=proc(text=[prompt],images=imgs,return_tensors="pt"); enc={k:v.to("cuda") for k,v in enc.items()}
         with torch.no_grad(): o=model.generate(**enc,max_new_tokens=MAXNEW,do_sample=False)
-        hf.append(canon_ans(extract_boxed(tok.decode(o[0][enc["input_ids"].shape[1]:],skip_special_tokens=True))))
+        hf.append(o[0][enc["input_ids"].shape[1]:].tolist())          # generated token ids
     log(f"HF done {time.time()-t0:.0f}s"); del model; gc.collect(); torch.cuda.empty_cache()
 
     # ---- vLLM (same inputs) ----
@@ -72,14 +75,22 @@ def main():
             limit_mm_per_prompt={"image":2},trust_remote_code=False)
     sp=SamplingParams(temperature=0.0,max_tokens=MAXNEW)
     outs=llm.generate([{"prompt":p,"multi_modal_data":{"image":im}} for (_,_,p,im) in cases], sp)
-    vl=[canon_ans(extract_boxed(o.outputs[0].text)) for o in outs]
+    vl=[list(o.outputs[0].token_ids) for o in outs]
 
-    log("="*70, "\nHF vs vLLM:")
-    agree=0
+    def cprefix(a,b):
+        n=0
+        for x,y in zip(a,b):
+            if x==y: n+=1
+            else: break
+        return n
+    log("="*70, f"\nHF vs vLLM — first-{MAXNEW}-token greedy trajectory (identical prefix => engine-faithful injection):")
+    faithful=0
     for (qi,c,_,_),h,v in zip(cases,hf,vl):
-        ok=(h==v); agree+=ok
-        log(f"  qi{qi} {c:7} HF={h!r:>8} vLLM={v!r:>8}  {'ok' if ok else 'MISMATCH'}")
-    log(f"\nPARITY: {agree}/{len(cases)}  (require >=14/16; cap-truncation disagreements explained, not injection faults)")
+        cp=cprefix(h,v); m=min(len(h),len(v)); ok=cp>=min(LOCK,m)
+        faithful+=ok
+        log(f"  qi{qi} {c:7} common_prefix={cp}/{m}  {'ok' if ok else 'DIVERGES-EARLY'}")
+    log(f"\nPARITY: {faithful}/{len(cases)} cases with identical HF/vLLM trajectory for >={LOCK} tokens  (require >=14/16)")
+    log("  identical greedy trajectory => vLLM reproduces HF's post-injection state; early divergence => unfaithful injection.")
 
 if __name__=="__main__":
     main()
