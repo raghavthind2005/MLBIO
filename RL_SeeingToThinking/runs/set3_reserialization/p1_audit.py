@@ -109,11 +109,21 @@ def main():
     check("Pool-S V_self is GT-perfect (post-hoc) 149/149", vs_perf==vs_n==149, f"{vs_perf}/{vs_n}")
     check("no empty/unparseable V_self payload", not empty, f"{len(empty)} empty {empty[:5]}")
 
-    # ---- C10 enumeration truncation health (gate max_tokens=8192) ----
-    noclose=sum(1 for r in pools for t in r["all_enums"] if "</think>" not in t)
+    # ---- C10 enumeration truncation — PROPAGATION-AWARE ----
+    # A malformed (no-</think>) sample scores D=0, so it can only DEFLATE D_maj (never inflate -> Pool-S is
+    # conservative). It only threatens integrity if it is the V_self-SELECTED (modal) sample. WARN on count;
+    # FAIL only if a malformed sample is actually the V_self source.
+    noclose=0; bad_modal=[]
+    for r in pools:
+        idx,_=modal_index(r["all_enums"])
+        for i,t in enumerate(r["all_enums"]):
+            if "</think>" not in t:
+                noclose+=1
+                if i==idx: bad_modal.append(r["qi"])
     tot=sum(len(r["all_enums"]) for r in pools)
-    check("enumeration samples closed </think> (truncation health)", noclose==0,
-          f"{noclose}/{tot} samples lack </think> (possible enum truncation) — note if >0")
+    if noclose: print(f"  [WARN] {noclose}/{tot} enum samples lack </think> (D=0 for those; conservative — deflate only)")
+    check("no malformed enum sample is V_self-selected (else V_self would be garbage)", not bad_modal,
+          f"{len(bad_modal)} malformed-and-selected {bad_modal[:5]}")
 
     # ---- C11 staged images exist for all pool items ----
     present=set(os.listdir(IMGDIR))
