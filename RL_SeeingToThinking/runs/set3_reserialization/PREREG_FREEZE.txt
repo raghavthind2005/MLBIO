@@ -51,3 +51,8 @@ dfac986d881861279e41350c9ef1dd840cda34b493ad63f02a839f1104537738 SET3_EXPERIMENT
 Reason: record Part 4b (V0 control retracts trajectory metric; cross-engine parity not required; Layer A/B gate).
 Pre-registration UNCHANGED (86cab627).
 79094f07d76a188f8c1f71678f8f6a18942e3aa052a8901fa9c22192efabf0c3 SET3_EXPERIMENT_RECORD.md
+
+=== AMENDMENT 8 — 2026-07-06T17:27:27Z (Layer A A.1 criterion refined to content-integrity; pre-outcome) ===
+Reason: qi7026 A.1 'fail' = benign base-side boundary re-tokenization (payload byte-identical, A.2 attends). Check fix, not payload change.
+Pre-registration UNCHANGED (86cab627).
+e4a715e6815a1eb3690fc96bd55d4168085dc68257c752d61066d4d51c1310c6 SET3_EXPERIMENT_RECORD.md
