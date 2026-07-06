@@ -30,8 +30,10 @@ def enum_body(text): return text.split("</think>")[-1].strip()   # verbatim enum
 
 def modal_index(enums):
     """index of the sample whose parsed multiset is the MODAL exact multiset among the 5;
-    ties broken by FIRST occurrence. GT-free (no scene comparison)."""
-    ms = [frozenset(Counter(parse_objects(t)).items()) for t in enums]
+    ties broken by FIRST occurrence. GT-free (no scene comparison).
+    Parse the enumeration BODY (post-</think>) only — same basis as the gate's score_enum;
+    parsing the full text would let the varying <think> block make every multiset distinct."""
+    ms = [frozenset(Counter(parse_objects(enum_body(t))).items()) for t in enums]
     counts = Counter(ms)
     maxc = max(counts.values())
     first_idx = min(ms.index(m) for m in counts if counts[m] == maxc)   # earliest index among modal multisets
