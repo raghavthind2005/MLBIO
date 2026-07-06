@@ -27,14 +27,16 @@ from common import canon_ans, extract_boxed, answer_correct
 from p2_common import vself_text, render_scene_text, scramble
 
 MODE   = (sys.argv[1] if len(sys.argv) > 1 else "smoke").lower()
-MAXTOK = int(os.environ.get("MAX_TOK", "16384"))
+MAXTOK = int(os.environ.get("MAX_TOK", "24576"))   # §3 truncation contingency (supervisor-invoked 2026-07-07); was 16384
+MAXLEN = int(os.environ.get("MAX_LEN", "61440"))   # headroom for MAXTOK + long f0.75 prefixes; startup-asserted below
 MODEL  = "/capstor/store/cscs/swissai/a0174/models/Qwen3-VL-4B-Thinking"
 IMGDIR = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/data/CLEVR_v1.0/images/val"
 OUT    = "/iopsstor/scratch/cscs/raghavthind/set2_pilot/out"
 BOXED  = "\n\nPut your final answer in \\boxed{}."
 THINK_CLOSE = 151668
 POSFRACS = [0.25, 0.50, 0.75]
-POS_CONDS = ["V0","V1","V_scr","V_self","V_text","V_text_wrong","V_scaffold","V_restart"]
+POS_CONDS = ["V0","V1","V_scr","V_self","V_text","V_text_wrong","V_scaffold","V_restart","V_restart_ctrl"]
+RESTART_INSTR = "\n\nLet me disregard my reasoning so far and solve this again from scratch, looking carefully at the image:\n"
 def log(*a): print(*a, flush=True)
 
 def main():
@@ -84,7 +86,8 @@ def main():
             ws=wrong_scene(qi)
             return (None if ws is None else (base+"\n\n"+render_scene_text(ws)+"\n", [img]))
         if cond=="V_scaffold":   return base+"\n\nLet me re-examine the image carefully:\n"+VIS, [img,img]
-        if cond=="V_restart":    return base+"\n\nLet me disregard my reasoning so far and solve this again from scratch, looking carefully at the image:\n"+VIS, [img,img]
+        if cond=="V_restart":    return base+RESTART_INSTR+VIS, [img,img]
+        if cond=="V_restart_ctrl": return base+RESTART_INSTR, [img]   # same instruction, NO re-presented image (payload control)
 
     # ---- build jobs ----
     jobs=[]
@@ -106,21 +109,35 @@ def main():
     import torch, vllm
     from vllm import LLM, SamplingParams
     log(f"torch {torch.__version__} vllm {vllm.__version__}")
+    log("="*70, "\nONE-RUN RULE: vLLM greedy is NOT batch-deterministic. This sweep runs ONCE.")
+    log(f"  no selective per-cell re-runs (they can flip discordant pairs). vllm=={vllm.__version__}")
+    log(f"  MAXTOK={MAXTOK}  MAXLEN={MAXLEN}", "="*70)
     t0=time.time()
-    llm=LLM(model=MODEL,dtype="bfloat16",max_model_len=40960,gpu_memory_utilization=0.90,
+    llm=LLM(model=MODEL,dtype="bfloat16",max_model_len=MAXLEN,gpu_memory_utilization=0.90,
             limit_mm_per_prompt={"image":2},trust_remote_code=False)
     log(f"engine up {time.time()-t0:.0f}s")
+    # startup safety: no prompt may leave <MAXTOK room in the context window (fail loud, not silent-clamp)
+    tokd=tok(text=[j["prompt"] for j in jobs])["input_ids"]
+    ptoks=[len(t) for t in tokd]; worst=max(ptoks)
+    img_reserve=2600  # <image_pad> tokens are added at prompt time beyond the text ids (<=2 images)
+    log(f"prompt-token lengths: max={worst} p95={sorted(ptoks)[int(0.95*len(ptoks))]} (+~{img_reserve} image); MAXTOK={MAXTOK}; MAXLEN={MAXLEN}")
+    assert worst+img_reserve+MAXTOK<=MAXLEN, f"prompt {worst}+img {img_reserve}+MAXTOK {MAXTOK} > MAXLEN {MAXLEN}: raise MAX_LEN"
     sp=SamplingParams(temperature=0.0,max_tokens=MAXTOK)
     reqs=[{"prompt":j["prompt"],"multi_modal_data":{"image":j["images"]}} for j in jobs]
     t0=time.time(); outs=llm.generate(reqs,sp); log(f"generated {len(outs)} in {time.time()-t0:.0f}s")
 
     trunc=0
-    with open(f"{OUT}/set3_p2sweep_{MODE}.jsonl","w") as f:
+    # compact answers file (for p2_analyze) + full continuations file (text + token IDs, per pre-launch item 3)
+    with open(f"{OUT}/set3_p2sweep_{MODE}.jsonl","w") as f, open(f"{OUT}/set3_p2sweep_{MODE}_full.jsonl","w") as ff:
         for j,o in zip(jobs,outs):
-            txt=o.outputs[0].text; ntok=len(o.outputs[0].token_ids); hit=int(ntok>=MAXTOK-2); trunc+=hit
+            txt=o.outputs[0].text; oids=list(o.outputs[0].token_ids); ntok=len(oids)
+            ptok=len(o.prompt_token_ids); hit=int(ntok>=MAXTOK-2); trunc+=hit
             f.write(json.dumps(dict(qi=j["qi"],pool=j["pool"],pos=j["pos"],cond=j["cond"],gt=j["gt"],
-                    ans=canon_ans(extract_boxed(txt)), ok=answer_correct(txt,j["gt"]), tok=ntok, trunc=hit))+"\n")
-    log(f"saved -> {OUT}/set3_p2sweep_{MODE}.jsonl   truncated(hit MAXTOK): {trunc}/{len(jobs)}")
+                    ans=canon_ans(extract_boxed(txt)), ok=answer_correct(txt,j["gt"]),
+                    tok=ntok, ptok=ptok, trunc=hit))+"\n")
+            ff.write(json.dumps(dict(qi=j["qi"],pool=j["pool"],pos=j["pos"],cond=j["cond"],
+                    gt=j["gt"], ptok=ptok, tok=ntok, trunc=hit, out_ids=oids, text=txt))+"\n")
+    log(f"saved -> {OUT}/set3_p2sweep_{MODE}.jsonl  (+_full.jsonl)   truncated(hit MAXTOK): {trunc}/{len(jobs)}")
 
     # quick descriptive (NOT the analysis — that's p2_analyze.py with paired stats)
     recs=[json.loads(l) for l in open(f"{OUT}/set3_p2sweep_{MODE}.jsonl")]

@@ -66,3 +66,9 @@ b1a4adf430a4847693dcdc8241dc79318710fdfc738247b3cb32a23f04f0f910 SET3_EXPERIMENT
 Reason: record Part 4b.1 — supervisor interpretive framing carried into the sweep analysis (prefix-commitment/confidence; V_restart & V_self_pre read most carefully; H1-pass sharpens story; H1-small -> depth/answer-type strata diagnose commitment vs content). NOT a hypothesis or method change.
 Confirmatory family UNCHANGED (H1 only). Pre-registration UNCHANGED (86cab627...).
 6b02c73dcfdf5cc6f1092666907b5507b2d39357ecbf654841a86b6eace35e5e SET3_EXPERIMENT_RECORD.md
+
+=== AMENDMENT 11 — 2026-07-06T22:16:19Z (pre-launch protocol; stats harness FROZEN; §3 contingency invoked; pre-outcome) ===
+Reason: record Part 4b.2 (supervisor 2026-07-07). (1) new exploratory cond V_restart_ctrl (10 conds total). (2) one-run rule + vLLM nondeterminism note. (3) full-generation logging (text+token IDs). (4) analysis lockdown — stats.py hashed & frozen HERE, run once on completed sweep, no partial analysis, all cells reported. (5) V_self_pre baseline rationale. §3 truncation contingency INVOKED: max_tokens 16384->24576, max_model_len 40960->61440 (startup-asserted). Confirmatory family H1 UNCHANGED. Pre-registration UNCHANGED (86cab627...).
+6118f2d33ec741ddcf665a6129890d4efb266796e1e8f644bde705e88fe23987 stats.py   <-- FROZEN analysis harness (item 4)
+fa9b7044bc763dc48a85f7e275bfa08fcd1808a421ac1c404e272fd1ec2b3c9e p2_sweep.py <-- sweep generator at launch (V_restart_ctrl, MAXTOK=24576, MAXLEN=61440, full logging)
+e403aaf71660d2af6c5cf8b68748791c9268f85af629485d23decaa139624072 SET3_EXPERIMENT_RECORD.md
