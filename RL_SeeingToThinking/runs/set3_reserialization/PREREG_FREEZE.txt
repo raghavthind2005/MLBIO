@@ -42,3 +42,7 @@ c053aa5f783715497caed7fe28d8ce8e07ed9cd934bb5ad72757e1c580974b13 SET3_EXPERIMENT
 Reason: exact figures from set3_viz2_sanity.txt (rel/scene=1.00 all; bbox median 0.571; 3/169>=0.8).
 Pre-registration UNCHANGED (86cab627...).
 e25d60a9aabcdd5fd493309ee2f0a7e645d8e09dcfb0e1808e5d1821714b69ee SET3_EXPERIMENT_RECORD.md
+
+=== AMENDMENT 6 — 2026-07-06T13:54:46Z (parity gate: trajectory metric + riders R1/R2/R3; pre-outcome) ===
+Reason: record Part 4 (chain of trust + design change + riders). Supervisor-approved. Pre-reg UNCHANGED (86cab627).
+dfac986d881861279e41350c9ef1dd840cda34b493ad63f02a839f1104537738 SET3_EXPERIMENT_RECORD.md
