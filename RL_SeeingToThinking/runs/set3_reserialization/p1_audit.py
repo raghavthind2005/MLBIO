@@ -86,11 +86,11 @@ def main():
     check("pool label == (S if D_maj else P)", not pl, f"{len(pl)} mismatch")
     check("Pool-S count == 149", sum(r["pool"]=="S" for r in pools)==149, f"got {sum(r['pool']=='S' for r in pools)}")
 
-    # ---- C7 gt_norm / gt_type consistency across files ----
-    gnb=[qi for qi in P if not (M[qi]["gt_norm"]==O[qi]["gt_norm"]==R[qi]["gt_norm"]==P[qi]["gt_norm"]==V[qi]["gt_norm"])]
-    check("gt_norm identical across manifest/orig/rob/pools/vself", not gnb, f"{len(gnb)} mismatch {gnb[:5]}")
-    gtb=[qi for qi,r in P.items() if r["gt_type"]!=gt_type(r["gt_norm"])]
-    check("gt_type consistent with gt_norm", not gtb, f"{len(gtb)} mismatch")
+    # ---- C7 gt_norm / gt_type consistency across files (vself stores gt_type, not gt_norm) ----
+    gnb=[qi for qi in P if not (M[qi]["gt_norm"]==O[qi]["gt_norm"]==R[qi]["gt_norm"]==P[qi]["gt_norm"])]
+    check("gt_norm identical across manifest/orig/rob/pools", not gnb, f"{len(gnb)} mismatch {gnb[:5]}")
+    gtb=[qi for qi in P if not (gt_type(P[qi]["gt_norm"])==P[qi]["gt_type"]==R[qi]["gt_type"]==V[qi]["gt_type"])]
+    check("gt_type consistent (pools/rob/vself) with gt_norm", not gtb, f"{len(gtb)} mismatch {gtb[:5]}")
 
     # ---- C8 scene consistency (orig scene == manifest scene, same qi) ----
     scb=[qi for qi in P if len(O[qi]["scene"]["objects"])!=len(M[qi]["scene"]["objects"])
