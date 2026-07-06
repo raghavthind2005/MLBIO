@@ -1,0 +1,10 @@
+Set 3 — pre-registration freeze (immutable timestamp; doc CONTENT kept LOCAL per public-repo docs policy).
+These SHA-256 hashes prove the frozen docs existed in this exact state before any Phase-2 outcome.
+frozen_utc: 2026-07-06T09:20:02Z
+git_commit_at_freeze: 3cb32f198adcd5ec68dbef03335bb710b4d48b7c
+
+sha256  file
+e3d60a083e4f95d267d006e48ba63dd3b82184a310c1487ed7e3160a3991554c SET3_DIRECTIVE.md
+3567bd1a0902687419122542b66b83c21485b6647afd9bddd1a58a1a2813a66a SET3_EXPERIMENT_RECORD.md
+3a7224a98d15451556fedac715539dc08aceedc663db561b71857cf0a6d71a6f SET3_PREREGISTRATION.md
+addc78ff32809bab0a966ec902671972a4de3fe2a3e56f52e08614ef0caf3979 SET3_SYNC_NOTE.md
