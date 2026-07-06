@@ -37,3 +37,8 @@ Confirmatory family unchanged (H1 only).
 c053aa5f783715497caed7fe28d8ce8e07ed9cd934bb5ad72757e1c580974b13 SET3_EXPERIMENT_RECORD.md
 86cab627c5ab1ea71d4273a8e7ec2e3f6e587da4b263907def4d015288a88ba2 SET3_PREREGISTRATION.md
 131c44177957938806be3aa27f9ce519c8ac655218dd542fd77fbd0c066e9254 p2_viz2_sanity.py
+
+=== AMENDMENT 5 — 2026-07-06T12:39:43Z (record Part 3 numbers corrected to match artifact; still pre-outcome) ===
+Reason: exact figures from set3_viz2_sanity.txt (rel/scene=1.00 all; bbox median 0.571; 3/169>=0.8).
+Pre-registration UNCHANGED (86cab627...).
+e25d60a9aabcdd5fd493309ee2f0a7e645d8e09dcfb0e1808e5d1821714b69ee SET3_EXPERIMENT_RECORD.md
