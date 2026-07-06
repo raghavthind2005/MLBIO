@@ -11,8 +11,8 @@ object selection can be eyeballed. Guarded under __main__ (vLLM spawn).
 """
 import os, sys, io, json, time, base64, gc, re
 import torch
-from common import canon_ans, extract_boxed, execute, tup
-from p2_common import vself_text, render_scene_text, viz2_crop
+from common import canon_ans, extract_boxed
+from p2_common import vself_text, render_scene_text, scramble
 
 N_ITEMS = int(os.environ.get("N_ITEMS", "4"))
 MAXNEW  = int(os.environ.get("MAX_NEW", "8192"))
@@ -49,13 +49,11 @@ def main():
     cases=[]
     for qi in poolS:
         img=img_of(qi); scene=orig[qi]["scene"]; base=user_tpl(qi)+prefix50(qi)
-        crop,bbox,reltup=viz2_crop(img, scene, orig[qi]["program"])
-        log(f"  [viz2 sanity] qi={qi} Q={orig[qi]['question'][:52]!r} rel_objs={reltup} bbox={bbox}")
-        cases.append((qi,"V1",     base+VIS,                                   [img,img]))
-        cases.append((qi,"V_self", base+"\n\n"+vself_text(vself[qi]["v_self_payload"])+"\n", [img]))
-        cases.append((qi,"V_text", base+"\n\n"+render_scene_text(scene)+"\n",  [img]))
-        cases.append((qi,"V_viz2", base+VIS,                                   [img,crop]))
-    log(f"cases={len(cases)}  (conditions: V1,V_self,V_text,V_viz2 × {len(poolS)} Pool-S items @ f0.50)")
+        cases.append((qi,"V1",     base+VIS,                                   [img,img]))            # image inject
+        cases.append((qi,"V_scr",  base+VIS,                                   [img,scramble(img)])) # image inject (placebo)
+        cases.append((qi,"V_self", base+"\n\n"+vself_text(vself[qi]["v_self_payload"])+"\n", [img])) # text inject
+        cases.append((qi,"V_text", base+"\n\n"+render_scene_text(scene)+"\n",  [img]))               # text inject
+    log(f"cases={len(cases)}  (image-inject: V1,V_scr; text-inject: V_self,V_text × {len(poolS)} Pool-S @ f0.50)")
 
     # ---- HF reference (sequential greedy) ----
     t0=time.time(); model=AutoModelForImageTextToText.from_pretrained(MODEL,dtype=torch.bfloat16,device_map="cuda").eval()
