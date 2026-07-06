@@ -23,3 +23,9 @@ Reason: added record §1.8 (audit 33/33; enum-truncation WARN verified benign on
 Pre-registration UNCHANGED.
 c864126226be47549fe2520ba12a9782acdd9a7d43f9f76a1b970067cb5e0748 SET3_EXPERIMENT_RECORD.md
 3a7224a98d15451556fedac715539dc08aceedc663db561b71857cf0a6d71a6f SET3_PREREGISTRATION.md
+
+=== AMENDMENT 3 — 2026-07-06T11:12:54Z (A5 protocol frozen; still pre-Phase-2/A5 generation) ===
+Reason: added record Part 2 — A5 transfer-pilot protocol (scorer conditions + GT-free V_self majority-fact-set).
+Pre-registration UNCHANGED.
+9ed7217608c04a5ea38cc1e6ad5e2ca6cb2d7f8193d1a5dd4cf60fddc6846a2e SET3_EXPERIMENT_RECORD.md
+3a7224a98d15451556fedac715539dc08aceedc663db561b71857cf0a6d71a6f SET3_PREREGISTRATION.md
