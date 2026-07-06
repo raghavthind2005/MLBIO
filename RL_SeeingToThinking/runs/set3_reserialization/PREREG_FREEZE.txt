@@ -56,3 +56,8 @@ Pre-registration UNCHANGED (86cab627).
 Reason: qi7026 A.1 'fail' = benign base-side boundary re-tokenization (payload byte-identical, A.2 attends). Check fix, not payload change.
 Pre-registration UNCHANGED (86cab627).
 e4a715e6815a1eb3690fc96bd55d4168085dc68257c752d61066d4d51c1310c6 SET3_EXPERIMENT_RECORD.md
+
+=== AMENDMENT 9 — 2026-07-06T17:59:48Z (parity gate v3 OUTCOME logged; gate CLOSED) ===
+Reason: record Part 4b.1. LAYER A PASS (A.1 text10/10 img10/10, A.2 text10/10 img10/10, A.3 steer 3/10=resistance). LAYER B PASS ON DELIVERY (n=58: V0=0.88 V_text=0.97 V_text_wrong=0.83 V1=0.95 conflict_img=0.97; wrong-drop=+0.05<0.20 -> pre-committed branch; logged 'resists conflicting mid-think text on correct items', weak headwind for H1 only, NOT Pool-S mechanism, instrument not tuned). Sweep unblocked.
+Confirmatory family UNCHANGED (H1 only). Pre-registration UNCHANGED (86cab627...).
+b1a4adf430a4847693dcdc8241dc79318710fdfc738247b3cb32a23f04f0f910 SET3_EXPERIMENT_RECORD.md
