@@ -29,3 +29,11 @@ Reason: added record Part 2 — A5 transfer-pilot protocol (scorer conditions + 
 Pre-registration UNCHANGED.
 9ed7217608c04a5ea38cc1e6ad5e2ca6cb2d7f8193d1a5dd4cf60fddc6846a2e SET3_EXPERIMENT_RECORD.md
 3a7224a98d15451556fedac715539dc08aceedc663db561b71857cf0a6d71a6f SET3_PREREGISTRATION.md
+
+=== AMENDMENT 4 — 2026-07-06T12:18:11Z (V_viz2 dropped from CLEVR; H4 re-scoped; pre-outcome) ===
+Reason: record Part 3 (deviation) added; pre-reg Amendment Appendix A-1 APPENDED (original ss1-7 unchanged).
+V_viz2 crop-sanity artifact generator = p2_viz2_sanity.py (deterministic; output set3_viz2_sanity.txt).
+Confirmatory family unchanged (H1 only).
+c053aa5f783715497caed7fe28d8ce8e07ed9cd934bb5ad72757e1c580974b13 SET3_EXPERIMENT_RECORD.md
+86cab627c5ab1ea71d4273a8e7ec2e3f6e587da4b263907def4d015288a88ba2 SET3_PREREGISTRATION.md
+131c44177957938806be3aa27f9ce519c8ac655218dd542fd77fbd0c066e9254 p2_viz2_sanity.py
