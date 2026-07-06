@@ -72,3 +72,7 @@ Reason: record Part 4b.2 (supervisor 2026-07-07). (1) new exploratory cond V_res
 6118f2d33ec741ddcf665a6129890d4efb266796e1e8f644bde705e88fe23987 stats.py   <-- FROZEN analysis harness (item 4)
 fa9b7044bc763dc48a85f7e275bfa08fcd1808a421ac1c404e272fd1ec2b3c9e p2_sweep.py <-- sweep generator at launch (V_restart_ctrl, MAXTOK=24576, MAXLEN=61440, full logging)
 e403aaf71660d2af6c5cf8b68748791c9268f85af629485d23decaa139624072 SET3_EXPERIMENT_RECORD.md
+
+=== AMENDMENT 12 — 2026-07-06T23:03:56Z (truncation re-run trigger frozen; FINAL pre-launch commitment; pre-outcome) ===
+Reason: record Part 4b.3 (supervisor 2026-07-07). Launch full at max_tokens=24576 (16% smoke = weak/non-comparable, no action). Whole-sweep re-run triggered ONLY by (a) McNemar p<0.05 on truncation status V_self-vs-V0 @f0.25 Pool-S, or (b) truncation >25% in either confirmatory cell (V_self or V0 @f0.25 Pool-S). H1 outcome NOT a permissible input to re-run decision. Re-run (if any) uses identical params; both runs reported. Confirmatory family H1 UNCHANGED. Pre-registration UNCHANGED (86cab627...).
+279114966106442aee1625ff4ae6acd2e02dac5c6956757685ddcb37faf41c0f SET3_EXPERIMENT_RECORD.md
