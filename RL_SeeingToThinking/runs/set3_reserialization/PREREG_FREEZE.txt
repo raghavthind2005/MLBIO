@@ -85,3 +85,8 @@ Reason: p2_analyze.py validated end-to-end on smoke schema (container; login-nod
 === AMENDMENT 14 — 2026-07-07T07:29:15Z (SWEEP RESULTS logged; POST-OUTCOME) ===
 Reason: record Part 5. Trigger NOT FIRED (result stands). H1 PRIMARY FAIL: V_self-V0 Pool-S f0.25 Δ=+0.007 CI(-0.047,+0.060) p=1.0; concluded-only Δ=+0.025 p=0.61 FAIL. Registered re-serialization thesis NOT supported by V_self. Exploratory (uncorrected): image re-presentation helps (V1 +0.06, scaffold/restart +0.087; V_restart decomposition localizes gain to IMAGE not instruction; scrambled+wrong-text placebos flat); V_self_pre (pre-reasoning) +0.114 vs null mid-think -> prefix-commitment/timing, not text re-serialization. Confirmatory family was H1 only; UNCHANGED. Pre-registration UNCHANGED (86cab627...).
 ef791e47de7b955387ac7d4bfbf7c94db0fd8b5f698acd93e2e0297eef38a07c SET3_EXPERIMENT_RECORD.md
+
+=== AMENDMENT 15 — 2026-07-07T08:41:42Z (pre-Set-3b integrity audit logged; NO FAULT; results stand; POST-OUTCOME) ===
+Reason: record Part 6. Read-only symmetric audit (p2_audit.py). Code-path identity OK; payload forensics 20/20 all arms + ptok==executed; V_self multiset==GT 149/149; V_self-null 7/10 engage-and-still-wrong (real null); V_text~V_self multiset 149/149 but byte-id 2/149 (order/wording, design not bug); V_self_pre body==V_self body 26/26. VERDICT NO FAULT -> results stand, cleared for Set-3b. (Noted: audit's V_scaffold engagement keyword-flag was a false 0/10; manual read 10/10 engage re-presented image.) Confirmatory family H1 UNCHANGED. Pre-registration UNCHANGED (86cab627...).
+789074102c7d318b2cb5979188d706be3b1fb98eef03c8abdb0f8d4006cbcfa0 p2_audit.py
+e8b19fff54d4658c98683d0b2e463a274d176badadd49792c2d663c03a3755e7 SET3_EXPERIMENT_RECORD.md
