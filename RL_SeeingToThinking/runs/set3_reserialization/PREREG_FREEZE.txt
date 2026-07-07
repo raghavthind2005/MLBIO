@@ -81,3 +81,7 @@ Reason: record Part 4b.3 (supervisor 2026-07-07). Launch full at max_tokens=2457
 Reason: p2_analyze.py validated end-to-end on smoke schema (container; login-node py<3.8 lacks math.comb -> analysis runs in container). Output order H1-BLIND: [1] truncation re-run trigger computed/printed BEFORE [2] H1 verdict. Run ONCE on completed full sweep (analysis lockdown, amendment 11). Frozen stats.py UNCHANGED. Confirmatory family H1 UNCHANGED. Pre-registration UNCHANGED (86cab627...).
 253d211d280ccae416c37b6e7a3a09e618cba3185df866e10d058b56db3ed973 p2_analyze.py
 4ce257339d674cf57d2f5d3b974025da045ecc5b2802d76a04a8d794bf17cc16 p2_analyze.sbatch
+
+=== AMENDMENT 14 — 2026-07-07T07:29:15Z (SWEEP RESULTS logged; POST-OUTCOME) ===
+Reason: record Part 5. Trigger NOT FIRED (result stands). H1 PRIMARY FAIL: V_self-V0 Pool-S f0.25 Δ=+0.007 CI(-0.047,+0.060) p=1.0; concluded-only Δ=+0.025 p=0.61 FAIL. Registered re-serialization thesis NOT supported by V_self. Exploratory (uncorrected): image re-presentation helps (V1 +0.06, scaffold/restart +0.087; V_restart decomposition localizes gain to IMAGE not instruction; scrambled+wrong-text placebos flat); V_self_pre (pre-reasoning) +0.114 vs null mid-think -> prefix-commitment/timing, not text re-serialization. Confirmatory family was H1 only; UNCHANGED. Pre-registration UNCHANGED (86cab627...).
+ef791e47de7b955387ac7d4bfbf7c94db0fd8b5f698acd93e2e0297eef38a07c SET3_EXPERIMENT_RECORD.md
