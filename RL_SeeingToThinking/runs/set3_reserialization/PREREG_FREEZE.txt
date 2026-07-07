@@ -95,3 +95,20 @@ e8b19fff54d4658c98683d0b2e463a274d176badadd49792c2d663c03a3755e7 SET3_EXPERIMENT
 Reason: record Part 7. Report (p2_report.py): all cells, Wilson CIs, H2 TOST (not equiv), H3 (violated f0.25 raw), H5, cell accounting (4732=5239-507 V_viz2). HEADLINE: 50-test exploratory block -> NOTHING survives Holm (V_self_pre 0.006->0.299, V_scaffold 0.007->0.353, V_restart->0.702, V1->1.0); exploratory lead = directional coherence only. Corrections: (a) D6 OVERTURNED (text-potent/pixels-inert dissociation does not survive robust pool; Set-2 V_text attributed to D3 flaky contamination; rider: asymmetry does-not-replicate, not pixels-proven). (b) A8 VOID as written. (c) H1 fail = registered outcome, no reframing. Directive 3 discharged by Part 6 audit. Confirmatory family H1 UNCHANGED. Pre-registration UNCHANGED (86cab627...).
 4db379ad86edd3ebd7ff64cf9db017fe64075876af373c9a651ce9d67883690c p2_report.py
 e65e4050fa1d6c9b07475402c382ae03a996344cb00b7f8ac20a65dff5f26a07 SET3_EXPERIMENT_RECORD.md
+
+
+################################################################################
+# SET-3b PRE-REGISTRATION v3 — FROZEN 2026-07-07T10:06:01Z (BEFORE any Set-3b generation)
+################################################################################
+SET3B_PREREGISTRATION.md (gitignored (local; hash is the anchor))
+50983d69e6b0c70ddc355af04bde1cdca156912f319cbf4d70401f3980d39753  SET3B_PREREGISTRATION.md
+Normative content frozen: 12 conditions by role; H1b/H2b endpoints; Bonferroni a=0.025;
+Tier1 (McNemar p<0.025 AND CI-lo>0) / Tier2 (Tier1 AND d>=0.10); outcome tree (Tier2->method,
+Tier1->mechanism, else->negative; soft verdicts REJECTED); truncation-confound overlay; per-arm
+truncation CIs (12); confirmatory truncation trigger on both pairs; one-run rule; replication-fidelity
+hash clause (p2_common c610f965..., vself_text d8dc6166..., scaffold 34f3326d..., restart cb972f6f...,
+decode ef16b0f1..., p2_sweep fa9b7044...); two capture lists (sweep logging + Phase-3 signals);
+V0@f0.25 baseline; V_cue = cue-only; V_self_pre_fmt canonical-render (>5% drop => degraded-exploratory).
+Supersedes directive-4 single bar (winner's-curse shrinkage rationale, logged pre-outcome).
+Definitions supplied by supervisor and quoted verbatim in prereg §12. PROCESS RULE: nothing normative
+is considered to exist unless in a frozen file the executor holds.
