@@ -24,8 +24,8 @@ def main():
     print(f"   V_self_pre     S/pre   = {cnt[('S','pre','V_self_pre')]:3d}   P/pre   = {cnt[('P','pre','V_self_pre')]:2d}")
 
     def cell(pool, pos, cond): return {r["qi"]: r for r in recs if r["pool"]==pool and r["pos"]==pos and r["cond"]==cond}
-    def cmp(pool, pos, ca, cb, restrict=None):
-        A, B = cell(pool,pos,ca), cell(pool,pos,cb)
+    def cmp(pool, pos, ca, cb, restrict=None, posB=None):
+        A, B = cell(pool,pos,ca), cell(pool,posB or pos,cb)   # posB lets V_self_pre (pos='pre') pair with V0 @f0.25
         qs = sorted(set(A) & set(B))
         if restrict: qs = [q for q in qs if restrict(A[q], B[q])]
         n = len(qs)
@@ -52,8 +52,8 @@ def main():
         cmp("S","f0.25","V0",c)
     print("\n[restart decomposition]:")
     cmp("S","f0.25","V_restart_ctrl","V_restart")
-    print("\n[V_self_pre vs V0 @f0.25]:")
-    cmp("S","f0.25","V0","V_self_pre"); cmp("P","f0.25","V0","V_self_pre")
+    print("\n[V_self_pre (pos=pre) vs V0 @f0.25]:")
+    cmp("S","f0.25","V0","V_self_pre", posB="pre"); cmp("P","f0.25","V0","V_self_pre", posB="pre")
     print("\n[strata by answer-type, V_self vs V0 Pool-S f0.25]:")
     A, B = cell("S","f0.25","V0"), cell("S","f0.25","V_self"); qs=sorted(set(A)&set(B))
     def atype(g): g=str(g); return "count" if g.isdigit() else ("bool" if g in ("yes","no") else "attr")
