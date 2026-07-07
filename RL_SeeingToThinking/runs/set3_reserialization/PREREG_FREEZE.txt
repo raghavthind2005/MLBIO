@@ -76,3 +76,8 @@ e403aaf71660d2af6c5cf8b68748791c9268f85af629485d23decaa139624072 SET3_EXPERIMENT
 === AMENDMENT 12 — 2026-07-06T23:03:56Z (truncation re-run trigger frozen; FINAL pre-launch commitment; pre-outcome) ===
 Reason: record Part 4b.3 (supervisor 2026-07-07). Launch full at max_tokens=24576 (16% smoke = weak/non-comparable, no action). Whole-sweep re-run triggered ONLY by (a) McNemar p<0.05 on truncation status V_self-vs-V0 @f0.25 Pool-S, or (b) truncation >25% in either confirmatory cell (V_self or V0 @f0.25 Pool-S). H1 outcome NOT a permissible input to re-run decision. Re-run (if any) uses identical params; both runs reported. Confirmatory family H1 UNCHANGED. Pre-registration UNCHANGED (86cab627...).
 279114966106442aee1625ff4ae6acd2e02dac5c6956757685ddcb37faf41c0f SET3_EXPERIMENT_RECORD.md
+
+=== AMENDMENT 13 — 2026-07-07T00:24:21Z (analysis script FROZEN before full-sweep analysis; pre-outcome) ===
+Reason: p2_analyze.py validated end-to-end on smoke schema (container; login-node py<3.8 lacks math.comb -> analysis runs in container). Output order H1-BLIND: [1] truncation re-run trigger computed/printed BEFORE [2] H1 verdict. Run ONCE on completed full sweep (analysis lockdown, amendment 11). Frozen stats.py UNCHANGED. Confirmatory family H1 UNCHANGED. Pre-registration UNCHANGED (86cab627...).
+253d211d280ccae416c37b6e7a3a09e618cba3185df866e10d058b56db3ed973 p2_analyze.py
+4ce257339d674cf57d2f5d3b974025da045ecc5b2802d76a04a8d794bf17cc16 p2_analyze.sbatch
