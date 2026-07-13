@@ -1,0 +1,3915 @@
+[
+{
+"pid": "1",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "in triangle ABC; point D is on AB and point E is on AC, DE parallel BC",
+"scorable": true
+},
+{
+"pid": "2",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AB parallel CD, straight line EF intersects AB at point E, intersects CD at point F, EG bisects angle BEF, and it intersects CD at point G",
+"scorable": true
+},
+{
+"pid": "3",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "BC and BA intersect at point B, BD bisects angle ABC, CD parallel AB",
+"scorable": true
+},
+{
+"pid": "4",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "AB is tangent to circle O at point B, and the extended line of AO intersects circle O at point C. Connect BC",
+"scorable": true
+},
+{
+"pid": "5",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "straight lines a and b intersect at point O",
+"scorable": true
+},
+{
+"pid": "6",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AB // CD, and EF intersects AB and CD at points E, F",
+"scorable": true
+},
+{
+"pid": "7",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "triangle ABC congruent triangle ADE, Point A is their common vertex",
+"scorable": true
+},
+{
+"pid": "8",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "triangle ABC congruent triangle DEF, points A and D, B and E are the corresponding vertices",
+"scorable": true
+},
+{
+"pid": "9",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "in triangle ABC, angle C = 90.0, AC = BC, AD bisects angle CAB and it intersects BC at D, DE perpendicular AB at E",
+"scorable": true
+},
+{
+"pid": "10",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "in triangle ABC, AB = AC; the perpendicular bisector of AB intersects AC at D, and intersects AB at E",
+"scorable": true
+},
+{
+"pid": "12",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "the straight line AB parallel CD, Rttriangle DEF is placed as shown, angle EDF = 90.0",
+"scorable": true
+},
+{
+"pid": "13",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AB parallel EF, angle BAC = 50.0",
+"scorable": true
+},
+{
+"pid": "14",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "triangle ABC is the inscribed triangle of circle O",
+"scorable": true
+},
+{
+"pid": "15",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "the straight line a and the straight line b are intercepted by the straight line c, b perpendicular c, the foot of perpendicular is the point A; If the line b is parallel to the line a",
+"scorable": true
+},
+{
+"pid": "16",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "in circle O, chord AC parallel radius OB",
+"scorable": true
+},
+{
+"pid": "17",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "parallelogram; the diagonal AC and BD intersect at point O",
+"scorable": true
+},
+{
+"pid": "18",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "The positions of straight lines a, b, c, and d are shown in the figure",
+"scorable": true
+},
+{
+"pid": "19",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "a parallel b",
+"scorable": true
+},
+{
+"pid": "20",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "AB is the diameter of circle O, C and D are two points on circle O. Connect AC, BC, CD, and OD respectively",
+"scorable": true
+},
+{
+"pid": "22",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "in the diamond ABCD, M and N are respectively AB and CD, and AM = CN, MN and AC intersect at point O. Connect BO",
+"scorable": true
+},
+{
+"pid": "23",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "PA and PB are tangent to circle O at A and B respectively",
+"scorable": true
+},
+{
+"pid": "24",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the line a parallel b and they intersect the line c at a and b respectively",
+"scorable": true
+},
+{
+"pid": "25",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "EF parallel BC, AC bisects angle BAF",
+"scorable": true
+},
+{
+"pid": "26",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "in order to measure the height of the school flagpole; and moves the bamboo pole so that the top of the bamboo pole and the shadow of the top of the flag pole fall on the same point on the ground. At this time, the distance between the bamboo pole and this point is 8.0 , 22.0 from the flagpole",
+"scorable": true
+},
+{
+"pid": "27",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "when planting trees on flat ground",
+"scorable": true
+},
+{
+"pid": "28",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the right triangle ABC and the equilateral triangle ABD are respectively drawn with the line segment AB as the edge, where angle ACB = 90.0. Connect CD",
+"scorable": true
+},
+{
+"pid": "29",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "In the triangle ABC, D is the intersection point of the angular bisector BD and CD of triangle ABC",
+"scorable": true
+},
+{
+"pid": "30",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "it is known that OA = OB = OC and angle ACB = 30.0",
+"scorable": true
+},
+{
+"pid": "31",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the straight line a parallel b, the point B is on the straight line b, and AB perpendicular BC",
+"scorable": true
+},
+{
+"pid": "32",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Circle I is the inscribed circle of triangle ABC, D, E, F are 3 tangent points",
+"scorable": true
+},
+{
+"pid": "33",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "the straight line AB parallel CD; angle E is a right angle",
+"scorable": true
+},
+{
+"pid": "34",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "the straight lines AB and CD are intercepted by the straight line EF. If AB parallel CD",
+"scorable": true
+},
+{
+"pid": "35",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AB parallel DE",
+"scorable": true
+},
+{
+"pid": "36",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "AB is the diameter of circle O, point C is on circle O, passing point C to draw the tangent of circle O and it intersects the extended line of AB at point D. Connect AC",
+"scorable": true
+},
+{
+"pid": "37",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "AB parallel CD, CP intersects AB at O, AO = PO, if angle C = 50.0, then",
+"scorable": true
+},
+{
+"pid": "38",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "in triangle ABC, AB = AC, passing point A to draw AD parallel BC",
+"scorable": true
+},
+{
+"pid": "39",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Fold a rectangular piece of paper with equal width as shown in the figure",
+"scorable": true
+},
+{
+"pid": "40",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "it is known that the straight lines a and b are intercepted by the straight line c, a parallel b",
+"scorable": true
+},
+{
+"pid": "41",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "The positions of straight lines a, b, c, and d are shown in the figure",
+"scorable": true
+},
+{
+"pid": "42",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "The figure is a schematic diagram of a kite stand made by Xiao Liu. It is known that BC parallel PQ",
+"scorable": true
+},
+{
+"pid": "44",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "One night, when Xiaogang went straight 25.0 from the bottom of street lamp A to the bottom of street lamp B, he found that the top of his figure just touched the bottom of street lamp B",
+"scorable": true
+},
+{
+"pid": "45",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "C is a point on circle O, O is the center of the circle",
+"scorable": true
+},
+{
+"pid": "46",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "if AB parallel CD",
+"scorable": true
+},
+{
+"pid": "47",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the straight line AB parallel CD, angle C = 44.0, angle E is a right angle",
+"scorable": true
+},
+{
+"pid": "48",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "A, B, C are any three points on circle O",
+"scorable": true
+},
+{
+"pid": "49",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "in the inscribed pentagon ABCDE of circle O",
+"scorable": true
+},
+{
+"pid": "50",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the straight lines AB and CD intersect at point O, EO perpendicular AB, and the foot of perpendicular is point O",
+"scorable": true
+},
+{
+"pid": "51",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "the points B, E, C, and F are on the same straight line, triangle ABC congruent triangle DEF",
+"scorable": true
+},
+{
+"pid": "52",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "As shown in the figure, put the two vertices of a right triangle plate with 45.0 angles on the opposite edges of the ruler",
+"scorable": true
+},
+{
+"pid": "53",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "the straight line a parallel b, the straight line c intersects a and b",
+"scorable": true
+},
+{
+"pid": "54",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "Place a ruler and a triangular plate as shown in the figure",
+"scorable": true
+},
+{
+"pid": "55",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the straight lines AB and CD intersect at point O, and the radial OM bisects angle AOC, ON perpendicular OM",
+"scorable": true
+},
+{
+"pid": "56",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "the diameter CD of circle O crosses the midpoint G of chord EF",
+"scorable": true
+},
+{
+"pid": "57",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB is parallel to CD",
+"scorable": true
+},
+{
+"pid": "58",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB parallel CD, angle",
+"scorable": true
+},
+{
+"pid": "59",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "AB parallel CD, AD bisects angle BAC",
+"scorable": true
+},
+{
+"pid": "60",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB parallel CD",
+"scorable": true
+},
+{
+"pid": "61",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB parallel CD, point E is on BC, and CD = CE",
+"scorable": true
+},
+{
+"pid": "62",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB parallel CD, point E is on the extended line of CA",
+"scorable": true
+},
+{
+"pid": "63",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "use the benchmark BE to measure the height of the tree CD. EB and DC are perpendicular to AC; and the points A, E, and D are on a straight line",
+"scorable": true
+},
+{
+"pid": "64",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "with a diameter of 200.0, the cross section is shown in the figure. If the width of the oil surface AB = 160.0",
+"scorable": true
+},
+{
+"pid": "65",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "angle 1 = angle 2",
+"scorable": true
+},
+{
+"pid": "66",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB parallel CD",
+"scorable": true
+},
+{
+"pid": "67",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the straight line AB parallel CD, AE bisects angle CAB",
+"scorable": true
+},
+{
+"pid": "68",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Xuan Xuan and Kai Kai are in the same mathematics study group. In a math activity class",
+"scorable": true
+},
+{
+"pid": "69",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the straight line a parallel b",
+"scorable": true
+},
+{
+"pid": "70",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "BD is the angular bisector of triangle ABC, AE perpendicular BD, and the foot of perpendicular is F",
+"scorable": true
+},
+{
+"pid": "71",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "the straight line AD parallel BC",
+"scorable": true
+},
+{
+"pid": "72",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "parallelogram; AC and BD intersect at point O, and OE perpendicular AC and it intersects AD at point E",
+"scorable": true
+},
+{
+"pid": "73",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "triangle ABC is the inscribed triangle of circle O",
+"scorable": true
+},
+{
+"pid": "74",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB parallel CD, radial AE intersects CD at point F",
+"scorable": true
+},
+{
+"pid": "75",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "a // b, put the right-angled vertex of a triangular plate on the straight line a",
+"scorable": true
+},
+{
+"pid": "76",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "a parallel b, point B is on the straight line b, and AB perpendicular BC",
+"scorable": true
+},
+{
+"pid": "77",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "if angle 1 = angle 3",
+"scorable": true
+},
+{
+"pid": "78",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB parallel CD, AE bisects angle CAB and CD at point E",
+"scorable": true
+},
+{
+"pid": "79",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "parallelogram; AC, BD intersect at point O, and OE perpendicular AC and it intersects AD at point E, then",
+"scorable": true
+},
+{
+"pid": "81",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "in triangle ABC; AD perpendicular BC at point D, AE bisects angle DAC",
+"scorable": true
+},
+{
+"pid": "82",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "the line l parallel m parallel n, the vertices B and C of the triangle ABC are on the line n and line m",
+"scorable": true
+},
+{
+"pid": "83",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "it is known that in circle O, the central angle",
+"scorable": true
+},
+{
+"pid": "85",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "the circle O is the circumscribed circle of triangle ABC, and the bisector of angle BAC and angle ABC intersects at point I. Extend AI and it intersects circle O at point D. Connect BD and DC",
+"scorable": true
+},
+{
+"pid": "86",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "circle O is the circumscribed circle of triangle ABC. Connect OB and OC",
+"scorable": true
+},
+{
+"pid": "87",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "AB and CD are the two diameters of circle O, chord DE parallel AB",
+"scorable": true
+},
+{
+"pid": "88",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "points A, B, and C are on circle O",
+"scorable": true
+},
+{
+"pid": "89",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "A, B, C are three points on circle O",
+"scorable": true
+},
+{
+"pid": "90",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "it is known that in circle O",
+"scorable": true
+},
+{
+"pid": "91",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB is the diameter of circle O, C and D are two points on circle O",
+"scorable": true
+},
+{
+"pid": "92",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB is the diameter of circle O, C and D are two points on the circle",
+"scorable": true
+},
+{
+"pid": "93",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "points A, B, and C are all on circle O",
+"scorable": true
+},
+{
+"pid": "94",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "the diameter AB of circle O is perpendicular to the chord CD, the foot of perpendicular is the point E",
+"scorable": true
+},
+{
+"pid": "95",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "in circle O, chord BC and radius OA intersect at point D. Connect AB and OC",
+"scorable": true
+},
+{
+"pid": "96",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "points A, B, and P are three points on circle O",
+"scorable": true
+},
+{
+"pid": "97",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AB is the chord of circle O, OC perpendicular AB and it intersects circle O at point C. Connect OA, OB, BC",
+"scorable": true
+},
+{
+"pid": "99",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AB is the diameter of circle O, CD is the chord of circle O",
+"scorable": true
+},
+{
+"pid": "100",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "in circle O, AB is the diameter, CD is the chord, AB perpendicular CD, the foot of perpendicular is the point E. Connect CO and AD",
+"scorable": true
+},
+{
+"pid": "101",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AB is the diameter of circle O, points C and D are two points on the circle",
+"scorable": true
+},
+{
+"pid": "102",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AB is the diameter of circle O, points C and D are on circle O, and point C is the midpoint of arc BD, passing point C to draw the perpendicular line EF of AD and it intersects straight line AD at point E",
+"scorable": true
+},
+{
+"pid": "103",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "the points A, B, and C are on circle O",
+"scorable": true
+},
+{
+"pid": "104",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "the central angles of chords AB and CD are angle AOB, angle COD, and angle AOB is complementary to angle COD",
+"scorable": true
+},
+{
+"pid": "105",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB is the diameter of circle O, CD is the chord of circle O, and the extended lines of AB and CD intersect at point E",
+"scorable": true
+},
+{
+"pid": "106",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "This question examines the theorem of angle of circumference, the key is to answer it based on the relationship between the central angle and the angle of circumference of the same chord. 4.0. As shown in the figure, AB is the diameter of circle O, C is the point on circle O (except A and B",
+"scorable": true
+},
+{
+"pid": "107",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AB is the diameter of circle O, and points C and D are on circle O",
+"scorable": true
+},
+{
+"pid": "108",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "Shaoxing is a famous bridge township. As shown in the figure",
+"scorable": true
+},
+{
+"pid": "110",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the arc ACB is exactly a semicircle",
+"scorable": true
+},
+{
+"pid": "111",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "In the right triangle ABC; AD is the angle bisector of angle CAB, and the intersection BC is at point D, and crossing point C is the high line CE on the AD side in triangle ACD",
+"scorable": true
+},
+{
+"pid": "112",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "AO is the height of the cone",
+"scorable": true
+},
+{
+"pid": "113",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "in circle O, chord AC and BD intersect at point E, arc AB = arc BC = arc CD",
+"scorable": true
+},
+{
+"pid": "114",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "a central angle of 90.0, OA and OB are the diameters respectively as a semicircle, and",
+"scorable": true
+},
+{
+"pid": "115",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "to roll into a conical bottomless paper cap (as shown in the picture",
+"scorable": true
+},
+{
+"pid": "116",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "The picture shows a small paper cap with a conical chimney",
+"scorable": true
+},
+{
+"pid": "117",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "to roll into a cone-shaped bottomless paper cap (as shown in the picture",
+"scorable": true
+},
+{
+"pid": "119",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "the seams are ignored",
+"scorable": true
+},
+{
+"pid": "120",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the length of the generatrix of the cone is 5.0, and the length of the height line is 4.0",
+"scorable": true
+},
+{
+"pid": "121",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "The production process of paper umbrellas in our country is very ingenious. As shown in the figure, whether the umbrella is opened or closed, the handle AP always bisects the angle angle BAC formed by the two ribs in the same plane, and AE = AF, DE = DF, so as to ensure that the umbrella ring can slide along the handle. When a toy umbrella is opened, the BDC is on the same straight line",
+"scorable": true
+},
+{
+"pid": "122",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "encloses the side of a cone (the joints are ignored",
+"scorable": true
+},
+{
+"pid": "123",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "in Rttriangle ABC, angle ACB = 90.0",
+"scorable": true
+},
+{
+"pid": "124",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "cut a circle and a sector piece of paper on the paper so that it can form a cone model",
+"scorable": true
+},
+{
+"pid": "125",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "As shown in a sector iron sheet OAB; the worker master combines OA and OB to form a conical chimney cap (the joints are ignored",
+"scorable": true
+},
+{
+"pid": "127",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Lulu cuts a circle and a sector piece of paper from the paper (as shown in the picture), and uses them to form a cone model",
+"scorable": true
+},
+{
+"pid": "128",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "there is a sector with a central angle of 120.0 and; If OA and OB are overlapped to form a cone side",
+"scorable": true
+},
+{
+"pid": "130",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "in circle O",
+"scorable": true
+},
+{
+"pid": "131",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "in triangle ABC; point D is a moving point on BC (point D does not coincide with point C). The circle with CD as the diameter intersects AD at point P",
+"scorable": true
+},
+{
+"pid": "133",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "in order to estimate the width of the Jing River, a target point P is selected on the opposite bank of the Jing River, and points Q and S are taken near the bank, so that the points P, Q, and S are in a straight line, and the straight line PS is perpendicular to the river. Choose an appropriate point T on the straight line a passing point S and perpendicular to PS. The intersection of PT and the straight line b passing point Q and perpendicular to PS is R",
+"scorable": true
+},
+{
+"pid": "134",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Xiaoying designed a flashlight to measure the height of an ancient city wall. Place a horizontal plane mirror at point P. The light starts from point A and is reflected by the plane mirror and hits the top C of the ancient city wall CD. It is known that AB perpendicular BD, CD perpendicular BD",
+"scorable": true
+},
+{
+"pid": "135",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "in circle O, point M is the midpoint of arc AB. Connect MO and extend it to intersect circle O at point N, connect BN",
+"scorable": true
+},
+{
+"pid": "136",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "in order to measure the degree of tree AB",
+"scorable": true
+},
+{
+"pid": "137",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "it is an ancient masher in the countryside",
+"scorable": true
+},
+{
+"pid": "138",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "the light source P is directly above the crossbar AB, the shadow of AB under the light is CD, AB parallel CD",
+"scorable": true
+},
+{
+"pid": "140",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "in a badminton game",
+"scorable": true
+},
+{
+"pid": "141",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "While measuring the height of the building",
+"scorable": true
+},
+{
+"pid": "142",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "the length of two vertical telephone poles; AD intersects BC at point E",
+"scorable": true
+},
+{
+"pid": "143",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "a square DEFG model should be cut on a piece of triangle ABC paper. Among them, G and F are on BC, D and E are on AB and AC respectively, AH perpendicular BC and it intersects DE at M",
+"scorable": true
+},
+{
+"pid": "144",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "On 27.0 2009.0, 10.0, 2009, Shanghai team player Wu Di came to the fore in the National Games and defeated the top-seeded men's singles player Zeng Shaoxuan with a score of 2.0:0.0, and won the men's singles championship in tennis at the National Games. The picture below is a ball played by Wu Di in the final",
+"scorable": true
+},
+{
+"pid": "145",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "points A, B, and C are on circle O",
+"scorable": true
+},
+{
+"pid": "146",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB is a ladder leaning against the wall",
+"scorable": true
+},
+{
+"pid": "147",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "In order to measure the height of the school flagpole AC; As shown in the figure",
+"scorable": true
+},
+{
+"pid": "149",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "CD is a plane mirror, the light is emitted from point A, reflected by point E on CD, and irradiated to point B. If the incident angle is α, AC perpendicular CD, BD perpendicular CD, the feet of perpendicular are C, D",
+"scorable": true
+},
+{
+"pid": "150",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Xiaoming designed two right angles to measure the width of the river BC",
+"scorable": true
+},
+{
+"pid": "152",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB is a fixed climbing ladder leaning on the wall",
+"scorable": true
+},
+{
+"pid": "153",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "the sunlight enters the room from the windows of the classroom",
+"scorable": true
+},
+{
+"pid": "154",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AB is a long ladder leaning on the wall",
+"scorable": true
+},
+{
+"pid": "156",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "As shown in the figure, the quadrilateral ABCD and A′B′C′D′ are similar figures with the similar center at point O. If OA′: A′A = 2.0:1.0",
+"scorable": true
+},
+{
+"pid": "157",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "in triangle ABC, angle C = 90.0",
+"scorable": true
+},
+{
+"pid": "158",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "in Rttriangle ABC, angle C = 90.0",
+"scorable": true
+},
+{
+"pid": "159",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "in Rttriangle ABC, angle C = 90.0",
+"scorable": true
+},
+{
+"pid": "160",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "it is known that in Rttriangle ABC, angle C = 90.0",
+"scorable": true
+},
+{
+"pid": "161",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the homothetic figures are composed of a triangle ruler and its center projection under the light. If the ratio of the distance from the bulb to the vertex of the triangle ruler to the distance from the bulb to the corresponding vertex of the triangular ruler projection is 2.0:5.0",
+"scorable": true
+},
+{
+"pid": "163",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "in Rttriangle ABC, angle C = 90.0",
+"scorable": true
+},
+{
+"pid": "164",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "in triangle ABC, angle C = Rtangle",
+"scorable": true
+},
+{
+"pid": "165",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "In Rttriangle ABC, angle C = 90.0",
+"scorable": true
+},
+{
+"pid": "166",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "in Rttriangle ABC, it is known that angle A = 90.0",
+"scorable": true
+},
+{
+"pid": "167",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In Rttriangle ABC, angle C = 90.0",
+"scorable": true
+},
+{
+"pid": "168",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "in the plane rectangular coordinate system, the coordinates of point A are (2.0,3.0",
+"scorable": true
+},
+{
+"pid": "169",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "it is known that in Rttriangle ABC, angle C = 90.0",
+"scorable": true
+},
+{
+"pid": "170",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "in Rttriangle ABC, angle C = 90.0",
+"scorable": true
+},
+{
+"pid": "172",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "in the quadrilateral ABCD, E and F are the midpoints of AB and AD respectively",
+"scorable": true
+},
+{
+"pid": "173",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "it is known that AB and AD are the chords of circle O",
+"scorable": true
+},
+{
+"pid": "174",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "it is known that O is a point in the quadrilateral ABCD, OA = OB = OC",
+"scorable": true
+},
+{
+"pid": "175",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "AC is the diameter of circle O",
+"scorable": true
+},
+{
+"pid": "176",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "in circle A",
+"scorable": true
+},
+{
+"pid": "178",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "triangle ABC is the inscribed triangle of circle O",
+"scorable": true
+},
+{
+"pid": "179",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "triangle ABC is the inscribed triangle of circle O; if point P is a point on circle O, in triangle ABP, PB = AB",
+"scorable": true
+},
+{
+"pid": "180",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "triangle ABC is inscribed in circle O, OC perpendicular OB, OD perpendicular AB intersects AC at point E",
+"scorable": true
+},
+{
+"pid": "181",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "it is known that circle O is the circumscribed circle of triangle ABC, and AB is the diameter of circle O",
+"scorable": true
+},
+{
+"pid": "182",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "the two vertices A and B of a right triangle ABC move on OX and OY respectively",
+"scorable": true
+},
+{
+"pid": "183",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "it is known that the angle between the diameter AB of circle O and the chord AC is 30.0, the tangent PC passing through point C and the extended line of AB intersect at point P",
+"scorable": true
+},
+{
+"pid": "184",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "C is a point on the extended line of the diameter AB, CD is tangent to the circle at point D. Connect AD",
+"scorable": true
+},
+{
+"pid": "185",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "draw a tangent of circle O through any point P on the straight line L , and the tangent point is Q; if PQ is taken as the edge to make the square PQRS",
+"scorable": true
+},
+{
+"pid": "186",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "AB is the diameter of circle O, C is the point on circle O, passing point C is the tangent of circle O and intersects the extended line of AB at point E, OD perpendicular AC at point D",
+"scorable": true
+},
+{
+"pid": "187",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "the straight line AB is tangent to circle O at point A",
+"scorable": true
+},
+{
+"pid": "188",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "it is known that BA is the tangent of circle O, and connect OB to intersect circle O at point C",
+"scorable": true
+},
+{
+"pid": "189",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "point A is a point outside circle O",
+"scorable": true
+},
+{
+"pid": "190",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "PA and PB are tangents of circle O, the tangent point of point A and B, AC is the diameter of circle O",
+"scorable": true
+},
+{
+"pid": "191",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "points A, B, and C are on circle O, and the tangent line of circle O passing through point A intersects the extended line of OC at point P",
+"scorable": true
+},
+{
+"pid": "192",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "point P is outside circle O. PA and PB are connected. the straight lines PA and PB are the two tangents of circle O",
+"scorable": true
+},
+{
+"pid": "193",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "PA and PB are tangent to circle O at points A and B respectively, the tangent EF of circle O intersects PA and PB at points E and F respectively, and the tangent point C is on the arc AB",
+"scorable": true
+},
+{
+"pid": "194",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "Put the ruler, the triangle ruler and the round nut on the desktop as shown in the figure",
+"scorable": true
+},
+{
+"pid": "195",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "point P is a point on the extended line AB of the diameter of circle O, passing point P to draw the tangent PC of circle O, and the tangent point is C",
+"scorable": true
+},
+{
+"pid": "196",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "a torus carpet is to be laid in the lobby of a hotel. The worker only measures the length of the chord AB of the great circle that is tangent to the small circle, and then calculates the area of ​​the torus",
+"scorable": true
+},
+{
+"pid": "197",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "circle O is the circumcircle of triangle ABC, circle O ia tangent to AB at point C",
+"scorable": true
+},
+{
+"pid": "198",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "There is an isosceles triangle with side length 13 and base length 10",
+"scorable": true
+},
+{
+"pid": "199",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "which is the length of O C. Radius O B is perpendicular at point X to; which",
+"scorable": true
+},
+{
+"pid": "201",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "There is a circle with center M and two chords A C and T N. The distences between M and the two chords are equal",
+"scorable": true
+},
+{
+"pid": "202",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "angle A B C is intersected by parallel lines l and m at points A and C, respectively",
+"scorable": true
+},
+{
+"pid": "203",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "There are four rays with four different included angles",
+"scorable": true
+},
+{
+"pid": "204",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Two triangles X N M and X Z Y are similar with a shared vertex X. M N and Y Z are parallel",
+"scorable": true
+},
+{
+"pid": "206",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "Two triangles A B C and A E D are similar with a shared vertex A. B C and E D are parallel",
+"scorable": true
+},
+{
+"pid": "207",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Two small circles are inscribed to the biggest circle. The diameter of the biggest circle is 20",
+"scorable": true
+},
+{
+"pid": "208",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "J K L M is a rectangle. M L P R is a rhombus. M L equals M R",
+"scorable": true
+},
+{
+"pid": "209",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "rhombus; and C B = 6. D B and A C intersect at point E",
+"scorable": true
+},
+{
+"pid": "210",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Two triangles A B E and A C D are similar with a shared vertex A. B E and C D are parallel",
+"scorable": true
+},
+{
+"pid": "211",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "In parallelogram M N P R, M P and R N intersect at Q",
+"scorable": true
+},
+{
+"pid": "212",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Three rays intersect at two points. Two shorter rays are parallel",
+"scorable": true
+},
+{
+"pid": "213",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "angle Q P T is 112 degrees, and \\angle RPS is 130 degrees",
+"scorable": true
+},
+{
+"pid": "214",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "In parallelogram A B C D, AD = 9 and A B = 6",
+"scorable": true
+},
+{
+"pid": "215",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "The rectangle is inscribed into the circle with two sides 8 and 6 inches",
+"scorable": true
+},
+{
+"pid": "216",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "There are two right triangles D F E and A C B",
+"scorable": true
+},
+{
+"pid": "218",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "and \\angle A O B is 80 degrees",
+"scorable": true
+},
+{
+"pid": "219",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "if \\triangle A B C is an isosceles triangle with A B \\cong B C",
+"scorable": true
+},
+{
+"pid": "220",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "In \\odot G, CE and AB are diameters. \\angle A G D is a right angle and",
+"scorable": true
+},
+{
+"pid": "221",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In the triangle, there are two angles as 60 and 55 degrees",
+"scorable": true
+},
+{
+"pid": "222",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "For the pair of similar figures in blue and green",
+"scorable": true
+},
+{
+"pid": "223",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "right; and other sides as x and 3 \\sqrt { 2",
+"scorable": true
+},
+{
+"pid": "225",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "In triangle X Y Z, Z W and W Y are equal. X W is perpendicular to Z Y",
+"scorable": true
+},
+{
+"pid": "226",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "regular; W Y is perpendicular to X U, and the side is 12 centimeters long",
+"scorable": true
+},
+{
+"pid": "228",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "right",
+"scorable": true
+},
+{
+"pid": "229",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Let A B be the median of trapezoid R S T Q. R A equals A Q, and S B equals B T. R S = 54 and Q T = 86",
+"scorable": true
+},
+{
+"pid": "230",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "In the circle, two chords A C and B D intersect",
+"scorable": true
+},
+{
+"pid": "231",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In \\odot X, Z W and Y V are diameters",
+"scorable": true
+},
+{
+"pid": "232",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Two triangles W S R and T V R are similar. W S and V T are parallel",
+"scorable": true
+},
+{
+"pid": "233",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "In isosceles triangle R S T, \\angle S R T is 70 degrees",
+"scorable": true
+},
+{
+"pid": "234",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Polygon A B C D \\sim polygon A E F G, m \\angle A G F = 108, G F = 14, A D = 12, D G = 4.5, E F = 8, and A B = 26",
+"scorable": true
+},
+{
+"pid": "235",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "four rays intersect and form 16 angles, and two upright rays are parallel",
+"scorable": true
+},
+{
+"pid": "236",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Two rays intersect and form four angles all as x degrees",
+"scorable": true
+},
+{
+"pid": "237",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "In the right triangle Q P R; Connect Q S",
+"scorable": true
+},
+{
+"pid": "238",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "with height x; One of a right-angle side is bisected by a line from the top vertex",
+"scorable": true
+},
+{
+"pid": "239",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In triangle A B C, R, S, T are midpoints of A C, A B, and C B. A T, B R, and C S intersect at M",
+"scorable": true
+},
+{
+"pid": "242",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "In a pentagon UVWYZ, angle W is x + 8 degrees",
+"scorable": true
+},
+{
+"pid": "243",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "with a distance 110x + 53; with a distance 150x + 91; with a distance 73.8x",
+"scorable": true
+},
+{
+"pid": "244",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "EC and AB are parallel. Connect B E",
+"scorable": true
+},
+{
+"pid": "245",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "The diagonals of rhombus F G H J intersect at K. If",
+"scorable": true
+},
+{
+"pid": "246",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "The diameter of the circle is 6.2 cm",
+"scorable": true
+},
+{
+"pid": "247",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "D is an external point to the circle, and A, C, F, E, B are on the circle",
+"scorable": true
+},
+{
+"pid": "248",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "right; and two sides length 24 and x",
+"scorable": true
+},
+{
+"pid": "249",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "and B, C, D, A are on the circle; on \\odot F with diameter A C",
+"scorable": true
+},
+{
+"pid": "250",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "J K L M is a rectangle. M L P R is a rhombus. Connect M K and connect M P",
+"scorable": true
+},
+{
+"pid": "251",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "In a triangle with three sides length 29, 50, and 61",
+"scorable": true
+},
+{
+"pid": "252",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In triangle A B C, A D, B E, and C F intersect at point Q",
+"scorable": true
+},
+{
+"pid": "253",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "A B is a diameter",
+"scorable": true
+},
+{
+"pid": "254",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "In the right triangle with hypotenuse length 12 and two sides length x and z",
+"scorable": true
+},
+{
+"pid": "255",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "m is the perpendicular bisector of X Z",
+"scorable": true
+},
+{
+"pid": "256",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "Lines l, m, and n are perpendicular bisectors of \\triangle P Q R and meet at T; T Q = 2 x",
+"scorable": true
+},
+{
+"pid": "257",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Two triangles A B E and A C D are similar with a shared vertex A. B E and C D are parallel",
+"scorable": true
+},
+{
+"pid": "258",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In \\odot C, \\angle R C M is x - 1 degrees, \\angle R C L is 3 x + 5 degrees, and \\angle M C N is 60 degrees",
+"scorable": true
+},
+{
+"pid": "259",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "In a right triangle G E F, the hypotenuse; E H is the altitude of triangle G E F",
+"scorable": true
+},
+{
+"pid": "260",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In triangle A B C, AB = AC. \\angle C A B and \\angle A B C are both 2 x degrees. A B and B C are 3 and 4 y - 5 inches, respectively",
+"scorable": true
+},
+{
+"pid": "261",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In rhombus L M P Q, diagonal P L and Q M intersect at R",
+"scorable": true
+},
+{
+"pid": "263",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Triangle L M N is equilateral, and M P bisects L N. L M is 3 x + 1 and M N is 4 x - 2",
+"scorable": true
+},
+{
+"pid": "264",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Parallelogram M N P Q with; angle M = \\angle P and \\angle N = \\angle Q",
+"scorable": true
+},
+{
+"pid": "265",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Three lines l, m, and p intersect at two points and form eights angles. Line l and m are parallel",
+"scorable": true
+},
+{
+"pid": "266",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "In parallelogram M N P R, diagonals M P and R N intersect at Q",
+"scorable": true
+},
+{
+"pid": "267",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Point A, B, and C are on the circle. The radius angle of A C is 122 degrees",
+"scorable": true
+},
+{
+"pid": "268",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "If \\triangle L M N \\sim \\triangle Q R S, Q R = 35, R S = 37, S Q = 12, and N L = 5",
+"scorable": true
+},
+{
+"pid": "269",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "The two polygons are similar. R V = x m, R T = 18 m, A E = 3 m, C D = 5m, and B C = 4m",
+"scorable": true
+},
+{
+"pid": "270",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Several triangles are combined together with 6 annotated angles",
+"scorable": true
+},
+{
+"pid": "271",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "odot P \\cong \\odot Q. Chord R S is on \\odot P with length 3x and chord T U is on \\odot Q with length 7 x - 44",
+"scorable": true
+},
+{
+"pid": "272",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "There is a right triangle with hypotenuse length x. One of the acute is 45 degrees and one of the side is 4",
+"scorable": true
+},
+{
+"pid": "273",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Two triangles M Q N and M P O are similar with a shared vertex M. Q N and P O are parallel; and Q P = x",
+"scorable": true
+},
+{
+"pid": "274",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "There is a right triangle with hypotenuse length 42. The two sides are x and 38",
+"scorable": true
+},
+{
+"pid": "275",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "In rhombus A B C D, diagonals A C and B D intersect at point E",
+"scorable": true
+},
+{
+"pid": "276",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "such as O C and O B. Radius O B is perpendicular to; which",
+"scorable": true
+},
+{
+"pid": "277",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Circles G, J, and K all intersect at L. F H is the diameter of \\odot G and G H is the radius",
+"scorable": true
+},
+{
+"pid": "278",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "Two triangles W in green and W' in blue are similar according to a reference point F",
+"scorable": true
+},
+{
+"pid": "279",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "In quadrilateral R Q T S",
+"scorable": true
+},
+{
+"pid": "280",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "There are two annotated angles of 5y and 60 degrees, and two annotated length x + 4 and 3 x - 6",
+"scorable": true
+},
+{
+"pid": "281",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "In the right trangle A B C, \\angle C = 90 degrees. A C = 24, A B = 26, and B C = 10",
+"scorable": true
+},
+{
+"pid": "283",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "M K and M P are radii and perpendicular to chords F G and H J, respectively",
+"scorable": true
+},
+{
+"pid": "284",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "There are five lines shown. Three lines are parallel and the other two lines intersect with them. The spacing of the parallel lines is equal",
+"scorable": true
+},
+{
+"pid": "285",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "In the right triangle, the hypotenuse is x length with an altitule of 8 length. The other two sides are y and z length",
+"scorable": true
+},
+{
+"pid": "286",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "J K is hypotenuse to L M at P",
+"scorable": true
+},
+{
+"pid": "287",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "There is a triangle with two acute angles of 27 and 52 degrees, along with an external angle as \\angle 1",
+"scorable": true
+},
+{
+"pid": "288",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "There is a right triangle A B F on top of a rectangle C D E F. \\angle C F D is labeled as \\angle 2",
+"scorable": true
+},
+{
+"pid": "289",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In \\triangle P Q R, S T \\parallel R Q. Triangle P S T is similar to triangle P R Q with a shared vertex P",
+"scorable": true
+},
+{
+"pid": "290",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "In the right triangle, an acute angle is labeled as \\angle 4 with an external angle of 123 degrees",
+"scorable": true
+},
+{
+"pid": "291",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "A triangle with an acute angle of 30 degrees is within a circle, which forms the shaded region",
+"scorable": true
+},
+{
+"pid": "292",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "In the right triangle, an acute angle is 70 degrees and the hypotenuse is x length",
+"scorable": true
+},
+{
+"pid": "294",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "In parallelogram J K L M, diagonals J L and K M intersect at point R, and ML is 45, KL is 21",
+"scorable": true
+},
+{
+"pid": "295",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "In triangle T Q S, TQ = 2, S Q = 5, and T S = 3; if \\triangle J L M \\sim \\triangle Q S T",
+"scorable": true
+},
+{
+"pid": "296",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "There is an equilateral triangle with two sides 2 x + 11 and 6 x - 9",
+"scorable": true
+},
+{
+"pid": "297",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "there are four lines intersect at four points. Two pairs of lines are parallel to each other",
+"scorable": true
+},
+{
+"pid": "298",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "The diameters of \\odot J and \\odot K are on the same line with points A, B, C, and D",
+"scorable": true
+},
+{
+"pid": "299",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "In the right isosceles triangle, the hypotenuse is 20",
+"scorable": true
+},
+{
+"pid": "300",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In the right triangle, the two sides are y and 12 with an altitude of x",
+"scorable": true
+},
+{
+"pid": "301",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "angle B A C = 97 degrees and \\angle A C B = 21 degrees",
+"scorable": true
+},
+{
+"pid": "302",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "Two triangles G J I and G K H are similar with a shared vertex G. K H and J I are parallel",
+"scorable": true
+},
+{
+"pid": "303",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "triangle R S T \\cong \\triangle A B C. \\angle R S T = \\angle C B A. S T = 2y - 8, and C B = y + 13",
+"scorable": true
+},
+{
+"pid": "304",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "triangle R S V \\cong \\triangle T V S, and they share a side S V. S V is perpendicular to S R and \\angle R V S = 78 degrees",
+"scorable": true
+},
+{
+"pid": "305",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "There are four rays B A, B D, B F, and B C with a shared starting point B. \\overrightarrow B A and \\overrightarrow B C are opposite rays and",
+"scorable": true
+},
+{
+"pid": "306",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "There is a right triangle V X W, the hypotenuse V X is 75, and V W = 72, X W = 21",
+"scorable": true
+},
+{
+"pid": "307",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In \\odot C, point R, M, N, L are on the circle, and M L is the diameter. \\angle M C R = x - 1 degrees and \\angle R C L = 3x + 5 degrees",
+"scorable": true
+},
+{
+"pid": "308",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "A B \\perp D C and G H \\perp F E. A C = 4.4, G H = 3.15, and G E = 6.3. If \\triangle A C D \\sim \\triangle G E F",
+"scorable": true
+},
+{
+"pid": "309",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "for the equilateral triangle R S T if R S = x + 9, S T = 2 x, and R T = 3 x - 9",
+"scorable": true
+},
+{
+"pid": "310",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Two triangles A E B and A D C are similar with a shared vertex A. E B and D C are parallel",
+"scorable": true
+},
+{
+"pid": "311",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "points V, U, Y, X, W are on the circle",
+"scorable": true
+},
+{
+"pid": "312",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Two triangles have a shared vertex with three annotated points A, B, and C; if A B \\perp B C",
+"scorable": true
+},
+{
+"pid": "314",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "In trapezoid J K L M, J K is parallel to M L; and \\angle J M L is 80 degrees",
+"scorable": true
+},
+{
+"pid": "315",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "isosceles; in yellow with a base length 3.5 ft",
+"scorable": true
+},
+{
+"pid": "316",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Two triangles A E B and A D C are similar with a shared vertex A. E B \\parallel D C. A B = x - 2 and B C = 5",
+"scorable": true
+},
+{
+"pid": "317",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "In \\odot F, B, C, D, A are on the circle and A C is a diameter. \\angle C F D is 4 a - 1 degrees",
+"scorable": true
+},
+{
+"pid": "319",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "The diagonal length of the blue quadrilateral is 8yd, the diagonal length of the green quadrilateral is 4yd, and the area of the blue quadrilateral is 36yd ^ 2. For the pair of similar figures",
+"scorable": true
+},
+{
+"pid": "320",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "For trapezoid A B C D, S and T are midpoints of the legs",
+"scorable": true
+},
+{
+"pid": "321",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "The figure shows a \\parallelogram ABCD, with BD connected, BD perpendicular to AB, and BD also perpendicular to DC; parallelogram",
+"scorable": true
+},
+{
+"pid": "322",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "QM is perpendicular to MN, QP is perpendicular to NP, the length of MQ is 2x+2, and the length of QP is 4x-8, NQ is the angular bisector of angle MNP",
+"scorable": true
+},
+{
+"pid": "323",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "The diagram is a quadrilateral with intersecting diagonals and perpendicular to each other. Where AB=AD, BC=DC, and",
+"scorable": true
+},
+{
+"pid": "324",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "The figure shows a regular octagon, with a distance of 6cm from the vertex of the central path of the octagon",
+"scorable": true
+},
+{
+"pid": "326",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "The diagram shows a triangle with a perpendicular length of 7ft and base length is 10.2ft",
+"scorable": true
+},
+{
+"pid": "327",
+"qtype": "free-form",
+"answer": "11.8",
+"delta": "b kilometres west; 10.7 kilometres north; If point Z is on a bearing of 335° T from point X; if the distance that the helicopter must fly between point Z and point X is d kilometres",
+"scorable": true
+},
+{
+"pid": "329",
+"qtype": "free-form",
+"answer": "2191.7 metres",
+"delta": "on a bearing of 055°; on a bearing of 145°; which is 916 metres due east of base",
+"scorable": true
+},
+{
+"pid": "330",
+"qtype": "free-form",
+"answer": "S 23.5 ^\\circ W",
+"delta": "191 kilometres south; west; for 83 kilometres",
+"scorable": true
+},
+{
+"pid": "331",
+"qtype": "free-form",
+"answer": "315^\\circT",
+"delta": "where N denotes the north cardinal point. Angle PAN is 45°",
+"scorable": true
+},
+{
+"pid": "332",
+"qtype": "free-form",
+"answer": "230 ^\\circ T",
+"delta": "where S denotes the south cardinal point. Angle PMS is 50°",
+"scorable": true
+},
+{
+"pid": "333",
+"qtype": "free-form",
+"answer": "217 ^\\circ T",
+"delta": "where S denotes the south cardinal point. Angle PMS is 37°",
+"scorable": true
+},
+{
+"pid": "334",
+"qtype": "free-form",
+"answer": "118掳T",
+"delta": "Consider the point A. The angle between line OA and the positive direction of the x-axis is 28°",
+"scorable": true
+},
+{
+"pid": "335",
+"qtype": "free-form",
+"answer": "212°T",
+"delta": "The angle between line OA and the south direction is 32°",
+"scorable": true
+},
+{
+"pid": "336",
+"qtype": "free-form",
+"answer": "329° T",
+"delta": "The angle between line OA and the north direction is 31°",
+"scorable": true
+},
+{
+"pid": "337",
+"qtype": "free-form",
+"answer": "270 ^\\circ T",
+"delta": "In the figure above, triangle ABC formed by the dashed line, angle A is 37° and angle B is 48°",
+"scorable": true
+},
+{
+"pid": "338",
+"qtype": "free-form",
+"answer": "319 ^\\circ T",
+"delta": "point B is due East of point A; Triangle ABC formed by the dashed line, angle A is 49° and angle B is 39°",
+"scorable": true
+},
+{
+"pid": "339",
+"qtype": "multi-choice",
+"answer": "090^\\circ T",
+"delta": "In the figure below, point B is due East of point A. Triangle ABC formed by the dashed line, angle A is 49° and angle B is 41°",
+"scorable": false
+},
+{
+"pid": "340",
+"qtype": "multi-choice",
+"answer": "053 ^\\circ T",
+"delta": "Consider the following diagram. Triangle ABC formed by the dashed line, angle A is 49° and angle B is 41°",
+"scorable": false
+},
+{
+"pid": "341",
+"qtype": "free-form",
+"answer": "132 ^\\circT",
+"delta": "Consider the following diagram. Triangle ABC formed by the dashed line, angle A is 42° and angle B is 53°",
+"scorable": true
+},
+{
+"pid": "342",
+"qtype": "free-form",
+"answer": "221 ^\\circ T",
+"delta": "Consider the following diagram. Triangle ABC formed by the dashed line, angle A is 38° and angle B is 49°",
+"scorable": true
+},
+{
+"pid": "343",
+"qtype": "free-form",
+"answer": "62^\\circ ",
+"delta": "if the bearing of the clearing from the town is a°. Starting from town, heading 3.2 kilometers due north and then 5.9 kilometers due east is clearing",
+"scorable": true
+},
+{
+"pid": "344",
+"qtype": "free-form",
+"answer": "53.6^\\circ ",
+"delta": "At a point during the flight, a plane is 42 kilometres south and 57 kilometres west of the airport it left from",
+"scorable": true
+},
+{
+"pid": "345",
+"qtype": "free-form",
+"answer": "90.1",
+"delta": "Luke sailed for 116 kilometres on a bearing of 231^\\circ . If w is how many kilometres west he has sailed from his starting point",
+"scorable": true
+},
+{
+"pid": "346",
+"qtype": "free-form",
+"answer": "37.23",
+"delta": "the angle of elevation to point A from point C. The picture shows a right angled triangle with a base length of 25 and a height of 19",
+"scorable": true
+},
+{
+"pid": "347",
+"qtype": "free-form",
+"answer": "19",
+"delta": "Sally measures the angle of elevation to the top of a tree from a point $20$m away to be 43^\\circ . If the height of the tree is H m",
+"scorable": true
+},
+{
+"pid": "348",
+"qtype": "free-form",
+"answer": "285",
+"delta": "A helicopter is flying at an altitude of 198 metres, at an angle of depression of 44° to its landing pad; between the helicopter and the landing pad",
+"scorable": true
+},
+{
+"pid": "349",
+"qtype": "free-form",
+"answer": "53.13",
+"delta": "ABCD is a rectangle; the angle of depression from point B to point C. The lengths of AC and BC are 3 and 5, respectively",
+"scorable": true
+},
+{
+"pid": "351",
+"qtype": "free-form",
+"answer": "4.4 m",
+"delta": "1 has height 8 m and angle of elevation 34^\\circ and Pole; height 25 m and",
+"scorable": true
+},
+{
+"pid": "354",
+"qtype": "free-form",
+"answer": "45.32",
+"delta": "In triangle ABD, BC is the perpendicular to AD, with AB length of 32 and BD length of 35. Angle A is 50°, angle D is 45°",
+"scorable": true
+},
+{
+"pid": "355",
+"qtype": "free-form",
+"answer": "93.31",
+"delta": "In triangle ABD, BC is the perpendicular to AD, with AB length of 58 and BD length of 72. Angle A is 57°, angle D is 31°",
+"scorable": true
+},
+{
+"pid": "356",
+"qtype": "free-form",
+"answer": "18.05",
+"delta": "In triangle ABC, angle A is 60°, angle B is 35°, and the length of the perpendicular CD of AB is 9",
+"scorable": true
+},
+{
+"pid": "357",
+"qtype": "free-form",
+"answer": "35掳",
+"delta": "The quadrilateral ABCD in the figure is composed of two right angled triangles ABC and ACD, angle B is 35°, angle BCD is a right angle, the length of BC is 13",
+"scorable": true
+},
+{
+"pid": "358",
+"qtype": "free-form",
+"answer": "24.6",
+"delta": "The height of the dashed line in the figure is 68. The angle enclosed by the blue arc is 46°, and the angle enclosed by the red arc is 37°",
+"scorable": true
+},
+{
+"pid": "359",
+"qtype": "free-form",
+"answer": "51.1",
+"delta": "The height of the rectangle in the picture is 63, the angle enclosed by the purple arc is 67° and the angle pointed by the arrow is 39°",
+"scorable": true
+},
+{
+"pid": "360",
+"qtype": "free-form",
+"answer": "6.3",
+"delta": "angle CAE=61^\\circ , \\angle CBE=73^\\circ and CE=25",
+"scorable": true
+},
+{
+"pid": "362",
+"qtype": "free-form",
+"answer": "229",
+"delta": "The final approach of an aeroplane when landing requires the pilot to adjust their angle of descent to about 3°. If the plane is 12 metres above the runway and has d metres until touchdown",
+"scorable": true
+},
+{
+"pid": "364",
+"qtype": "free-form",
+"answer": "74.85",
+"delta": "A suspension bridge is being built. The top of the concrete tower is 35.5 metres above the bridge and the connection point for the main cable is 65.9 metres from the tower. Assume that the concrete tower and the bridge are perpendicular to each other",
+"scorable": true
+},
+{
+"pid": "365",
+"qtype": "free-form",
+"answer": "23.9",
+"delta": "The airtraffic controller is communicating with a plane in flight approaching an airport for landing. The plane is 10369 metres above the ground and is still 23444 metres from the runway. If \\theta ° is the angle at which the plane should approach",
+"scorable": true
+},
+{
+"pid": "367",
+"qtype": "free-form",
+"answer": "4.4",
+"delta": "Sand has an angle of friction of about 40°. This means once it gets over this it slides down the side of the sand pile. Mae is getting a delivery of sand to her home, but the area where the sand will be delivered is only 10.6 metres wide. If h metres is the maximum height of the sandpile",
+"scorable": true
+},
+{
+"pid": "368",
+"qtype": "free-form",
+"answer": "777 ",
+"delta": "the lengths of EF and CD are x metre and y metre",
+"scorable": true
+},
+{
+"pid": "369",
+"qtype": "free-form",
+"answer": "1",
+"delta": "In a right angled triangle ABC, angle A is 30°, angle B is 60°, the length of AB is sqrt{3}, and the length of BC is h",
+"scorable": true
+},
+{
+"pid": "370",
+"qtype": "free-form",
+"answer": "45^\\circ ",
+"delta": "In the right angled triangle, a marked right angled line has a length of 4 and a slanted line has a length of 4*sqrt{2",
+"scorable": true
+},
+{
+"pid": "371",
+"qtype": "free-form",
+"answer": "22",
+"delta": "In the right angled triangle, the marked angle is 60°, the marked right angled side has a length of 11, and the diagonal side has a length of w",
+"scorable": true
+},
+{
+"pid": "372",
+"qtype": "free-form",
+"answer": "60^\\circ ",
+"delta": "In the right angled triangle, the marked angle is \\theta, the marked right angled side has a length of 12, and the diagonal side has a length of 8*sqrt{3",
+"scorable": true
+},
+{
+"pid": "373",
+"qtype": "free-form",
+"answer": "17",
+"delta": "In the right angled triangle, the marked angle is 30°, the marked right angled side has a length of 8.5, and the diagonal side has a length of P",
+"scorable": true
+},
+{
+"pid": "374",
+"qtype": "free-form",
+"answer": "\\frac{\\sqrt{30}}{2}",
+"delta": "In the right angled triangle, the marked angle is 30°, the marked right angled side has a length of x, and the diagonal side has a length of sqrt{10",
+"scorable": true
+},
+{
+"pid": "375",
+"qtype": "free-form",
+"answer": "4\\sqrt{6}",
+"delta": "In the right angled triangle, the marked angle is 45°, the lengths of the two right angled edges are 4*sqrt{3} and y respectively, and the diagonal side has a length of x",
+"scorable": true
+},
+{
+"pid": "376",
+"qtype": "free-form",
+"answer": "4\\sqrt{3}",
+"delta": "In this right-angled triangle, one of the acute angles measures 45^\\circ, one leg measuring 4\\sqrt{3",
+"scorable": true
+},
+{
+"pid": "377",
+"qtype": "free-form",
+"answer": "\\frac{9\\sqrt{3}}{2}",
+"delta": "In this right-angled triangle, one of the acute angles measures 60^\\circ, the hypotenuse measures 9. Consider the adjacent figure",
+"scorable": true
+},
+{
+"pid": "378",
+"qtype": "free-form",
+"answer": "4\\sqrt{5}",
+"delta": "In this right-angled triangle, one of the acute angles measures 60^\\circ, the hypotenuse measures 8\\sqrt{5",
+"scorable": true
+},
+{
+"pid": "379",
+"qtype": "free-form",
+"answer": "4+4\\sqrt{3}",
+"delta": "A right trapezoid, with one of its base angles measuring 30^\\circ, has an adjacent leg length of 8 to this angle. The length of the shorter base of the trapezoid is 4",
+"scorable": true
+},
+{
+"pid": "380",
+"qtype": "free-form",
+"answer": "1",
+"delta": "In this right-angled triangle, one of the acute angles measures 60^\\circ, one leg measuring \\sqrt{3",
+"scorable": true
+},
+{
+"pid": "381",
+"qtype": "free-form",
+"answer": "22 ",
+"delta": "In this right-angled triangle, one of the acute angles measures 60^\\circ, one leg measuring 11",
+"scorable": true
+},
+{
+"pid": "382",
+"qtype": "free-form",
+"answer": "60^\\circ",
+"delta": "In this right-angled triangle, one leg measuring 12, the hypotenuse measures 8\\sqrt{3",
+"scorable": true
+},
+{
+"pid": "383",
+"qtype": "free-form",
+"answer": "2",
+"delta": "In this right-angled triangle, one of the acute angles measures 60^\\circ, one leg measuring \\sqrt{3",
+"scorable": true
+},
+{
+"pid": "384",
+"qtype": "free-form",
+"answer": "17",
+"delta": "In this right-angled triangle, one of the acute angles measures 30^\\circ, one leg measuring 8.5",
+"scorable": true
+},
+{
+"pid": "386",
+"qtype": "free-form",
+"answer": "4\\sqrt{6}",
+"delta": "In this right-angled triangle, one of the acute angles measures 45^\\circ, one leg measuring 4\\sqrt{3",
+"scorable": true
+},
+{
+"pid": "387",
+"qtype": "free-form",
+"answer": "Circumference $=50.27 \\mathrm{~cm}$",
+"delta": "A circle with a radius of $8 \\mathrm{~cm",
+"scorable": true
+},
+{
+"pid": "388",
+"qtype": "free-form",
+"answer": "Circumference $=113.1 \\mathrm{~cm}$",
+"delta": "A circle with a radius of $18 \\mathrm{~cm",
+"scorable": true
+},
+{
+"pid": "389",
+"qtype": "free-form",
+"answer": "$C=40.84 \\mathrm{~cm}$",
+"delta": "A circle with a diameter of $13 \\mathrm{~cm",
+"scorable": true
+},
+{
+"pid": "390",
+"qtype": "free-form",
+"answer": "$$r=7.00$$",
+"delta": "A circle with a circumference of $44 \\mathrm{~cm}$. Consider the circle below",
+"scorable": true
+},
+{
+"pid": "391",
+"qtype": "free-form",
+"answer": "$D=13.37$",
+"delta": "A circle with a circumference of $42 \\mathrm{~cm}$. Consider the circle below",
+"scorable": true
+},
+{
+"pid": "392",
+"qtype": "free-form",
+"answer": "Perimeter $=35.7 \\mathrm{~mm}$",
+"delta": "The radius of a quarter circle is $10 \\mathrm{~mm",
+"scorable": true
+},
+{
+"pid": "393",
+"qtype": "free-form",
+"answer": "Area $=113.1 \\mathrm{~cm}^{2}$",
+"delta": "A circle with a radius of $6 \\mathrm{~cm",
+"scorable": true
+},
+{
+"pid": "394",
+"qtype": "free-form",
+"answer": "Area $=9.4 \\mathrm{~cm}^{2}$",
+"delta": "The radius of the following figure is $2 \\mathrm{~cm",
+"scorable": true
+},
+{
+"pid": "399",
+"qtype": "free-form",
+"answer": "Area $=\\frac{25 \\pi}{4} \\mathrm{~mm}^{2}$",
+"delta": "A figure with a radius of $ 5 \\mathrm{~mm",
+"scorable": true
+},
+{
+"pid": "400",
+"qtype": "free-form",
+"answer": "Area $=\\frac{121 \\pi}{4} \\mathrm{~m}^{2}$",
+"delta": "A figure with a radius of $ 11 \\mathrm{~m",
+"scorable": true
+},
+{
+"pid": "401",
+"qtype": "free-form",
+"answer": "Area $=\\frac{147 \\pi}{4} \\mathrm{~cm}^{2}$",
+"delta": "Area of the figure is a $=\\frac{3}{4}$ of area of the circle",
+"scorable": true
+},
+{
+"pid": "402",
+"qtype": "free-form",
+"answer": "Area $=347.4248 \\pi \\mathrm{cm}^{2}$",
+"delta": "The diameter of the figure is $ 52.72 \\mathrm{~cm}$. The figure follows that half of a circle has area $\\frac{1}{2} \\pi r^{2",
+"scorable": true
+},
+{
+"pid": "404",
+"qtype": "free-form",
+"answer": "7298.6737 \\mathrm{~mm}^{2}",
+"delta": "The radius of the figure is $ 96.4 \\mathrm{~mm",
+"scorable": true
+},
+{
+"pid": "405",
+"qtype": "free-form",
+"answer": "Area $=1115.94 \\mathrm{~cm}^{2}$",
+"delta": "The radius of the figure is $ 59.6 \\mathrm{~cm",
+"scorable": true
+},
+{
+"pid": "406",
+"qtype": "free-form",
+"answer": "Area $=3426.49 \\mathrm{~m}^{2}$",
+"delta": "The radius of the figure is $ 56.5 \\mathrm{~m",
+"scorable": true
+},
+{
+"pid": "408",
+"qtype": "free-form",
+"answer": "Perimeter $=18.89 \\mathrm{~cm}$",
+"delta": "The radius of the figure is $ 7 \\mathrm{~cm",
+"scorable": true
+},
+{
+"pid": "409",
+"qtype": "free-form",
+"answer": "Perimeter $=60.68 \\mathrm{~cm}$",
+"delta": "The radius of the figure is $ 8 \\mathrm{~cm",
+"scorable": true
+},
+{
+"pid": "410",
+"qtype": "free-form",
+"answer": "Perimeter $=492.14 \\mathrm{~mm}$",
+"delta": "The radius of the figure is $ 80.2 \\mathrm{~mm",
+"scorable": true
+},
+{
+"pid": "411",
+"qtype": "free-form",
+"answer": "Perimeter $=257.73 \\mathrm{~m}$",
+"delta": "The radius of the figure is $ 32.2 \\mathrm{~m}$. The marked angle measures 344°; The marked angle measures 344°",
+"scorable": true
+},
+{
+"pid": "414",
+"qtype": "free-form",
+"answer": "Area $=73.52\\mathrm{~cm}^{2}$",
+"delta": "The radius of the figure is $5\\mathrm{~cm",
+"scorable": true
+},
+{
+"pid": "415",
+"qtype": "free-form",
+"answer": "Area $=315.4 \\mathrm{~m}^{2}$",
+"delta": "The radius of the figure is $22.1\\mathrm{~m",
+"scorable": true
+},
+{
+"pid": "416",
+"qtype": "free-form",
+"answer": "Area of sector $=6 \\pi \\mathrm{cm}^{2}$",
+"delta": "In the diagram, $O$ is the center of a circle with radius 6 cm",
+"scorable": true
+},
+{
+"pid": "421",
+"qtype": "free-form",
+"answer": "96",
+"delta": "The total area is 6096",
+"scorable": true
+},
+{
+"pid": "422",
+"qtype": "free-form",
+"answer": "36",
+"delta": "The total area is 6096",
+"scorable": true
+},
+{
+"pid": "423",
+"qtype": "free-form",
+"answer": "3799 km",
+"delta": "After two meteoroids collide at point A, one starts travelling in the direction of point B, while the other starts travelling in the direction of point C, with an angle of 53^\\circ between the two directions; while the other is moving at a speed of 10170 km/h",
+"scorable": true
+},
+{
+"pid": "424",
+"qtype": "free-form",
+"answer": "60.21 \\mathrm{m}^2",
+"delta": "As shown in the figure above, a triangle has an angle of 50° and two sides of 12m and 13.1m",
+"scorable": true
+},
+{
+"pid": "425",
+"qtype": "free-form",
+"answer": "1389.32 \\mathrm{m}^2",
+"delta": "The triangle has an angle of 44° and two sides of 50m and 80m",
+"scorable": true
+},
+{
+"pid": "426",
+"qtype": "free-form",
+"answer": "729",
+"delta": "On an orienteering course, Valentina runs 550 metres north from point A to point B, then turns east and runs to point C. If the true bearing of C from A is 041 ^\\circ T and the direct distance Valentina must run to get back to point A is d metres",
+"scorable": true
+},
+{
+"pid": "428",
+"qtype": "free-form",
+"answer": "\\frac{1225\\pi }{2} \\text { units }^2",
+"delta": "The logo of a shop consists of five semicircles; four small semicircles each with the same radius, and one large semicircle",
+"scorable": true
+},
+{
+"pid": "429",
+"qtype": "multi-choice",
+"answer": "False",
+"delta": "A driver glances up at the top of a building",
+"scorable": false
+},
+{
+"pid": "430",
+"qtype": "multi-choice",
+"answer": "False",
+"delta": "Sally needs to walk from the school to the bus stop",
+"scorable": false
+},
+{
+"pid": "432",
+"qtype": "free-form",
+"answer": "8.246",
+"delta": "using the distance formula. The two end points of the line are (-3, 4) and (5, 2), respectively",
+"scorable": true
+},
+{
+"pid": "433",
+"qtype": "free-form",
+"answer": "(2,-2)",
+"delta": "There is a blue rectangular with four vertexes (-6,5), (-6,-1), (10,5), (10,-1). The two diagonals are red and intersect with each other at (2,2",
+"scorable": false
+},
+{
+"pid": "439",
+"qtype": "free-form",
+"answer": "$\\left(\\frac{\\sqrt{2}}{2}, \\frac{\\sqrt{2}}{2}\\right)$",
+"delta": "Point $A$ is on the following unit circle with radius 1, and forms a red right triangle with an angle of $\\frac{\\pi}{4",
+"scorable": false
+},
+{
+"pid": "440",
+"qtype": "multi-choice",
+"answer": "C\nD",
+"delta": "On the following unit circle, an angle $\\theta$ is formed by a radius and x-axis",
+"scorable": false
+},
+{
+"pid": "449",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "A circle the center of the circle is the origin and the radius of the circle is 1. The point $P$ on the unit circle has the coordinates $(x, y",
+"scorable": true
+},
+{
+"pid": "454",
+"qtype": "free-form",
+"answer": "2",
+"delta": "Consider the circle, which has 4 intersection points with axes, in the graph",
+"scorable": true
+},
+{
+"pid": "455",
+"qtype": "free-form",
+"answer": "8",
+"delta": "Consider the circle, which has 4 intersection points with axes, in the graph",
+"scorable": true
+},
+{
+"pid": "456",
+"qtype": "free-form",
+"answer": "$x^{2}+y^{2}=49$",
+"delta": "Consider the circle on the graph. Its center at the origin and its radius is 7",
+"scorable": false
+},
+{
+"pid": "457",
+"qtype": "free-form",
+"answer": "$(x-1)^{2}+(y-3)^{2}=36$",
+"delta": "Its center is at (1,3) and its radius is 6",
+"scorable": false
+},
+{
+"pid": "458",
+"qtype": "free-form",
+"answer": "$\\frac{-2 \\sqrt{13}}{13}$",
+"delta": "The terminal side of an angle, $\\theta$ passes through the point $(-4,-6)$. Use the diagram to answer the following question",
+"scorable": true
+},
+{
+"pid": "459",
+"qtype": "free-form",
+"answer": "Complete the statement.Every point on the circle is exactly 5 units away from the point (0,0).",
+"delta": "Consider the graph of the circle, which has 4 intersection points with axes, shown below",
+"scorable": false
+},
+{
+"pid": "473",
+"qtype": "free-form",
+"answer": "Center $=(20,10)$",
+"delta": "A rectangle contains an ellipse. The four vertices of the rectangle are (0,0), (0,20), (40,20), (40,0). The center of the ellipse is (20,10), and its four vertices are (0,10), (20,10), (20,20), (40,10; measuring $40 \\mathrm{~cm}$ in length and 20 $\\mathrm{cm}$ in width",
+"scorable": false
+},
+{
+"pid": "474",
+"qtype": "free-form",
+"answer": "(-2,1]",
+"delta": "There are two points at -2 and 1 on the number line",
+"scorable": false
+},
+{
+"pid": "475",
+"qtype": "free-form",
+"answer": "(-\\infty, 4]",
+"delta": "There is a point at 4 and a blue arrow goes to left from that point",
+"scorable": false
+},
+{
+"pid": "476",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Two curves are symmetrical about the x-axis. Use the vertical line test to",
+"scorable": true
+},
+{
+"pid": "477",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "There is a curve goes through the origin. Use the vertical line test to",
+"scorable": true
+},
+{
+"pid": "478",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "There is an ellipse, for which the domain is from -3 to -1 and the range is from -1 to 3",
+"scorable": true
+},
+{
+"pid": "479",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "There is a curve that goes through (-3,0), (-2,1), and (-1,2",
+"scorable": true
+},
+{
+"pid": "480",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "There are 4 labels on the x-axis $-\\pi$, $-\\frac{2}{\\pi}$, $\\frac{2}{\\pi}$, $\\pi$ and a curve that goes through ($\\frac{2}{\\pi}$,0",
+"scorable": true
+},
+{
+"pid": "481",
+"qtype": "free-form",
+"answer": "domain: [-4, 0) and range: (-3, 1]",
+"delta": "which goes through (-2,-4), (-1,-2), (0,0), (1,-4), with a hollow point (-3,0",
+"scorable": false
+},
+{
+"pid": "483",
+"qtype": "free-form",
+"answer": "domain: [-4,4] and range: [0,2]",
+"delta": "There is a curve goes through (-4,0), (0,2), and (4,0). The points at (-4,0) and (4,0) are both solid points",
+"scorable": false
+},
+{
+"pid": "484",
+"qtype": "free-form",
+"answer": "domain: [-5,3) and range: [0,2]",
+"delta": "There is a curve goes through (-5,2), (-1,0), and (3,2). The point at (-5,2) and (3,2) are respectively solid and hollow",
+"scorable": false
+},
+{
+"pid": "485",
+"qtype": "free-form",
+"answer": "domain: (-\\infty, 1] and range: [0, \\infty)",
+"delta": "There is a curve start from a solid point (1,0) with an end arrow going through (-4,4",
+"scorable": false
+},
+{
+"pid": "486",
+"qtype": "free-form",
+"answer": "domain: [-6,-\\frac{1}{6}] \\cup[\\frac{1}{6}, 6] and range: [-6,-\\frac{1}{6}\\right] \\cup[\\frac{1}{6}, 6]",
+"delta": "There is a hyperbolic function with its center at the origin. The graph approaches zero as $∣x∣$ increases, and the function is undefined at x=0. There are four points labeled at (1/6,6), (6,1/6), (-1/6,-6), (-6,-1/6",
+"scorable": false
+},
+{
+"pid": "487",
+"qtype": "free-form",
+"answer": "domain: [-3, \\infty) and range: [0, \\infty)",
+"delta": "There is a piecewise function going through points (-3, 0), (0, 5), and (3, 5",
+"scorable": false
+},
+{
+"pid": "488",
+"qtype": "free-form",
+"answer": "The function is increasing on (-\\infty,-2.5) \\cup(1, \\infty), and decreasing on (-2.5,1)",
+"delta": "There is a curve goes through (-4,1), (-1,3), and (0,0",
+"scorable": false
+},
+{
+"pid": "489",
+"qtype": "free-form",
+"answer": "\\text { increasing on }(-\\infty, 1) \\cup(3,4) \\text {, decreasing on }(1,3) \\cup(4, \\infty)",
+"delta": "There are two curves with a vertical asymptote x=3. One curve passes (1,0), and another curve passes (4,0",
+"scorable": false
+},
+{
+"pid": "490",
+"qtype": "free-form",
+"answer": "\\text { local maximum: }(-3,60) \\text {, local minimum: }(3, -60)",
+"delta": "There is an odd function f going through (0,0",
+"scorable": false
+},
+{
+"pid": "491",
+"qtype": "free-form",
+"answer": "\\text { Local minimum at }(-2,-2) \\text {, decreasing on }(-3,-2) \\text {, increasing on }(-2, \\infty)",
+"delta": "There is an odd function f going through (0,0",
+"scorable": false
+},
+{
+"pid": "493",
+"qtype": "free-form",
+"answer": "When x<=3 $f(x)=-x+1$, when x>3, $f(x)=x-5$",
+"delta": "There is a piecewise function combind by straight lines going through (3, -2), (1, 0), and (0,1",
+"scorable": false
+},
+{
+"pid": "494",
+"qtype": "free-form",
+"answer": "When x<=-3 $f(x) = -x-5$, when x>3, $f(x)=x+1$",
+"delta": "There is a piecewise function combind by straight lines, which goes through (-3, -2), (0, 1), and (-1, 0",
+"scorable": false
+},
+{
+"pid": "495",
+"qtype": "free-form",
+"answer": "f(x)=-(x+1)^2+2",
+"delta": "There is a quadratic function going through (-2,1), (-1,2), (0,1",
+"scorable": false
+},
+{
+"pid": "496",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "There is a quadratic function, which goes through (0,0), (20,0) and opens upward",
+"scorable": true
+},
+{
+"pid": "497",
+"qtype": "free-form",
+"answer": "$-\\frac{3}{2}x+3$",
+"delta": "There is a linear function with a y-intercept of 3 and a x-intercept of 2",
+"scorable": false
+},
+{
+"pid": "498",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "There is a curve goes through (-2,0), (0,0), (2,0). Use the vertical line test to",
+"scorable": true
+},
+{
+"pid": "499",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "There are two curves symmetric to the orign and lie in the second and fourth quadrant. Use the vertical line test to",
+"scorable": true
+},
+{
+"pid": "500",
+"qtype": "free-form",
+"answer": "Increasing at (2, \\infty) and decreasing at (-\\infty, 2)",
+"delta": "There is a quadratic function that opens upwards symmetric with respect to x=2. The vertex of the parabola is at the point (2,-2",
+"scorable": false
+},
+{
+"pid": "501",
+"qtype": "free-form",
+"answer": "\\text { increasing } \\quad(-3,1) ; \\quad \\text { constant }(-\\infty,-3) \\cup(1, \\infty)",
+"delta": "There is a piecewise function going through (-3, -4), (-1, 0), (0, 2), and (1, 4",
+"scorable": false
+},
+{
+"pid": "502",
+"qtype": "free-form",
+"answer": "(-1.8,10)",
+"delta": "There is a cubic function that passes (0,0",
+"scorable": false
+},
+{
+"pid": "503",
+"qtype": "free-form",
+"answer": "f(x)=|x-3|",
+"delta": "piecewise; symmetric to x=3, which goes through (3,0) and (0, 3",
+"scorable": false
+},
+{
+"pid": "504",
+"qtype": "free-form",
+"answer": "even",
+"delta": "There is a U-shape curve opens upwards and passes (0,0",
+"scorable": false
+},
+{
+"pid": "507",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "whose y-intercept is 3 and x-intercept is -8",
+"scorable": true
+},
+{
+"pid": "508",
+"qtype": "free-form",
+"answer": "slope =-4",
+"delta": "Consider the graph of the line whose x-intercept is 0.5 and y-intercept is 2",
+"scorable": true
+},
+{
+"pid": "509",
+"qtype": "free-form",
+"answer": "$y \\leq 5$",
+"delta": "A line is parallel to x-axis at y=5",
+"scorable": false
+},
+{
+"pid": "510",
+"qtype": "free-form",
+"answer": "$y \\geq-2 x-6$",
+"delta": "The x-intercept of the line is -3 and the y-intercept is -6",
+"scorable": false
+},
+{
+"pid": "511",
+"qtype": "free-form",
+"answer": "$y<2 x+6$",
+"delta": "The x-intercept of the line is -3 and the y-intercept is 6",
+"scorable": false
+},
+{
+"pid": "512",
+"qtype": "free-form",
+"answer": "$y>-3 x$",
+"delta": "The line goes through the origin",
+"scorable": false
+},
+{
+"pid": "513",
+"qtype": "free-form",
+"answer": "$y \\leq 2 x+3$",
+"delta": "The x-intercept of the line is -1.5 and the y-intercept is 3",
+"scorable": false
+},
+{
+"pid": "514",
+"qtype": "free-form",
+"answer": "Slope $=\\frac{1}{5}$",
+"delta": "shown; that passes the point (0, 1",
+"scorable": true
+},
+{
+"pid": "515",
+"qtype": "free-form",
+"answer": "Slope $=-\\frac{1}{2}$",
+"delta": "shown; that passes (0, 30",
+"scorable": true
+},
+{
+"pid": "518",
+"qtype": "multi-choice",
+"answer": "(C)",
+"delta": "whose y-intercept=1 and all values > 0",
+"scorable": true
+},
+{
+"pid": "519",
+"qtype": "free-form",
+"answer": "4",
+"delta": "in blue; in red; g(x)$ goes through (0,0), (3,6), (6,0) and opens downward. $f(x)$ in blue goes through (0,0), (2,6), (3,6), (5,0) and opens downsward",
+"scorable": true
+},
+{
+"pid": "520",
+"qtype": "free-form",
+"answer": "7",
+"delta": "f(x)$ in blue goes through (0,1000), (5,1500), and $g(x)$ in red goes through (6,1500), (8,2000",
+"scorable": true
+},
+{
+"pid": "521",
+"qtype": "multi-choice",
+"answer": "(B)",
+"delta": "that goes through (-1,-1), (0,0), (1,-1), (2,2",
+"scorable": true
+},
+{
+"pid": "522",
+"qtype": "free-form",
+"answer": "5",
+"delta": "which goes through (-1,1), (3,5), (5,6), (7,7",
+"scorable": true
+},
+{
+"pid": "523",
+"qtype": "multi-choice",
+"answer": "(B)",
+"delta": "Piecewise functions; g$ is purple and goes through (0,10000), (40,9000), (80,9000), (100,11000), (130,11000), and $f$ is blue and goes through (10,11000), (50,11000), (60,10000), (100,10000), (120,0",
+"scorable": true
+},
+{
+"pid": "524",
+"qtype": "multi-choice",
+"answer": "E",
+"delta": "There is a function representing a circle centered at the origin with a radius of 1 unit. Point A is on the circle",
+"scorable": true
+},
+{
+"pid": "525",
+"qtype": "multi-choice",
+"answer": "F",
+"delta": "There is a function representing a circle centered at the origin with a radius of 1 unit. Points A,B, and C are plotted on the unit circle",
+"scorable": true
+},
+{
+"pid": "526",
+"qtype": "multi-choice",
+"answer": "F",
+"delta": "The function represents a circle centered at the origin with a radius of 1 unit. There is a point A with an angle to the negative x-axis of $50^\\circ",
+"scorable": true
+},
+{
+"pid": "527",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "There is a function representing a circle centered at the origin with a radius of 1 unit. There is a point A on the circle with an angle of $\\frac{\\pi}{5}$ to the negative x-axis",
+"scorable": true
+},
+{
+"pid": "528",
+"qtype": "multi-choice",
+"answer": "E",
+"delta": "Points $A, B$, and $C$ are plotted on the unit circle and also on the x-axis and y-axis",
+"scorable": true
+},
+{
+"pid": "529",
+"qtype": "free-form",
+"answer": "0.2",
+"delta": "Below is the graph of a trigonometric function with a yellow point labeled ($-\\frac{\\pi}{3},2; a maximum point at $\\left(-\\frac{\\pi}{3}, 2\\right)$ and",
+"scorable": true
+},
+{
+"pid": "530",
+"qtype": "free-form",
+"answer": "-5.35",
+"delta": "Below is the graph of a trigonometric function. It has a maximum point at $\\left(\\frac{1}{4} \\pi,-2.2\\right)$ and a minimum point at $\\left(\\frac{3}{4} \\pi,-8.5\\right",
+"scorable": true
+},
+{
+"pid": "531",
+"qtype": "free-form",
+"answer": "2",
+"delta": "Below is the graph of a trigonometric function. It has a maximum point at $(1.2,5.5)$ and an amplitude of 3.5",
+"scorable": true
+},
+{
+"pid": "532",
+"qtype": "free-form",
+"answer": "7.7",
+"delta": "Below is the graph of a trigonometric function. It has a minimum point at $\\left(-\\frac{1}{2} \\pi, 2.4\\right)$ and a maximum point at $\\left(\\frac{3}{2} \\pi, 13\\right",
+"scorable": true
+},
+{
+"pid": "533",
+"qtype": "free-form",
+"answer": "1.5",
+"delta": "Below is the graph of a trigonometric function. It intersects its midline at $(-3.5,-0.8)$, and it has a maximum point at $(4.1,0.7",
+"scorable": true
+},
+{
+"pid": "534",
+"qtype": "free-form",
+"answer": "3.15",
+"delta": "Below is the graph of a trigonometric function. It has a maximum point at $\\left(\\frac{1}{4} \\pi,-2.2\\right)$ and a minimum point at $\\left(\\frac{3}{4} \\pi,-8.5\\right",
+"scorable": true
+},
+{
+"pid": "535",
+"qtype": "free-form",
+"answer": "4.6",
+"delta": "Below is the graph of a trigonometric function. It intersects its midline at $\\left(\\frac{2}{3} \\pi, 1.2\\right)$, and it has a minimum point at $\\left(\\frac{4}{3} \\pi,-3.4\\right",
+"scorable": true
+},
+{
+"pid": "536",
+"qtype": "free-form",
+"answer": "5.3",
+"delta": "Below is the graph of a trigonometric function. It has a minimum point at $\\left(-\\frac{1}{2} \\pi, 2.4\\right)$ and a maximum point at $\\left(\\frac{3}{2} \\pi, 13\\right",
+"scorable": true
+},
+{
+"pid": "537",
+"qtype": "free-form",
+"answer": "\\pi",
+"delta": "Below is the graph of a trigonometric function. It has a maximum point at $\\left(\\frac{1}{4} \\pi,-2.2\\right)$ and a minimum point at $\\left(\\frac{3}{4} \\pi,-8.5\\right",
+"scorable": true
+},
+{
+"pid": "538",
+"qtype": "free-form",
+"answer": "{8}{5} \\pi",
+"delta": "Below is the graph of a trigonometric function. It intersects its midline at $\\left(\\frac{3}{5} \\pi, 8\\right)$ and again at $\\left(\\frac{7}{5} \\pi, 8\\right",
+"scorable": false
+},
+{
+"pid": "539",
+"qtype": "free-form",
+"answer": "4 \\pi",
+"delta": "Below is the graph of a trigonometric function. It has a minimum point at $\\left(-\\frac{1}{2} \\pi, 2.4\\right)$ and a maximum point at $\\left(\\frac{3}{2} \\pi, 13\\right",
+"scorable": true
+},
+{
+"pid": "540",
+"qtype": "free-form",
+"answer": "14",
+"delta": "Below is the graph of a trigonometric function. It intersects its midline at $(1.25,-2.75)$ and it has a minimum point at $(4.75,-6.25",
+"scorable": true
+},
+{
+"pid": "541",
+"qtype": "free-form",
+"answer": "3",
+"delta": "Below is the graph of a trigonometric function. It has a minimum point at $(1,1.5)$ and an amplitude of 1.5",
+"scorable": true
+},
+{
+"pid": "542",
+"qtype": "free-form",
+"answer": "6.5",
+"delta": "Below is the graph of a trigonometric function. It intersects its midline at $\\left(-\\frac{1}{2} \\pi, 3.3\\right)$, and it has a maximum point at $(-2 \\pi, 9.8",
+"scorable": true
+},
+{
+"pid": "543",
+"qtype": "free-form",
+"answer": "3 \\cos (2 \\pi x+4 \\pi)-6",
+"delta": "f$ is a trigonometric function of the form $f(x)=a \\cos (b x+c)+d$. Below is the graph of $f(x)$. The function has a maximum point at $(-2,-3)$ and a minimum point at $(-2.5,-9",
+"scorable": false
+},
+{
+"pid": "544",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "The function is graphed below, along with one segment highlighted, a red double arrow from (5,21) to (15,21",
+"scorable": true
+},
+{
+"pid": "545",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "The function is graphed below, along with one segment highlighted, a red double arrow from (3.75,3), (3.75,5",
+"scorable": true
+},
+{
+"pid": "546",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "The function is graphed below, along with one segment highlighted, a red double arrow from (1,50) to (5,50",
+"scorable": true
+},
+{
+"pid": "548",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "The function is graphed below, along with one segment highlighted",
+"scorable": true
+},
+{
+"pid": "550",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "which decreases when $w$ increases and goes through (5,20), (10,10), (20,5",
+"scorable": true
+},
+{
+"pid": "551",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "opened a new restaurant. She; From month=0 to month=2, the profit decreases when months increase. From month=6 to month =13, profit increases when months increase",
+"scorable": true
+},
+{
+"pid": "552",
+"qtype": "multi-choice",
+"answer": "E",
+"delta": "The temperature decreases when time increases, and passes points(0, 40",
+"scorable": true
+},
+{
+"pid": "553",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "Points $A, B$, and $C$ are plotted on the unit circle, the eqution of which is $x^2+y^2=1",
+"scorable": true
+},
+{
+"pid": "555",
+"qtype": "multi-choice",
+"answer": "A\nC",
+"delta": "On the following unit circle, an acute angle $\\theta$ is formed by a radius and x-axis",
+"scorable": false
+},
+{
+"pid": "556",
+"qtype": "free-form",
+"answer": "-4.9\n-4.9",
+"delta": "On the following unit circle, $\\theta$ is in radians and $\\tan (\\theta)=\\frac{0.98}{0.2}=4.9$. Without a calculator",
+"scorable": false
+},
+{
+"pid": "557",
+"qtype": "free-form",
+"answer": "-1",
+"delta": "There are two piecewise functions in the graph. Line $y=g(x)$ is a purple line and line $y=f(x)$ is a blue line. The range of $g(x)$ is (-2,6) and the range of $f(x)$ is (-5,1",
+"scorable": true
+},
+{
+"pid": "558",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "h is a piecewise function, and goes through (-5,4), (3,3), (0,7), (3,1), (5,-5",
+"scorable": true
+},
+{
+"pid": "559",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "g is a piecewise function. One segment is from (-5,0) to (-2,9). Another segment is from (-2,9) to (4,-4",
+"scorable": true
+},
+{
+"pid": "560",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "This is a quadratic function. The y-axis labels mosquitoes (millions), and x-axis labels rainfall (centimeters). The vertex of the function is (2,4) and the function intersects with x-axis at (0,0) and (4,0",
+"scorable": true
+},
+{
+"pid": "561",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "Quadratic function g opens downward, and goes through (4,-5), (8,-5) with a vertex (6,-1",
+"scorable": true
+},
+{
+"pid": "562",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Quadratic function g opens upward, and goes through (2,4), (6,4) with a vertex of (4,0",
+"scorable": true
+},
+{
+"pid": "563",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "Quadratic function g opens downward, and goes through (-1,-4), (-5,-4) with a vertex of (-3,0",
+"scorable": true
+},
+{
+"pid": "566",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "g(x) is shown in the figure, which is a quadratic function opening upward with a vertex of (3,−8) and a minimum value of -8",
+"scorable": true
+},
+{
+"pid": "567",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "g(x) is shown in the figure, which is a quadratic function opening downward with a vertex of (-5,6",
+"scorable": true
+},
+{
+"pid": "568",
+"qtype": "free-form",
+"answer": "\\[g(x)=(x + 4)^2 - 5\\].",
+"delta": "Function f in blue is a parabola as $y=x^2$. Function g in red can be thought of as a translated (shifted) version of f(x)=x^2",
+"scorable": false
+},
+{
+"pid": "569",
+"qtype": "free-form",
+"answer": "g(x)=x^2-3",
+"delta": "Function f in blue is a parabola as $y=x^2$. Function g in red can be thought of as a translated (shifted) version of f(x)=x^2",
+"scorable": false
+},
+{
+"pid": "570",
+"qtype": "free-form",
+"answer": "0.75 x^2",
+"delta": "Function f in blue is a parabola as $y=x^2$. Function g in red can be thought of as a scaled version of f(x)=x^2",
+"scorable": false
+},
+{
+"pid": "571",
+"qtype": "free-form",
+"answer": "g(x)=-x^2",
+"delta": "There are two quadratic functions. The red one is g(x) that goes through the origin and point (2, -4; in red",
+"scorable": false
+},
+{
+"pid": "573",
+"qtype": "free-form",
+"answer": "g(x)=(x+2)^2+1",
+"delta": "Function g in red can be thought of as a translated (shifted) version of f(x)=x^2 in blue",
+"scorable": false
+},
+{
+"pid": "574",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "Simon has a certain length of fencing to enclose a rectangular area; quadratic; with a vertec of (10, 100; It intersects with x-axis at (0,0) and (20,0",
+"scorable": true
+},
+{
+"pid": "576",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "A polynomial function p is graphed, which goes through (-5,0), (-1.5,0), (2,0",
+"scorable": true
+},
+{
+"pid": "577",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "A polynomial p is graphed, which goes through (-3.5,0), (0,0), (3,0",
+"scorable": true
+},
+{
+"pid": "578",
+"qtype": "free-form",
+"answer": "2500",
+"delta": "The curve in the graph passes (0,5). y-axis labels\"y('0000s",
+"scorable": true
+},
+{
+"pid": "579",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "y-axis labels \"days\" and x-axis labels \"recall percentage",
+"scorable": true
+},
+{
+"pid": "580",
+"qtype": "free-form",
+"answer": "$13 \\%$",
+"delta": "y-axis labels \"days\" and x-axis labels \"recall percentage",
+"scorable": true
+},
+{
+"pid": "581",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "it passes (0,-2) and (3,0) and starts from (-1,-5",
+"scorable": true
+},
+{
+"pid": "582",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "which is a curve whose asymptote is x-axis and x=4",
+"scorable": true
+},
+{
+"pid": "583",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "a line which passes (-6,0) and (0,2) and the slope of the line > 0",
+"scorable": true
+},
+{
+"pid": "584",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "which is a parabola passing (0,2) and it opens upwards",
+"scorable": true
+},
+{
+"pid": "585",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "which is a curve passes (0,1) and when the value of x increases the value of y increases",
+"scorable": true
+},
+{
+"pid": "586",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "which is a curve passes (0,0) and the value of y increases by the increase of the value of x",
+"scorable": true
+},
+{
+"pid": "587",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "which is a curve passes (-1,0), (0,8), (2,0), (4,0",
+"scorable": true
+},
+{
+"pid": "588",
+"qtype": "free-form",
+"answer": "$g(x)=\\ln x+4$",
+"delta": "The graphs of logarithm function; passing (1,4) and logarithm function $g(x)$ passing (1,0) are shown below. $g(x)$ is a transformation of $f(x",
+"scorable": false
+},
+{
+"pid": "589",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "logarithm function; logarithm function; g(x)$ is a transformation of $f(x",
+"scorable": true
+},
+{
+"pid": "594",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "x-axis labels \"Time (months)\", and y-axis labels \"Total cost (dollars",
+"scorable": true
+},
+{
+"pid": "597",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "A system of two equations: $x^2+y^2=9$ and $y=x^2-4$ and their graphs in the xy-plane are shown above",
+"scorable": true
+},
+{
+"pid": "599",
+"qtype": "free-form",
+"answer": "$y_2=(x+2)^3=y_1(x+2)$",
+"delta": "passing (0,0; a vertical or horizontal translation; passing (-2,0). The blue line is solid while the red line is dotted",
+"scorable": false
+},
+{
+"pid": "600",
+"qtype": "free-form",
+"answer": "$72 x-2 x^3$",
+"delta": "the $x$-axis and the parabola; with one side along the $x$-axis; Let $x$ denote the $x$-coordinate of the point highlighted in the figure",
+"scorable": false
+},
+{
+"pid": "602",
+"qtype": "free-form",
+"answer": "$[-5,-3) \\cup(-3,5]$",
+"delta": "A piecewise function, with 2 segments constructed by a line passing (-5,1), (-3,2), and (-1,4) and a line passing (-1,5), (3,3), and (5,1), as shown in the figure",
+"scorable": false
+},
+{
+"pid": "603",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "with 2 linear functions; In the graph, the x-axis represents Time and the y-axis represents Distance",
+"scorable": true
+},
+{
+"pid": "604",
+"qtype": "free-form",
+"answer": "$10km / h$",
+"delta": "with 2 linear functions; In the graph, the x-axis represents Time and the y-axis represents Distance",
+"scorable": false
+},
+{
+"pid": "605",
+"qtype": "free-form",
+"answer": "1.6",
+"delta": "The bridge meets the road at coordinates $(0,0)$ and $(100,0)$, with the vertex at (50,50",
+"scorable": true
+},
+{
+"pid": "612",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "The curve shown in the figure is a quadratic function opening upwards and passes through the origin",
+"scorable": true
+},
+{
+"pid": "613",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "which is a linear function and passes the origin; the x-axis representing Time and the y-axis representing Speed",
+"scorable": true
+},
+{
+"pid": "614",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "which is a piecewise function and passes through the origin; the x-axis representing Time and the y-axis representing Speed",
+"scorable": true
+},
+{
+"pid": "615",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "which is a piecewise function and passes through the origin; the x-axis representing Time and the y-axis representing Speed",
+"scorable": true
+},
+{
+"pid": "616",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "which is a piecewise function and passes through the origin; the x-axis representing Time and the y-axis representing Speed",
+"scorable": true
+},
+{
+"pid": "617",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "which is a piecewise function and passes through the origin; the x-axis representing Time and the y-axis representing Speed",
+"scorable": true
+},
+{
+"pid": "618",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "where it is an exponential function and passes through (0,1), (1,2), (2,4), and (3,8",
+"scorable": true
+},
+{
+"pid": "619",
+"qtype": "free-form",
+"answer": "8",
+"delta": "Consider the circle, which has 4 intersection points with axes, in the graph",
+"scorable": true
+},
+{
+"pid": "620",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "This graph shows the relationship between the current (in amperes) and resistance (in ohms) in an electrical circuit, when the voltage provided to the circuit is 240 V",
+"scorable": true
+},
+{
+"pid": "621",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "A curve passes (0,1), (1,2), (2,4), (3,8). As x increases, y increases",
+"scorable": true
+},
+{
+"pid": "622",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "The logarithm function and a line are graphed. Logarithm function $f$ is graphed in blue and it goes through (30,4), (5,2), (55,5). Line $y=4$ is graphed in red and parallel to x-axis",
+"scorable": true
+},
+{
+"pid": "624",
+"qtype": "free-form",
+"answer": "y=-2 t+180",
+"delta": "use the graph in Figure 7; The line chart is begin from (15,150) and goes to (25,130",
+"scorable": false
+},
+{
+"pid": "625",
+"qtype": "free-form",
+"answer": "Center $=(20,10)$",
+"delta": "measuring $40 \\mathrm{~cm}$ in length and 20 $\\mathrm{cm}$ in width. The four vertices of the rectangle are (0,0), (0,20), (40,20), (40,0",
+"scorable": false
+},
+{
+"pid": "626",
+"qtype": "free-form",
+"answer": "$=(4,0)$",
+"delta": "The linear function is graphed. The slope is less than 0. It passes through (0,4) and (4,0",
+"scorable": false
+},
+{
+"pid": "627",
+"qtype": "free-form",
+"answer": "$(4,0)$",
+"delta": "Two linear functions are graphed. The slope of function is greater than 0. It intersects the x-axis and the y-axis at (0,-4",
+"scorable": false
+},
+{
+"pid": "628",
+"qtype": "free-form",
+"answer": "$(0,14)$",
+"delta": "Two linear functions are graphed. The slope of function is less than 0. It intersects the x-axis at (4,0) and the y-axis at (0,4",
+"scorable": false
+},
+{
+"pid": "629",
+"qtype": "free-form",
+"answer": "Bugs Bunny",
+"delta": "The linear function is graphed. The x-axis represents Time (minutes) and the y-axis represents Water (liters). The slope is less than 0. It intersects the x-axis at (5,0) and the y-axis at (0,360",
+"scorable": false
+},
+{
+"pid": "630",
+"qtype": "free-form",
+"answer": "y=\\sin x=\\left(90^\\circ ,5\\right)",
+"delta": "The Sine function is graphed. It passes through (0,0), (90,1), (180,0), (270,-1), and (360,0). It is symmetric about the origin. A black vertex labeled on the function at (90,1; Its first maximum point for x\\ge 0 is at \\left(90^\\circ ,1\\right",
+"scorable": false
+},
+{
+"pid": "632",
+"qtype": "free-form",
+"answer": "\\left(315^\\circ ,1\\right)",
+"delta": "The Cosine function is graphed. It passes through (0,1), (90,0), (180,-1), (270,0), and (360,1). It is symmetric about the y-axis. A black vertex labeled on the function at (0,1). Consider the graph of y=\\cos x. Its first maximum point for x\\ge 0 is at \\left(0^\\circ ,1\\right",
+"scorable": false
+},
+{
+"pid": "633",
+"qtype": "free-form",
+"answer": "$(x, y)=\\left(90^{\\circ}, 5\\right)$",
+"delta": "The Sine function is graphed. It passes through (0,0), (90,1), (180,0), (270,-1), and (360,0). It is symmetric about the origin. A black vertex labeled on the function at (90,1). Consider the graph of $y=\\sin x$. Its first maximum point for $x \\geq 0$ is at $\\left(90^{\\circ}, 1\\right",
+"scorable": false
+},
+{
+"pid": "634",
+"qtype": "free-form",
+"answer": "$(x, y)=\\left(315^{\\circ}, 1\\right)$",
+"delta": "The Cosine function is graphed. It passes through (0,1), (90,0), (180,-1), (270,0), and (360,1). It is symmetric about the y-axis. A black vertex labeled on the function at (0,1). Consider the graph of $y=\\cos x$. Its first maximum point for $x \\geq 0$ is at $\\left(0^{\\circ}, 1\\right",
+"scorable": false
+},
+{
+"pid": "639",
+"qtype": "free-form",
+"answer": "Volume $=1633.63 \\mathrm{~m}^{3}$",
+"delta": "outer radius 7 metres, inner radius 3 metres and",
+"scorable": true
+},
+{
+"pid": "640",
+"qtype": "free-form",
+"answer": "Weight $=63.3 \\mathrm{~g}$",
+"delta": "A hollow cylindrical pipe has the dimensions shown in the figure. The outer diameter is 2.1 centimeters. The inner diameter is 1.8 centimeters",
+"scorable": true
+},
+{
+"pid": "645",
+"qtype": "free-form",
+"answer": "Volume $=10.45 \\mathrm{~cm}^{3}$",
+"delta": "A cone is sliced in half to produce; solid shown. The slant height is 9 centimeters and",
+"scorable": true
+},
+{
+"pid": "658",
+"qtype": "free-form",
+"answer": "Surface Area $=9.86 \\mathrm{~m}^{2}$",
+"delta": "in the shape of a half cylinder; m and radius is 0.92",
+"scorable": true
+},
+{
+"pid": "668",
+"qtype": "free-form",
+"answer": "Surface Area $=603.186$ units $^{2}$",
+"delta": "Consider the following hemisphere with a radius of 8",
+"scorable": true
+},
+{
+"pid": "672",
+"qtype": "free-form",
+"answer": "Surface Area $=235.87 \\mathrm{~cm}^{2}$",
+"delta": "which consists of a cone and a hemisphere joined at their bases; The perpendicular height of cone is 10cm",
+"scorable": true
+},
+{
+"pid": "691",
+"qtype": "free-form",
+"answer": "Volume $=577.3 \\mathrm{~cm}^{3}$",
+"delta": "Assume that the solid is a quarter of a cylinder; cm and radius is 7",
+"scorable": true
+},
+{
+"pid": "695",
+"qtype": "free-form",
+"answer": "Volume $=89.1 \\mathrm{~cm}^{3}$",
+"delta": "In the diagram; The edge is 9 cm and the angle is 45°",
+"scorable": true
+},
+{
+"pid": "698",
+"qtype": "free-form",
+"answer": "Volume $=944.07 \\mathrm{~cm}^{3}$",
+"delta": "A hole is drilled through a rectangular box forming the solid shown. The box has sides of length 10cm, 8cm and 14cm",
+"scorable": true
+},
+{
+"pid": "707",
+"qtype": "free-form",
+"answer": "200.49 \\mathrm{cm}^2",
+"delta": "The trapezoid surface has edges of 9cm, 12cm and 5cm",
+"scorable": true
+},
+{
+"pid": "708",
+"qtype": "free-form",
+"answer": "120 \\mathrm{cm}^2",
+"delta": "The two marked edges have the same length. The top rectangular prism has sides length of 12cm, 1cm and 1cm. The bottom rectangular prism has sides length of 7cm, 4cm and 1cm",
+"scorable": true
+},
+{
+"pid": "715",
+"qtype": "free-form",
+"answer": "520.55 \\mathrm{cm}^2",
+"delta": "Assume that the solid is three quarters of a cylinder; and radius is 5 cm",
+"scorable": true
+},
+{
+"pid": "723",
+"qtype": "free-form",
+"answer": "63\\pi x^3+66\\pi x^2+15\\pi x litres",
+"delta": "cylindrical; and; radius of its base is 5x+3. The cylindrical",
+"scorable": false
+},
+{
+"pid": "735",
+"qtype": "free-form",
+"answer": "3136 \\mathrm{cm}^3",
+"delta": "As the solid shown in the figure, the seven marked edges have the same length",
+"scorable": true
+},
+{
+"pid": "754",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "there is a triangle and two line segments in the figure, and the angle formed by the two segments is x. The two angles labeled in the figure are 55° and 75° respectively",
+"scorable": true
+},
+{
+"pid": "755",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "The figure above shows six right triangles. They are put together to form an irregular figure",
+"scorable": true
+},
+{
+"pid": "756",
+"qtype": "multi-choice",
+"answer": "E",
+"delta": "In quadrilateral PQRS above, the length of QR is 3 and the length of SR is 4. Angle P and angle R are right angles. The length of QP and PS are respectively a and b",
+"scorable": true
+},
+{
+"pid": "757",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "point O lies on line AB. There are four angles in the figure, which are \\frac{x}{6}, \\frac{x}{4}, \\frac{x}{3}, and \\frac{x}{2",
+"scorable": true
+},
+{
+"pid": "758",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "the bisector of angle BAC is perpendicular to BC at point D. The length of AB is equal to the length of AC",
+"scorable": true
+},
+{
+"pid": "759",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "three lines intersect at a point. The graph consists of the intersection of three lines, two of the angles are y°, and one of the angles is 50°",
+"scorable": true
+},
+{
+"pid": "760",
+"qtype": "multi-choice",
+"answer": "E",
+"delta": "center P and; Lines AB and AC are tangent to the circle. If M is the midpoint of segment AC and the measure of angle PMC equals the measure of angle MPC",
+"scorable": true
+},
+{
+"pid": "761",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "angle M is 80 degrees and angle Q is 30 degrees. The length of MN is 4",
+"scorable": true
+},
+{
+"pid": "762",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "the length of CD is 7, the length of CF is 15, and CDEF is a rectangle; rectangle",
+"scorable": true
+},
+{
+"pid": "766",
+"qtype": "free-form",
+"answer": "123",
+"delta": "point B lies on side AC. This figure consists of triangles BCD and BAD",
+"scorable": true
+},
+{
+"pid": "770",
+"qtype": "free-form",
+"answer": "1",
+"delta": "the seven small circles, which have equal radii, and the large circle share only those points on the circles that are marked. Point P is the center of the large circle and PA and PB are radii",
+"scorable": true
+},
+{
+"pid": "771",
+"qtype": "free-form",
+"answer": "49",
+"delta": "with center O; AB is a diameter, and AC = BC",
+"scorable": true
+},
+{
+"pid": "774",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "a+b = 54, and one of the angles is 126°",
+"scorable": true
+},
+{
+"pid": "776",
+"qtype": "free-form",
+"answer": "50",
+"delta": "The graph consists of four lines l,m,n,p intersecting each other. Line l and line p are perpendicular",
+"scorable": true
+},
+{
+"pid": "777",
+"qtype": "multi-choice",
+"answer": "A",
+"delta": "points A and B lie on the circle with center O",
+"scorable": true
+},
+{
+"pid": "778",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "triangle ABC is inscribed in the circle with center O and diameter AC",
+"scorable": true
+},
+{
+"pid": "779",
+"qtype": "multi-choice",
+"answer": "C",
+"delta": "line AB, line CD, and line EF intersect at P",
+"scorable": true
+},
+{
+"pid": "783",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "The degrees of each angle are shown in the figure, two of the angles are the same and both are x",
+"scorable": true
+},
+{
+"pid": "784",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "Point O is the center of both circles in the figure above; and the radius of the small circle is half of the radius of the large circle",
+"scorable": true
+},
+{
+"pid": "785",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "and equal angles; only one quadrilateral is showing",
+"scorable": true
+},
+{
+"pid": "786",
+"qtype": "multi-choice",
+"answer": "B",
+"delta": "P, Q, and R lie on the same line. P is the center of the larger circle, and Q is the center of the smaller circle",
+"scorable": true
+},
+{
+"pid": "787",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "They are tangent to the larger circle at points A and C, and are tangent to each other at point B, which is the center of the larger circle",
+"scorable": true
+},
+{
+"pid": "788",
+"qtype": "multi-choice",
+"answer": "D",
+"delta": "In the diagram above, There are two triangles ABC an BDE, where BE is on AB. Angle A is congruent to angle BED, and angle C is congruent to angle D",
+"scorable": true
+}
+]

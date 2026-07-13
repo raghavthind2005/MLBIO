@@ -1,0 +1,5 @@
+# Diagnostic Signal Study — docs/records stay LOCAL (public-repo policy). Only *.py/*.sbatch sync.
+*.md
+__pycache__/
+*.pyc
+data/
