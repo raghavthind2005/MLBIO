@@ -2,9 +2,12 @@
 """
 Stage MathVerse Vision-Intensive images + questions on the cluster (in-container, offline).
 
-Login-node prefetch (internet there; compute nodes offline):
-  curl -L -o {MVDIR}/testmini.parquet \
-    https://huggingface.co/datasets/AI4Math/MathVerse/resolve/main/testmini.parquet
+Login-node prefetch (internet there; compute nodes offline). MathVerse is Xet-backed so plain
+curl gets a 403 from the signed CDN URL — use huggingface_hub instead:
+  pip install --user -q huggingface_hub
+  python3 -c "from huggingface_hub import hf_hub_download; \
+    hf_hub_download(repo_id='AI4Math/MathVerse', filename='testmini.parquet', \
+                    repo_type='dataset', local_dir='{MVDIR}')"
 Then this (in-container, pyarrow+PIL) writes:
   {MVDIR}/images/{pid}.png   the shared VI diagram per problem
   {MVDIR}/mv_vi.jsonl        {pid, question, answer, question_type}  (VI version only)

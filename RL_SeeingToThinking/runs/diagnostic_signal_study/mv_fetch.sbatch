@@ -1,7 +1,8 @@
 #!/bin/bash
 # Track T — materialize MathVerse VI images+jsonl from the pre-downloaded parquet (container; pyarrow+PIL; offline).
-# Login-node prefetch FIRST:
-#   curl -L -o $MVDIR/testmini.parquet https://huggingface.co/datasets/AI4Math/MathVerse/resolve/main/testmini.parquet
+# Login-node prefetch FIRST (MathVerse is Xet-backed -> curl gets 403; use huggingface_hub):
+#   pip install --user -q huggingface_hub
+#   python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='AI4Math/MathVerse', filename='testmini.parquet', repo_type='dataset', local_dir='$MVDIR')"
 #SBATCH --account=a0174
 #SBATCH --partition=debug
 #SBATCH --nodes=1
