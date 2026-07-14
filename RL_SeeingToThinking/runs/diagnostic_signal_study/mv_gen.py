@@ -92,30 +92,33 @@ def main():
                                      max_tokens=MAXTOK, seed=SEED, n=n)
     spK = SP(K)
 
-    # ---------- PASS 1: self-descriptions D (via chat) ----------
+    # ---------- PASS 1: K INDEPENDENT self-descriptions per item (via chat) ----------
     convos = [[{"role": "user", "content": [{"type": "image_url", "image_url": {"url": b64(p)}},
                {"type": "text", "text": SELFDESC.format(q=viq[p]["question"])}]}] for p in items]
-    t0 = time.time(); outs = llm.chat(convos, SP(1)); log(f"pass1 self-desc: {len(outs)} in {time.time()-t0:.0f}s")
-    D = {}
-    for p, o in zip(items, outs):
-        D[p] = post_think(o.outputs[0].text)
+    t0 = time.time(); outs = llm.chat(convos, SP(K)); log(f"pass1 self-desc: {len(outs)}x{K} in {time.time()-t0:.0f}s")
+    # K independent descriptions, each paired with ONE self answer-draw below, so the self arm's K draws
+    # sample BOTH description-sampling and answer-sampling. A single reused D under-counts self variance
+    # (and its recovery CI) — the observed cross-smoke self drift. base/priv/placebo treatments are
+    # deterministic (n=K sharing one prefill), so their K draws vary only in answer-sampling.
+    D = {p: [post_think(x.text) for x in o.outputs] for p, o in zip(items, outs)}
 
-    # ---------- PASS 2: 4 arms (via template + prefill) ----------
-    def payload(pid, arm):
+    # ---------- PASS 2: arms via template + prefill (per-request sampling params) ----------
+    def fixed_payload(pid, arm):
         if arm == "privileged": return render_delta(manifest[pid]["delta"])
-        if arm == "self":       return D[pid]
         if arm == "placebo":    return render_delta(manifest[placebo[pid]]["delta"])
-        return None
-    jobs = []
+        return ""                                          # base
+    reqs, sps, jobs = [], [], []
     for p in items:
-        up = user_prompt(viq[p]["question"])
-        for arm in ["base", "privileged", "self", "placebo"]:
-            pay = "" if arm == "base" else payload(p, arm)
+        up = user_prompt(viq[p]["question"]); im = img(p)
+        for arm in ["base", "privileged", "placebo"]:      # fixed treatment -> one request, n=K
+            pay = fixed_payload(p, arm)
             prompt = up if arm == "base" else up + WRAP + pay + "\n"
-            jobs.append(dict(pid=p, arm=arm, prompt=prompt, payload=pay,
-                             donor=(placebo[p] if arm == "placebo" else "")))
-    reqs = [{"prompt": j["prompt"], "multi_modal_data": {"image": [img(j["pid"])]}} for j in jobs]
-    t0 = time.time(); outs = llm.generate(reqs, spK); log(f"pass2 arms: {len(outs)} reqs x{K} draws in {time.time()-t0:.0f}s")
+            reqs.append({"prompt": prompt, "multi_modal_data": {"image": [im]}}); sps.append(SP(K))
+            jobs.append(dict(pid=p, arm=arm, payload=pay, donor=(placebo[p] if arm == "placebo" else "")))
+        for i in range(K):                                 # self -> K requests, n=1, independent D_i
+            reqs.append({"prompt": up + WRAP + D[p][i] + "\n", "multi_modal_data": {"image": [im]}}); sps.append(SP(1))
+            jobs.append(dict(pid=p, arm="self", payload=D[p][i], donor=""))
+    t0 = time.time(); outs = llm.generate(reqs, sps); log(f"pass2: {len(reqs)} reqs in {time.time()-t0:.0f}s")
 
     # ---------- score (K draws per job) + log ----------
     def score(pid, text):
@@ -123,25 +126,27 @@ def main():
         return mv_score.score_mc(text, r["answer"]) if r["qtype"] == "multi-choice" else mv_score.score_ff(text, r["answer"])
 
     sha = lambda s: hashlib.sha256(s.encode()).hexdigest()
-    rows = []
+    from collections import OrderedDict
+    cells = OrderedDict()                                  # (pid,arm) -> row; self accumulates K single-draw reqs
     for j, o in zip(jobs, outs):
-        draws = []
+        c = cells.setdefault((j["pid"], j["arm"]),
+                             dict(pid=j["pid"], arm=j["arm"], qtype=manifest[j["pid"]]["qtype"],
+                                  answer=manifest[j["pid"]]["answer"], donor=j["donor"],
+                                  question_sha=sha(viq[j["pid"]]["question"]), draws=[]))
         for d in o.outputs:
             box = mv_score.extract_boxed(d.text)
-            draws.append(dict(ok=bool(score(j["pid"], d.text)), box=box, has_box=box is not None,
-                              trunc=int(d.finish_reason == "length"), finish=d.finish_reason,
-                              ntok=len(d.token_ids), text=d.text))
-        rows.append(dict(pid=j["pid"], arm=j["arm"], qtype=manifest[j["pid"]]["qtype"],
-                         answer=manifest[j["pid"]]["answer"], donor=j["donor"],
-                         question_sha=sha(viq[j["pid"]]["question"]),
-                         payload_len=len(j["payload"]), payload_sha=(sha(j["payload"]) if j["payload"] else ""),
-                         draws=draws))
+            c["draws"].append(dict(ok=bool(score(j["pid"], d.text)), box=box, has_box=box is not None,
+                                   trunc=int(d.finish_reason == "length"), finish=d.finish_reason,
+                                   ntok=len(d.token_ids),
+                                   payload_sha=(sha(j["payload"]) if j["payload"] else ""), text=d.text))
+    rows = list(cells.values())
+    assert all(len(r["draws"]) == K for r in rows), "a (pid,arm) cell did not accumulate exactly K draws"
     json.dump([{**{k: v for k, v in r.items() if k != "draws"},
                 "draws": [{k: v for k, v in d.items() if k != "text"} for d in r["draws"]]} for r in rows],
               open(f"{DSS}/mv_gen_{MODE}.json", "w"), indent=0)
     with open(f"{DSS}/mv_gen_{MODE}_full.jsonl", "w") as f:
         for r in rows: f.write(json.dumps(r) + "\n")
-        for p in items: f.write(json.dumps(dict(pid=p, arm="selfdesc_D", text=D[p])) + "\n")
+        for p in items: f.write(json.dumps(dict(pid=p, arm="selfdesc_D", texts=D[p])) + "\n")
 
     # provenance header — everything needed to re-derive any statistic offline / reproduce the run
     fsha = lambda path: hashlib.sha256(open(path, "rb").read()).hexdigest()
@@ -171,8 +176,10 @@ def main():
         log(f"  {arm:11}: avg@{K}={avgk:.2f} maj={maj:.2f} box={box:.2f} trunc={trunc:.2f} "
             f"tok(med)={med} tok(max)={mx} decode_unstable_items={unst:.2f}")
     log(f"  [decode_unstable_items = fraction of items whose {K} draws DISAGREE on correctness = single-draw noise]")
-    dlens = [len(D[p]) for p in items]; noans = sum(mv_score.extract_boxed(D[p]) is not None for p in items)
-    log(f"  self-desc D: len(med)={sorted(dlens)[len(dlens)//2]} empty={sum(l==0 for l in dlens)} contains-boxed(leak?)={noans}")
+    allD = [d for p in items for d in D[p]]
+    dlens = [len(d) for d in allD]; noans = sum(mv_score.extract_boxed(d) is not None for d in allD)
+    log(f"  self-desc: {len(allD)} descs ({K}/item) len(med)={sorted(dlens)[len(dlens)//2]} "
+        f"empty={sum(l==0 for l in dlens)} contains-boxed(leak?)={noans}")
     log("\n----- FIRST ITEM: prompt-tail + draw-0 continuations (verify seed-prefill mechanic) -----")
     p0 = items[0]
     log("USER PROMPT tail:", repr(user_prompt(viq[p0]['question'])[-120:]))

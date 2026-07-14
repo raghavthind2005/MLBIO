@@ -28,7 +28,7 @@ def main():
     manifest = {r["pid"]: r for r in json.load(open(f"{DSS}/pool_manifest.json"))}
     placebo  = json.load(open(f"{DSS}/placebo_assignment.json"))
     full     = [json.loads(l) for l in open(f"{DSS}/mv_gen_{MODE}_full.jsonl")]
-    D        = {r["pid"]: r["text"] for r in full if r.get("arm") == "selfdesc_D"}
+    D        = {r["pid"]: r["texts"] for r in full if r.get("arm") == "selfdesc_D"}   # K descriptions/item
     rows     = [r for r in full if r.get("arm") in ("base", "privileged", "self", "placebo")]
     viq      = {json.loads(l)["pid"]: json.loads(l) for l in open(f"{MVDIR}/mv_vi.jsonl")}
 
@@ -58,19 +58,20 @@ def main():
     missing = [(p, a, cnt[(p, a)]) for p in pids for a in arms if cnt[(p, a)] != 1]
     check("C2 4 arms x1 per item", not missing, str(missing[:5]))
 
-    # C3 — injected payload SHA == intended content (the core arm-integrity check)
+    # C3 — per-draw injected payload SHA == intended (core arm-integrity check). base: every draw empty.
+    # priv: own delta (all K). placebo: donor delta (all K). self: the K draws' shas == the multiset of
+    # the item's K independent self-descriptions.
+    dshas = lambda p, a: sorted(d.get("payload_sha", "<missing>") for d in by[(p, a)]["draws"])
     mism = []
     for p in pids:
-        exp = {"base": "",
-               "privileged": render_delta(manifest[p]["delta"]),
-               "self": D[p],
-               "placebo": render_delta(manifest[placebo[p]]["delta"])}
+        want = {"base":       sorted([""] * K),
+                "privileged": sorted([sha(render_delta(manifest[p]["delta"]))] * K),
+                "placebo":    sorted([sha(render_delta(manifest[placebo[p]]["delta"]))] * K),
+                "self":       sorted(sha(x) for x in D[p])}
         for a in arms:
-            got  = by[(p, a)].get("payload_sha", "<missing>")
-            want = "" if exp[a] == "" else sha(exp[a])
-            if got != want:
+            if dshas(p, a) != want[a]:
                 mism.append((p, a))
-    check("C3 payload sha == intended (priv=own delta, placebo=donor delta, self=D, base=empty)",
+    check("C3 per-draw payload sha == intended (priv=own delta, placebo=donor, self=K indep D's, base=empty)",
           not mism, str(mism[:5]))
 
     # C4 — placebo donor correct, != self, payload distinct from privileged
@@ -79,12 +80,13 @@ def main():
         r = by[(p, "placebo")]
         if r.get("donor") != placebo[p] or placebo[p] == p:
             dbad.append((p, "donor", r.get("donor")))
-        if by[(p, "placebo")].get("payload_sha") == by[(p, "privileged")].get("payload_sha"):
+        if r["draws"][0]["payload_sha"] == by[(p, "privileged")]["draws"][0]["payload_sha"]:
             dbad.append((p, "payload==priv"))
     check("C4 placebo donor==assignment, donor!=self, payload!=privileged", not dbad, str(dbad[:5]))
 
-    # C5 — base has no seed
-    check("C5 base payload empty", all(by[(p, "base")].get("payload_sha", "") == "" for p in pids))
+    # C5 — base has no seed (every draw)
+    check("C5 base draws all unseeded (empty payload)",
+          all(all(d["payload_sha"] == "" for d in by[(p, "base")]["draws"]) for p in pids))
 
     # C6 — the prompt/prefill must not be COPIED into the scored generation. vLLM output.text is
     # generation-only by construction; the real bug signature is the wrapper at the very START of
@@ -118,11 +120,12 @@ def main():
         print(f"    {a:11} avg@{K}={avgk:.3f} maj={maj:.3f} trunc={trunc:.3f} decode_unstable={unst:.3f}")
     check("C8 ok values are binary", binbad == 0, f"{binbad} non-binary")
 
-    # C9 — self-desc has no answer leak and is non-empty
-    dleak  = [p for p in pids if mv_score.extract_boxed(D[p]) is not None]
-    dempty = [p for p in pids if len(D[p].strip()) == 0]
-    check("C9 self-desc D: no boxed answer + non-empty", not dleak and not dempty,
-          f"leak={dleak[:5]} empty={dempty[:5]}")
+    # C9 — self-desc: K per item, each non-empty and answer-free
+    dleak  = [(p, i) for p in pids for i, x in enumerate(D[p]) if mv_score.extract_boxed(x) is not None]
+    dempty = [(p, i) for p in pids for i, x in enumerate(D[p]) if len(x.strip()) == 0]
+    kbad   = [p for p in pids if len(D[p]) != K]
+    check("C9 self-desc: K/item, each non-empty + no boxed answer", not (dleak or dempty or kbad),
+          f"leak={dleak[:3]} empty={dempty[:3]} kbad={kbad[:3]}")
 
     # C10 — provenance completeness
     check("C10 meta provenance (code+artifact+image SHAs, mv_vi, params, seed, K)",
