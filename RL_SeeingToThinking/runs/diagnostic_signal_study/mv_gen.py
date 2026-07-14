@@ -133,6 +133,7 @@ def main():
                               ntok=len(d.token_ids), text=d.text))
         rows.append(dict(pid=j["pid"], arm=j["arm"], qtype=manifest[j["pid"]]["qtype"],
                          answer=manifest[j["pid"]]["answer"], donor=j["donor"],
+                         question_sha=sha(viq[j["pid"]]["question"]),
                          payload_len=len(j["payload"]), payload_sha=(sha(j["payload"]) if j["payload"] else ""),
                          draws=draws))
     json.dump([{**{k: v for k, v in r.items() if k != "draws"},
@@ -150,7 +151,9 @@ def main():
                 host=os.uname().nodename, time=time.strftime("%Y-%m-%dT%H:%M:%S"),
                 git_sha=os.environ.get("GIT_SHA", ""),
                 code_sha={f: fsha(f) for f in ["mv_gen.py", "mv_score.py", "mv_pool.py", "mv_placebo.py"]},
-                artifact_sha={a: fsha(f"{DSS}/{a}") for a in ["pool_manifest.json", "placebo_assignment.json"]})
+                artifact_sha={a: fsha(f"{DSS}/{a}") for a in ["pool_manifest.json", "placebo_assignment.json"]},
+                mv_vi_sha=fsha(f"{MVDIR}/mv_vi.jsonl"),
+                image_sha={p: fsha(f"{IMGDIR}/{p}.png") for p in items})
     json.dump(meta, open(f"{DSS}/mv_gen_{MODE}_meta.json", "w"), indent=2)
     log(f"meta -> mv_gen_{MODE}_meta.json  git={meta['git_sha'] or 'NA'} host={meta['host']}")
 

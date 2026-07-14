@@ -14,9 +14,12 @@ from collections import Counter
 import mv_score
 from mv_gen import render_delta, WRAP
 
-MODE = sys.argv[1] if len(sys.argv) > 1 else "smoke"
-DSS  = os.environ.get("DSS", ".")
-sha  = lambda s: hashlib.sha256(s.encode()).hexdigest()
+MODE   = sys.argv[1] if len(sys.argv) > 1 else "smoke"
+DSS    = os.environ.get("DSS", ".")
+MVDIR  = os.environ.get("MVDIR", "/iopsstor/scratch/cscs/raghavthind/set2_pilot/mv")
+IMGDIR = f"{MVDIR}/images"
+sha    = lambda s: hashlib.sha256(s.encode()).hexdigest()
+fsha   = lambda path: hashlib.sha256(open(path, "rb").read()).hexdigest()
 
 
 def main():
@@ -27,6 +30,11 @@ def main():
     full     = [json.loads(l) for l in open(f"{DSS}/mv_gen_{MODE}_full.jsonl")]
     D        = {r["pid"]: r["text"] for r in full if r.get("arm") == "selfdesc_D"}
     rows     = [r for r in full if r.get("arm") in ("base", "privileged", "self", "placebo")]
+    viq      = {json.loads(l)["pid"]: json.loads(l) for l in open(f"{MVDIR}/mv_vi.jsonl")}
+
+    def score(pid, text):
+        r = manifest[pid]
+        return mv_score.score_mc(text, r["answer"]) if r["qtype"] == "multi-choice" else mv_score.score_ff(text, r["answer"])
 
     pids = sorted({r["pid"] for r in rows}, key=int)
     arms = ["base", "privileged", "self", "placebo"]
@@ -109,8 +117,53 @@ def main():
           f"leak={dleak[:5]} empty={dempty[:5]}")
 
     # C10 — provenance completeness
-    check("C10 meta provenance (code+artifact SHAs, params, seed, K)",
-          all(k in meta for k in ("code_sha", "artifact_sha", "sampling", "seed", "K")))
+    check("C10 meta provenance (code+artifact+image SHAs, mv_vi, params, seed, K)",
+          all(k in meta for k in ("code_sha", "artifact_sha", "image_sha", "mv_vi_sha", "sampling", "seed", "K")))
+
+    # C11 — image provenance: on-disk image re-hash matches meta, present for every item
+    ish = meta.get("image_sha", {})
+    imgbad = []
+    for p in pids:
+        if p not in ish:
+            imgbad.append((p, "no-meta-sha")); continue
+        try:
+            if fsha(f"{IMGDIR}/{p}.png") != ish[p]:
+                imgbad.append((p, "disk!=meta"))
+        except FileNotFoundError:
+            imgbad.append((p, "missing-file"))
+    check("C11 image sha present + on-disk re-hash == meta (right image bytes per item)",
+          not imgbad, str(imgbad[:5]))
+
+    # C12 — question provenance: mv_vi.jsonl hash matches meta, per-row question_sha == source
+    check("C12 mv_vi.jsonl hash == meta", meta.get("mv_vi_sha") == fsha(f"{MVDIR}/mv_vi.jsonl"),
+          f"meta={meta.get('mv_vi_sha')}")
+    qbad = [(r["pid"], r["arm"]) for r in rows if r.get("question_sha") != sha(viq[r["pid"]]["question"])]
+    check("C12b per-row question_sha == source question", not qbad, str(qbad[:5]))
+
+    # C13 — independent re-score from stored text with the frozen scorer (catches storage/version drift)
+    rsbad = boxbad = 0
+    for r in rows:
+        for d in r["draws"]:
+            if bool(score(r["pid"], d["text"])) != bool(d["ok"]):
+                rsbad += 1
+            if mv_score.extract_boxed(d["text"]) != d.get("box"):
+                boxbad += 1
+    check("C13 re-score(stored text) == stored ok", rsbad == 0, f"{rsbad} mismatches")
+    check("C13b re-extract box == stored box", boxbad == 0, f"{boxbad} mismatches")
+
+    # ---- HUMAN scorer eyeball: the one thing no assert can settle (is the scorer's JUDGMENT right?) ----
+    print("\n  ---- up to 10 cells where the K draws DISAGREE (inspect GT vs extracted boxes) ----")
+    shown = 0
+    for r in rows:
+        oks = [d["ok"] for d in r["draws"]]
+        if 0 < sum(oks) < len(oks):
+            print(f"    pid={r['pid']} arm={r['arm']:10} qtype={r['qtype']:12} "
+                  f"GT={manifest[r['pid']]['answer']!r} ok={oks} boxes={[d.get('box') for d in r['draws']]}")
+            shown += 1
+            if shown >= 10:
+                break
+    if shown == 0:
+        print("    (no within-cell disagreement at this n)")
 
     print(f"\n{'=' * 60}")
     print("ALL AUDIT CHECKS PASS" if not fails else "FAILURES: " + str(fails))
