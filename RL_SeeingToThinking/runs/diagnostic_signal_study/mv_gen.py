@@ -25,8 +25,10 @@ MODEL  = "/capstor/store/cscs/swissai/a0174/models/Qwen3-VL-4B-Thinking"
 MVDIR  = os.environ.get("MVDIR", "/iopsstor/scratch/cscs/raghavthind/set2_pilot/mv")
 DSS    = os.environ.get("DSS", ".")           # dir with pool_manifest.json / placebo_assignment.json
 IMGDIR = f"{MVDIR}/images"
-MAXTOK = int(os.environ.get("MAX_TOK", "24576"))
-MAXLEN = int(os.environ.get("MAX_LEN", "40960"))
+MAXTOK = int(os.environ.get("MAX_TOK", "40960"))   # official Qwen3-VL-Thinking rec (model card)
+MAXLEN = int(os.environ.get("MAX_LEN", "49152"))
+K      = int(os.environ.get("K", "5" if MODE == "smoke" else "1"))  # draws per (item,arm)
+SEED   = int(os.environ.get("SEED", "0"))           # reproducibility of the run (NOT variance reduction)
 BOXED  = "\n\nPut your final answer in \\boxed{}."
 WRAP   = "From the figure, I can see the following:\n"
 # The chat template's add_generation_prompt already opens the assistant turn with "<think>\n"
@@ -80,13 +82,20 @@ def main():
 
     llm = LLM(model=MODEL, dtype="bfloat16", max_model_len=MAXLEN, gpu_memory_utilization=0.90,
               limit_mm_per_prompt={"image": 1}, trust_remote_code=False)
-    log("=" * 70, "\nONE-RUN RULE: vLLM greedy is NOT batch-deterministic. Confirmatory run happens ONCE.")
-    greedy = SamplingParams(temperature=0.0, max_tokens=MAXTOK)
+    # Qwen3-VL-4B-Thinking recommended VL sampling (model card): temp 1.0, top_p 0.95, top_k 20,
+    # min_p 0, presence_penalty 0.0, repetition_penalty 1.0. Greedy is OFF-recommendation for this
+    # model and triggers endless-loop degeneration (observed: 40k runaway). Fixed SEED = reproducible
+    # run; K draws per (item,arm) give a within-item decode-variance estimate for an honest CI.
+    log("=" * 70, f"\nSAMPLING (rec, non-greedy): temp1.0 top_p0.95 top_k20 min_p0 pp0.0 rep1.0 K={K} seed={SEED}")
+    def SP(n): return SamplingParams(temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
+                                     presence_penalty=0.0, repetition_penalty=1.0,
+                                     max_tokens=MAXTOK, seed=SEED, n=n)
+    spK = SP(K)
 
     # ---------- PASS 1: self-descriptions D (via chat) ----------
     convos = [[{"role": "user", "content": [{"type": "image_url", "image_url": {"url": b64(p)}},
                {"type": "text", "text": SELFDESC.format(q=viq[p]["question"])}]}] for p in items]
-    t0 = time.time(); outs = llm.chat(convos, greedy); log(f"pass1 self-desc: {len(outs)} in {time.time()-t0:.0f}s")
+    t0 = time.time(); outs = llm.chat(convos, SP(1)); log(f"pass1 self-desc: {len(outs)} in {time.time()-t0:.0f}s")
     D = {}
     for p, o in zip(items, outs):
         D[p] = post_think(o.outputs[0].text)
@@ -103,46 +112,51 @@ def main():
         for arm in ["base", "privileged", "self", "placebo"]:
             prompt = up if arm == "base" else up + WRAP + payload(p, arm) + "\n"
             jobs.append(dict(pid=p, arm=arm, prompt=prompt))
-        jobs.append(dict(pid=p, arm="base2", prompt=up))          # flip-rate re-decode
     reqs = [{"prompt": j["prompt"], "multi_modal_data": {"image": [img(j["pid"])]}} for j in jobs]
-    t0 = time.time(); outs = llm.generate(reqs, greedy); log(f"pass2 arms: {len(outs)} in {time.time()-t0:.0f}s")
+    t0 = time.time(); outs = llm.generate(reqs, spK); log(f"pass2 arms: {len(outs)} reqs x{K} draws in {time.time()-t0:.0f}s")
 
-    # ---------- score + log ----------
+    # ---------- score (K draws per job) + log ----------
     def score(pid, text):
         r = manifest[pid]
         return mv_score.score_mc(text, r["answer"]) if r["qtype"] == "multi-choice" else mv_score.score_ff(text, r["answer"])
 
     rows = []
     for j, o in zip(jobs, outs):
-        out = o.outputs[0]; text = out.text; ntok = len(out.token_ids)
-        boxed = mv_score.extract_boxed(text)
-        rows.append(dict(pid=j["pid"], arm=j["arm"], qtype=manifest[j["pid"]]["qtype"],
-                         ok=score(j["pid"], text), has_box=boxed is not None,
-                         trunc=int(out.finish_reason == "length"), ntok=ntok, text=text))
-    json.dump([{k: v for k, v in r.items() if k != "text"} for r in rows],
+        draws = []
+        for d in o.outputs:
+            draws.append(dict(ok=bool(score(j["pid"], d.text)),
+                              has_box=mv_score.extract_boxed(d.text) is not None,
+                              trunc=int(d.finish_reason == "length"),
+                              ntok=len(d.token_ids), text=d.text))
+        rows.append(dict(pid=j["pid"], arm=j["arm"], qtype=manifest[j["pid"]]["qtype"], draws=draws))
+    json.dump([{**r, "draws": [{k: v for k, v in d.items() if k != "text"} for d in r["draws"]]} for r in rows],
               open(f"{DSS}/mv_gen_{MODE}.json", "w"), indent=0)
     with open(f"{DSS}/mv_gen_{MODE}_full.jsonl", "w") as f:
         for r in rows: f.write(json.dumps(r) + "\n")
         for p in items: f.write(json.dumps(dict(pid=p, arm="selfdesc_D", text=D[p])) + "\n")
 
-    log("\n===== SMOKE MECHANICS =====")
+    log(f"\n===== MECHANICS (K={K} draws/arm; avg@K + within-item decode stability) =====")
     for arm in ["base", "privileged", "self", "placebo"]:
         rs = [r for r in rows if r["arm"] == arm]; n = len(rs)
-        log(f"  {arm:11}: acc={sum(bool(r['ok']) for r in rs)/n:.2f}  box_rate={sum(r['has_box'] for r in rs)/n:.2f}  "
-            f"trunc={sum(r['trunc'] for r in rs)}/{n}  tok(med)={sorted(r['ntok'] for r in rs)[n//2]}  "
-            f"unparseable={sum(r['ok'] is None for r in rs)}")
-    b1 = {r["pid"]: r["ok"] for r in rows if r["arm"] == "base"}
-    b2 = {r["pid"]: r["ok"] for r in rows if r["arm"] == "base2"}
-    flips = sum(b1[p] != b2[p] for p in b1)
-    log(f"  base flip-rate (determinism): {flips}/{len(b1)}")
+        alld = [d for r in rs for d in r["draws"]]
+        avgk = sum(sum(d["ok"] for d in r["draws"]) / len(r["draws"]) for r in rs) / n
+        maj  = sum(int(2 * sum(d["ok"] for d in r["draws"]) > len(r["draws"])) for r in rs) / n
+        box  = sum(d["has_box"] for d in alld) / len(alld)
+        trunc = sum(d["trunc"] for d in alld) / len(alld)
+        med  = sorted(d["ntok"] for d in alld)[len(alld) // 2]
+        mx   = max(d["ntok"] for d in alld)
+        unst = sum(1 for r in rs if 0 < sum(d["ok"] for d in r["draws"]) < len(r["draws"])) / n
+        log(f"  {arm:11}: avg@{K}={avgk:.2f} maj={maj:.2f} box={box:.2f} trunc={trunc:.2f} "
+            f"tok(med)={med} tok(max)={mx} decode_unstable_items={unst:.2f}")
+    log(f"  [decode_unstable_items = fraction of items whose {K} draws DISAGREE on correctness = single-draw noise]")
     dlens = [len(D[p]) for p in items]; noans = sum(mv_score.extract_boxed(D[p]) is not None for p in items)
     log(f"  self-desc D: len(med)={sorted(dlens)[len(dlens)//2]} empty={sum(l==0 for l in dlens)} contains-boxed(leak?)={noans}")
-    log("\n----- FIRST ITEM: prompt-tail + continuations (verify seed-prefill mechanic) -----")
+    log("\n----- FIRST ITEM: prompt-tail + draw-0 continuations (verify seed-prefill mechanic) -----")
     p0 = items[0]
     log("USER PROMPT tail:", repr(user_prompt(viq[p0]['question'])[-120:]))
     for arm in ["base", "privileged"]:
         r = next(r for r in rows if r["pid"] == p0 and r["arm"] == arm)
-        log(f"  [{arm}] first 200 chars of output:\n    {r['text'][:200]!r}")
+        log(f"  [{arm}] first 200 chars of draw0:\n    {r['draws'][0]['text'][:200]!r}")
     log(f"\nsaved -> {DSS}/mv_gen_{MODE}.json (+_full.jsonl). Inspect for discordant scorer audit.")
 
 if __name__ == "__main__":
