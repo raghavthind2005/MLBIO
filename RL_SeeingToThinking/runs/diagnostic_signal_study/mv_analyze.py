@@ -23,6 +23,7 @@ import numpy as np
 MODE  = sys.argv[1] if len(sys.argv) > 1 else "smoke"
 NBOOT = int(sys.argv[2]) if len(sys.argv) > 2 else 10000
 DSS   = os.environ.get("DSS", ".")
+MVDIR = os.environ.get("MVDIR", "/iopsstor/scratch/cscs/raghavthind/set2_pilot/mv")
 np.random.seed(0)
 ARMS  = ("base", "privileged", "self", "placebo")
 
@@ -33,12 +34,12 @@ def comb(n, k):
 
 def load():
     light = json.load(open(f"{DSS}/mv_gen_{MODE}.json"))
-    data, box, qtype = {}, {}, {}
+    data, box, qtype, gt = {}, {}, {}, {}
     for r in light:
         data.setdefault(r["pid"], {})[r["arm"]] = np.array([int(bool(d["ok"])) for d in r["draws"]], float)
         box.setdefault(r["pid"], {})[r["arm"]] = [d.get("box") for d in r["draws"]]
-        qtype[r["pid"]] = r["qtype"]
-    return data, box, qtype
+        qtype[r["pid"]] = r["qtype"]; gt[r["pid"]] = r.get("answer")
+    return data, box, qtype, gt
 
 
 def phat(data, arm, pids):
@@ -130,8 +131,41 @@ def analyze(data, pids, label):
           f"decode_frac={frac:.1%}  [<~20% => K was sufficient]")
 
 
+def format_tolerant_mc(data, box, gt, mc):
+    """Pre-registered secondary (prereg §11.8): on MC, credit a value-boxed answer whose value matches
+    the GT choice's value (the strict primary scorer requires a letter). Monotone — only upgrades
+    strict-wrong value-boxes; primary stays strict. Reuses mv_score.to_number + its tolerances."""
+    import mv_score
+    RTOL = getattr(mv_score, "NUM_RTOL", 0.01); ATOL = getattr(mv_score, "NUM_ATOL", 0.05)
+    viq = {json.loads(l)["pid"]: json.loads(l) for l in open(f"{MVDIR}/mv_vi.jsonl")}
+    def num(s):
+        try:    return mv_score.to_number(s)
+        except Exception: return None
+    def choice_val(q, letter):
+        m = re.search(r'(?m)^\s*%s\s*[:.]\s*(.+?)\s*$' % re.escape(letter), q)
+        return num(m.group(1)) if m else None
+    print("\n  MC format-tolerant sensitivity (value-box == GT choice value credited; primary stays strict):")
+    for a in ARMS:
+        s_acc, t_acc = [], []
+        for p in mc:
+            gv = choice_val(viq[p]["question"], gt[p]) if gt.get(p) else None
+            oks, boxes = data[p][a], box[p][a]
+            tol = []
+            for i in range(len(oks)):
+                ok = bool(oks[i])
+                if not ok:
+                    b = boxes[i]
+                    if b and not re.fullmatch(r"[A-Fa-f]", b.strip()):
+                        bv = num(b)
+                        if gv is not None and bv is not None and abs(bv - gv) <= ATOL + RTOL * abs(gv):
+                            ok = True
+                tol.append(ok)
+            s_acc.append(float(np.mean(oks))); t_acc.append(float(np.mean(tol)))
+        print(f"    {a:11} strict avg@K={np.mean(s_acc):.3f}  format-tolerant avg@K={np.mean(t_acc):.3f}")
+
+
 def main():
-    data, box, qtype = load()
+    data, box, qtype, gt = load()
     allp = sorted(data.keys(), key=int)
     mc = [p for p in allp if qtype[p] == "multi-choice"]
     ff = [p for p in allp if qtype[p] == "free-form"]
@@ -143,6 +177,8 @@ def main():
         bs = [b for p in mc for b in box[p][a]]
         nonl = sum(1 for b in bs if not (b and re.fullmatch(r"[A-Fa-f]", b.strip())))
         print(f"    {a:11} = {nonl / len(bs):.3f}  (n={len(bs)})" if bs else f"    {a:11} n/a")
+
+    if mc: format_tolerant_mc(data, box, gt, mc)
 
     analyze(data, allp, "ALL scored")
     if mc: analyze(data, mc, "MC (primary)")
