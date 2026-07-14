@@ -17,7 +17,7 @@ base flip-rate (re-decode), and a scorer discordant dump for manual audit.
 
 Modes (argv[1]): smoke (20 items) | full.  MAX_TOK/MAX_LEN via env (smoke sets the cap).
 """
-import os, sys, io, json, time, base64, re
+import os, sys, io, json, time, base64, re, hashlib
 import mv_pool, mv_score
 
 MODE   = (sys.argv[1] if len(sys.argv) > 1 else "smoke").lower()
@@ -110,8 +110,10 @@ def main():
     for p in items:
         up = user_prompt(viq[p]["question"])
         for arm in ["base", "privileged", "self", "placebo"]:
-            prompt = up if arm == "base" else up + WRAP + payload(p, arm) + "\n"
-            jobs.append(dict(pid=p, arm=arm, prompt=prompt))
+            pay = "" if arm == "base" else payload(p, arm)
+            prompt = up if arm == "base" else up + WRAP + pay + "\n"
+            jobs.append(dict(pid=p, arm=arm, prompt=prompt, payload=pay,
+                             donor=(placebo[p] if arm == "placebo" else "")))
     reqs = [{"prompt": j["prompt"], "multi_modal_data": {"image": [img(j["pid"])]}} for j in jobs]
     t0 = time.time(); outs = llm.generate(reqs, spK); log(f"pass2 arms: {len(outs)} reqs x{K} draws in {time.time()-t0:.0f}s")
 
@@ -120,20 +122,37 @@ def main():
         r = manifest[pid]
         return mv_score.score_mc(text, r["answer"]) if r["qtype"] == "multi-choice" else mv_score.score_ff(text, r["answer"])
 
+    sha = lambda s: hashlib.sha256(s.encode()).hexdigest()
     rows = []
     for j, o in zip(jobs, outs):
         draws = []
         for d in o.outputs:
-            draws.append(dict(ok=bool(score(j["pid"], d.text)),
-                              has_box=mv_score.extract_boxed(d.text) is not None,
-                              trunc=int(d.finish_reason == "length"),
+            box = mv_score.extract_boxed(d.text)
+            draws.append(dict(ok=bool(score(j["pid"], d.text)), box=box, has_box=box is not None,
+                              trunc=int(d.finish_reason == "length"), finish=d.finish_reason,
                               ntok=len(d.token_ids), text=d.text))
-        rows.append(dict(pid=j["pid"], arm=j["arm"], qtype=manifest[j["pid"]]["qtype"], draws=draws))
-    json.dump([{**r, "draws": [{k: v for k, v in d.items() if k != "text"} for d in r["draws"]]} for r in rows],
+        rows.append(dict(pid=j["pid"], arm=j["arm"], qtype=manifest[j["pid"]]["qtype"],
+                         answer=manifest[j["pid"]]["answer"], donor=j["donor"],
+                         payload_len=len(j["payload"]), payload_sha=(sha(j["payload"]) if j["payload"] else ""),
+                         draws=draws))
+    json.dump([{**{k: v for k, v in r.items() if k != "draws"},
+                "draws": [{k: v for k, v in d.items() if k != "text"} for d in r["draws"]]} for r in rows],
               open(f"{DSS}/mv_gen_{MODE}.json", "w"), indent=0)
     with open(f"{DSS}/mv_gen_{MODE}_full.jsonl", "w") as f:
         for r in rows: f.write(json.dumps(r) + "\n")
         for p in items: f.write(json.dumps(dict(pid=p, arm="selfdesc_D", text=D[p])) + "\n")
+
+    # provenance header — everything needed to re-derive any statistic offline / reproduce the run
+    fsha = lambda path: hashlib.sha256(open(path, "rb").read()).hexdigest()
+    meta = dict(mode=MODE, model=MODEL, n_items=len(items), K=K, seed=SEED, max_tok=MAXTOK, max_len=MAXLEN,
+                sampling=dict(temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
+                              presence_penalty=0.0, repetition_penalty=1.0),
+                host=os.uname().nodename, time=time.strftime("%Y-%m-%dT%H:%M:%S"),
+                git_sha=os.environ.get("GIT_SHA", ""),
+                code_sha={f: fsha(f) for f in ["mv_gen.py", "mv_score.py", "mv_pool.py", "mv_placebo.py"]},
+                artifact_sha={a: fsha(f"{DSS}/{a}") for a in ["pool_manifest.json", "placebo_assignment.json"]})
+    json.dump(meta, open(f"{DSS}/mv_gen_{MODE}_meta.json", "w"), indent=2)
+    log(f"meta -> mv_gen_{MODE}_meta.json  git={meta['git_sha'] or 'NA'} host={meta['host']}")
 
     log(f"\n===== MECHANICS (K={K} draws/arm; avg@K + within-item decode stability) =====")
     for arm in ["base", "privileged", "self", "placebo"]:
