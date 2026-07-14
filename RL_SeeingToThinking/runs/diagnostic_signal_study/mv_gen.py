@@ -29,7 +29,8 @@ MAXTOK = int(os.environ.get("MAX_TOK", "24576"))
 MAXLEN = int(os.environ.get("MAX_LEN", "40960"))
 BOXED  = "\n\nPut your final answer in \\boxed{}."
 WRAP   = "From the figure, I can see the following:\n"
-THINK_OPEN = "<think>\n"                       # smoke verifies this is the right opener
+# The chat template's add_generation_prompt already opens the assistant turn with "<think>\n"
+# (verified in smoke), so seeded arms must NOT re-open it — the seed goes directly after.
 SELFDESC = ("Look carefully at the image and describe what is actually visible in it. Report the concrete "
             "visual details — objects, text, labels, numbers, shapes, lines, positions, how the elements "
             "are arranged and related to one another, and any markings that appear in the image. Be thorough: "
@@ -72,6 +73,11 @@ def main():
     def post_think(t):
         return t.split("</think>", 1)[1].strip() if "</think>" in t else t.strip()
 
+    # GUARD: the seeded arms assume the template auto-opens the think block; fail loud if that changes.
+    _tail = user_prompt("X")
+    assert _tail.rstrip().endswith("<think>"), f"template no longer opens <think>; tail={_tail[-40:]!r}"
+    log(f"template opens assistant <think> OK; seed goes directly after. tail={_tail[-30:]!r}")
+
     llm = LLM(model=MODEL, dtype="bfloat16", max_model_len=MAXLEN, gpu_memory_utilization=0.90,
               limit_mm_per_prompt={"image": 1}, trust_remote_code=False)
     log("=" * 70, "\nONE-RUN RULE: vLLM greedy is NOT batch-deterministic. Confirmatory run happens ONCE.")
@@ -95,7 +101,7 @@ def main():
     for p in items:
         up = user_prompt(viq[p]["question"])
         for arm in ["base", "privileged", "self", "placebo"]:
-            prompt = up if arm == "base" else up + THINK_OPEN + WRAP + payload(p, arm) + "\n"
+            prompt = up if arm == "base" else up + WRAP + payload(p, arm) + "\n"
             jobs.append(dict(pid=p, arm=arm, prompt=prompt))
         jobs.append(dict(pid=p, arm="base2", prompt=up))          # flip-rate re-decode
     reqs = [{"prompt": j["prompt"], "multi_modal_data": {"image": [img(j["pid"])]}} for j in jobs]
