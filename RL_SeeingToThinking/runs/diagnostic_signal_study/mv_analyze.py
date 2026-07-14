@@ -16,7 +16,7 @@ Estimators:
 
 Runs in-container (needs numpy; scipy not required). Usage: python3 mv_analyze.py [smoke|full] [nboot]
 """
-import os, sys, json
+import os, sys, json, re
 from math import factorial
 import numpy as np
 
@@ -33,12 +33,12 @@ def comb(n, k):
 
 def load():
     light = json.load(open(f"{DSS}/mv_gen_{MODE}.json"))
-    data, qtype = {}, {}
+    data, box, qtype = {}, {}, {}
     for r in light:
         data.setdefault(r["pid"], {})[r["arm"]] = np.array([int(bool(d["ok"])) for d in r["draws"]], float)
-    for r in light:
+        box.setdefault(r["pid"], {})[r["arm"]] = [d.get("box") for d in r["draws"]]
         qtype[r["pid"]] = r["qtype"]
-    return data, qtype
+    return data, box, qtype
 
 
 def phat(data, arm, pids):
@@ -131,11 +131,20 @@ def analyze(data, pids, label):
 
 
 def main():
-    data, qtype = load()
+    data, box, qtype = load()
     allp = sorted(data.keys(), key=int)
-    analyze(data, allp, "ALL scored")
     mc = [p for p in allp if qtype[p] == "multi-choice"]
     ff = [p for p in allp if qtype[p] == "free-form"]
+
+    # answer-format confound: on MC a value-boxed answer (not a letter) is scored wrong; if seeding
+    # shifts arms toward value-boxing it biases them DOWN (conservative, but differential). Watch it.
+    print("\n  MC non-letter-box rate per arm (higher => more value-boxed answers scored wrong):")
+    for a in ARMS:
+        bs = [b for p in mc for b in box[p][a]]
+        nonl = sum(1 for b in bs if not (b and re.fullmatch(r"[A-Fa-f]", b.strip())))
+        print(f"    {a:11} = {nonl / len(bs):.3f}  (n={len(bs)})" if bs else f"    {a:11} n/a")
+
+    analyze(data, allp, "ALL scored")
     if mc: analyze(data, mc, "MC (primary)")
     if ff: analyze(data, ff, "FF (secondary)")
 
