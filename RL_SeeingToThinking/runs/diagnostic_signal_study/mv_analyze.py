@@ -19,6 +19,7 @@ Runs in-container (needs numpy; scipy not required). Usage: python3 mv_analyze.p
 import os, sys, json, re
 from math import factorial
 import numpy as np
+import mv_score
 
 MODE  = sys.argv[1] if len(sys.argv) > 1 else "smoke"
 NBOOT = int(sys.argv[2]) if len(sys.argv) > 2 else 10000
@@ -32,13 +33,34 @@ def comb(n, k):
     return factorial(n) // (factorial(k) * factorial(n - k))
 
 
+def leaked_self_idx():
+    """self-draw indices whose self-description contains a boxed answer (answer-free protocol violation)."""
+    leaked = {}
+    for l in open(f"{DSS}/mv_gen_{MODE}_full.jsonl"):
+        r = json.loads(l)
+        if r.get("arm") == "selfdesc_D":
+            bad = {i for i, t in enumerate(r["texts"]) if mv_score.extract_boxed(t) is not None}
+            if bad:
+                leaked[r["pid"]] = bad
+    return leaked
+
+
 def load():
     light = json.load(open(f"{DSS}/mv_gen_{MODE}.json"))
+    leaked = leaked_self_idx(); ndrop = 0
     data, box, qtype, gt = {}, {}, {}, {}
     for r in light:
-        data.setdefault(r["pid"], {})[r["arm"]] = np.array([int(bool(d["ok"])) for d in r["draws"]], float)
-        box.setdefault(r["pid"], {})[r["arm"]] = [d.get("box") for d in r["draws"]]
+        oks   = [int(bool(d["ok"])) for d in r["draws"]]
+        boxes = [d.get("box") for d in r["draws"]]
+        if r["arm"] == "self" and r["pid"] in leaked:            # drop answer-leaking self draws (protocol)
+            keep = [i for i in range(len(oks)) if i not in leaked[r["pid"]]]
+            ndrop += len(oks) - len(keep)
+            oks   = [oks[i] for i in keep]; boxes = [boxes[i] for i in keep]
+        data.setdefault(r["pid"], {})[r["arm"]] = np.array(oks, float)
+        box.setdefault(r["pid"], {})[r["arm"]] = boxes
         qtype[r["pid"]] = r["qtype"]; gt[r["pid"]] = r.get("answer")
+    if ndrop:
+        print(f"  [protocol] excluded {ndrop} self draw(s) with an answer-leaking self-description (answer-free violation)")
     return data, box, qtype, gt
 
 
