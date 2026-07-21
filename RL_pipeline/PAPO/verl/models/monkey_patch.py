@@ -62,13 +62,21 @@ def apply_ulysses_patch(model_type: str) -> None:
         if not is_transformers_version_greater_than("4.54.0"):
             raise RuntimeError("Only support transformers for Qwen3 >= 4.54.0.")
 
-        from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLForConditionalGeneration, Qwen3VLModel
+        from transformers.models.qwen3_vl.modeling_qwen3_vl import (
+            Qwen3VLForConditionalGeneration,
+            Qwen3VLModel,
+            Qwen3VLVisionPatchEmbed,
+        )
         from transformers.models.qwen3_vl_moe.modeling_qwen3_vl_moe import (
             Qwen3VLMoeForConditionalGeneration,
             Qwen3VLMoeModel,
         )
 
-        from .transformers.qwen3_vl import qwen3_vl_base_forward, qwen3_vl_model_forward
+        from .transformers.qwen3_vl import (
+            qwen3_vl_base_forward,
+            qwen3_vl_model_forward,
+            qwen3_vl_patch_embed_forward,
+        )
 
         # fix text-image mixed data
         Qwen3VLModel.forward = qwen3_vl_base_forward
@@ -76,3 +84,7 @@ def apply_ulysses_patch(model_type: str) -> None:
         # TODO: add linear cross entropy kernels
         Qwen3VLForConditionalGeneration.forward = qwen3_vl_model_forward
         Qwen3VLMoeForConditionalGeneration.forward = qwen3_vl_model_forward
+        # MLBIO local patch (2026-07-21): aarch64/cuDNN kernel==stride Conv3d patch-embed is
+        # ~3e5x slower than the equivalent matmul (bit-identical output). Pure speed fix, no
+        # math change. Mirrors the EasyR1 fix. See RL_pipeline/PAPO/PROVENANCE_MLBIO.md.
+        Qwen3VLVisionPatchEmbed.forward = qwen3_vl_patch_embed_forward

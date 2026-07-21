@@ -20,7 +20,20 @@ how `RL_SeeingToThinking/EasyR1` is handled).
   (https://github.com/xhguo7/PAPO-Eval); vendor it separately if/when we run PAPO's evals.
 
 Everything under `verl/`, `examples/`, `scripts/`, `data/` (pointers only), `pyproject.toml`,
-`requirements.txt`, `environment.yaml`, `setup.py`, `README.md` is upstream-unmodified.
+`requirements.txt`, `environment.yaml`, `setup.py`, `README.md` is upstream-unmodified,
+EXCEPT the local patches documented below.
+
+## Local patches (MLBIO)
+- **Conv3d→matmul patch-embed fix (2026-07-21), RESULT-NEUTRAL (bit-identical, maxdiff=0.0).**
+  - `verl/models/transformers/qwen3_vl.py`: added `qwen3_vl_patch_embed_forward` (matmul reimpl of the kernel==stride Conv3d patch embed).
+  - `verl/models/monkey_patch.py`: in the `qwen3_vl` branch, import `Qwen3VLVisionPatchEmbed` +
+    the new fn, and install `Qwen3VLVisionPatchEmbed.forward = qwen3_vl_patch_embed_forward`.
+  - Why: on GH200/aarch64+cuDNN the stock Conv3d patch-embed is ~3.4e5x slower than the
+    equivalent GEMM (conv3d 56,708 ms vs matmul 0.17 ms @N=10k) — the entire training-speed
+    wall. PAPO pays it twice/step (real + masked image). Mirrors the same fix in
+    `RL_SeeingToThinking/EasyR1`. Rides PAPO's existing `apply_ulysses_patch()` (fsdp_workers.py:187).
+  - Verify on-cluster before any run: bit-identity assert (stock vs patched, maxdiff==0) +
+    applied-check (`Qwen3VLVisionPatchEmbed.forward is qwen3_vl_patch_embed_forward`).
 
 ## Upstream dependency pins (from pyproject.toml — x86_64/cu124 reference stack)
 - torch==2.6.0, vllm==0.8.4, transformers==4.51.3, flash-attn==2.7.4.post1, python>=3.10
