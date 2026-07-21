@@ -26,7 +26,8 @@ export HF_HOME=$SCRATCH/hf_cache                    # pre-downloaded ViRL39K / M
 export HF_HUB_OFFLINE=1                             # use the cache, don't re-fetch
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 export RAY_memory_usage_threshold=0.98
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# NB: do NOT set PYTORCH_CUDA_ALLOC_CONF=expandable_segments here — vLLM 0.11.2's
+# CuMemAllocator (rollout weight memory pool) asserts expandable_segments is OFF.
 export WANDB_MODE=offline                           # offline; logs land in WANDB_DIR
 export WANDB_DIR=$RUN_DIR
 
