@@ -45,6 +45,7 @@ python3 -m verl.trainer.main \
     worker.actor.model.model_path="$MODEL" \
     worker.actor.global_batch_size=128 \
     worker.rollout.tensor_parallel_size=1 \
+    worker.rollout.disable_tqdm=true \
     worker.reward.reward_function=examples/reward_function/qwen3_vl_think.py:compute_score \
     algorithm.use_kl_prcp=true \
     algorithm.kl_prcp_coef=0.01 \
