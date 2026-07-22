@@ -49,6 +49,7 @@ python3 -m verl.trainer.main \
     worker.rollout.enforce_eager=false \
     worker.rollout.tensor_parallel_size=1 \
     worker.rollout.max_num_batched_tokens=16384 \
+    worker.rollout.gpu_memory_utilization=0.85 \
     worker.rollout.disable_tqdm=true \
     worker.reward.reward_function=examples/reward_function/qwen3_vl_think.py:compute_score \
     algorithm.use_kl_prcp=true \
@@ -56,12 +57,14 @@ python3 -m verl.trainer.main \
     trainer.n_gpus_per_node=4 \
     trainer.nnodes=1 \
     trainer.total_epochs=2 \
+    trainer.max_steps=60 \
     trainer.logger='["console","wandb"]' \
     trainer.project_name=papo_mlbio \
     trainer.experiment_name=papo_qwen3vl4b_thinking \
     trainer.save_freq=6 \
     trainer.save_limit=-1 \
     trainer.save_model_only=false \
+    trainer.save_checkpoint_path="$RUN_DIR/checkpoints" \
     trainer.val_freq=-1 \
     trainer.val_before_train=false \
     "$@"

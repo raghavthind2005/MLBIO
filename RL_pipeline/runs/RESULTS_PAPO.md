@@ -25,7 +25,7 @@ Legend — **R-N** = result-neutral (data movement / display / HW; math unchange
 | **top_k** | **20** | **model card** | **R-A** | was -1 (unbounded) → the anti-loop lever |
 | repetition_penalty / min_p | 1.0 / 0 | model card = vLLM default | R-A | already correct |
 | enforce_eager | false | repo (real-run) | R-N | CUDA graphs → faster decode (smoke used true = pessimistic) |
-| gpu_memory_utilization | 0.6 | repo | R-N | may raise if memory allows (tunable, watch mirror) |
+| gpu_memory_utilization | **0.85** | ours | R-N | KV-cache size only (vLLM sleeps during training) → faster rollout, no output effect |
 | tensor_parallel_size | 1 | our cluster (4 DP replicas) | R-N | |
 | max_num_batched_tokens | 16384 | ours (required) | R-N | verl asserts > prompt+response (=12288 at 8192 resp); scheduling cap, not outputs |
 | disable_tqdm | true | ours | R-N | clean logs only |
@@ -54,9 +54,9 @@ Legend — **R-N** = result-neutral (data movement / display / HW; math unchange
 ## Trainer
 | knob | real run | mirror diag | source | class |
 |---|---|---|---|---|
-| total_epochs | 2 | (n/a) | paper | R-A |
-| **max_steps** | null | **2** | smoke-only | — |
-| **save_freq** | 6 | **-1** | resumable / off | — |
+| total_epochs | 2 | (n/a) | paper | R-A | (capped by max_steps) |
+| **max_steps** | **60** | **2** | ours (mechanistic scope) | R-A | ~0.6 epoch, ~8–10h; partial-training TRAJECTORY not benchmark convergence — per-step mechanism byte-identical to paper, only fewer steps |
+| **save_freq** | 6 | **-1** | ours → 10 ckpts | — | the trajectory to analyze |
 | save_limit / save_model_only | -1 / false | — | resumable | R-N |
 | val_freq / val_before_train | -1 / false | -1 / false | eval offline | — |
 | n_gpus_per_node / nnodes | 4 / 1 | same | our cluster | R-N |
@@ -65,10 +65,14 @@ Legend — **R-N** = result-neutral (data movement / display / HW; math unchange
 
 ## Local patches (result-neutral, verified)
 - Conv3d→matmul patch-embed (fp64-verified bit-identical) — see PAPO/PROVENANCE_MLBIO.md.
+- FlashAttention on rank0_init else-branch (fixes long-ctx SDPA OOM) — see PAPO/PROVENANCE_MLBIO.md.
 
 ## Runtime cautions (learned)
 - Never set `PYTORCH_CUDA_ALLOC_CONF=expandable_segments` (breaks vLLM CuMemAllocator).
 - Read metrics from wandb offline binary (`diagnostics/read_wandb_metrics.py`) — verl doesn't write `wandb-summary.json` unless it exits cleanly.
 - Use `sbatch` (detached), not interactive `srun|tee` (dies on disconnect).
 
-## SIGN-OFF STATUS: **PENDING** — awaiting mirror-diagnostic signal, then user sign-off on the R-A knobs (esp. max_response_length=8192, top_p=0.95, top_k=20).
+## SIGN-OFF STATUS: **SIGNED OFF (user, 2026-07-22)** for the PAPO mechanistic run (condition B).
+- Mirror validated: SDPA=0, OOM=0, full-batch 8192 fits; sampling applied; steady ~12min/step.
+- R-A knobs signed off: `max_response_length=8192` (mean CoT 4550 → required, 2048 would zero-reward ~70%), `top_p=0.95`/`top_k=20`/`temp=1.0` (model card), `max_steps=60` (mechanistic trajectory, not benchmark convergence).
+- GOAL = mechanistic study (perception degradation across reasoning + how the perception loss shifts it), NOT paper Table-1 replication. This is **run B (use_kl_prcp=true, perception loss ON)**. Matched **GRPO baseline (A, use_kl_prcp=false)** deferred to a later session — needed to *attribute* perception shifts to the loss vs generic RL.
