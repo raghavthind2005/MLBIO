@@ -218,10 +218,16 @@ class FSDPWorker(Worker):
             #         trust_remote_code=model_config.trust_remote_code,
             #     )
             with no_init_weights(), init_empty_weights():
+                # MLBIO local patch (2026-07-22): restore attn_implementation="flash_attention_2"
+                # (+ dtype/trust_remote_code) on the rank0_init else-branch. PAPO had dropped it,
+                # so FSDP ranks 1..N built the model with default SDPA attention -> O(len^2) memory
+                # -> OOM at long context. Mirrors EasyR1 fsdp_workers.py:222-227. Result-neutral
+                # (Flash == SDPA math). See RL_pipeline/PAPO/PROVENANCE_MLBIO.md.
                 model = auto_class.from_config(
-                     # removed passing in torch.dtype and attn_implementation
-                     # and trust remote code
-                    self.model_config
+                    self.model_config,
+                    torch_dtype=torch_dtype,
+                    attn_implementation="flash_attention_2",
+                    trust_remote_code=model_config.trust_remote_code,
                 )
 
         model = cast(PreTrainedModel, model)  # lint

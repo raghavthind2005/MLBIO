@@ -34,6 +34,15 @@ EXCEPT the local patches documented below.
     `RL_SeeingToThinking/EasyR1`. Rides PAPO's existing `apply_ulysses_patch()` (fsdp_workers.py:187).
   - Verify on-cluster before any run: bit-identity assert (stock vs patched, maxdiff==0) +
     applied-check (`Qwen3VLVisionPatchEmbed.forward is qwen3_vl_patch_embed_forward`).
+- **FlashAttention on the rank0_init else-branch (2026-07-22), RESULT-NEUTRAL (Flash == SDPA math).**
+  - `verl/workers/fsdp_workers.py`: restored `torch_dtype`, `attn_implementation="flash_attention_2"`,
+    `trust_remote_code` on the `auto_class.from_config(...)` call (the `enable_rank0_init` else-branch).
+  - Why: PAPO had dropped these kwargs, so with `enable_rank0_init=true` FSDP ranks 1..N built the
+    model via `from_config` with the DEFAULT SDPA attention → O(len²) attention memory → CUDA OOM at
+    long context (8192 response). Mirrors EasyR1 `fsdp_workers.py:222-227`. Fixes OOM + speeds the
+    long-sequence training forward.
+  - Verify on-cluster: the training forward no longer hits `transformers/integrations/sdpa_attention.py`
+    (grep the run log); full-batch 8192 forward fits.
 
 ## Upstream dependency pins (from pyproject.toml — x86_64/cu124 reference stack)
 - torch==2.6.0, vllm==0.8.4, transformers==4.51.3, flash-attn==2.7.4.post1, python>=3.10
