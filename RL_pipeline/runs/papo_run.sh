@@ -58,7 +58,7 @@ python3 -m verl.trainer.main \
     trainer.nnodes=1 \
     trainer.total_epochs=2 \
     trainer.max_steps=60 \
-    trainer.logger='["console","wandb"]' \
+    trainer.logger='["console","wandb","file"]' \
     trainer.project_name=papo_mlbio \
     trainer.experiment_name=papo_qwen3vl4b_thinking \
     trainer.save_freq=6 \
