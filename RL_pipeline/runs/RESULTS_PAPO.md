@@ -27,6 +27,7 @@ Legend — **R-N** = result-neutral (data movement / display / HW; math unchange
 | enforce_eager | false | repo (real-run) | R-N | CUDA graphs → faster decode (smoke used true = pessimistic) |
 | gpu_memory_utilization | 0.6 | repo | R-N | may raise if memory allows (tunable, watch mirror) |
 | tensor_parallel_size | 1 | our cluster (4 DP replicas) | R-N | |
+| max_num_batched_tokens | 16384 | ours (required) | R-N | verl asserts > prompt+response (=12288 at 8192 resp); scheduling cap, not outputs |
 | disable_tqdm | true | ours | R-N | clean logs only |
 
 ## Algorithm (GRPO + PAPO)  — all paper-faithful

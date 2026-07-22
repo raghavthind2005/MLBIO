@@ -48,6 +48,7 @@ python3 -m verl.trainer.main \
     worker.rollout.top_k=20 \
     worker.rollout.enforce_eager=false \
     worker.rollout.tensor_parallel_size=1 \
+    worker.rollout.max_num_batched_tokens=16384 \
     worker.rollout.disable_tqdm=true \
     worker.reward.reward_function=examples/reward_function/qwen3_vl_think.py:compute_score \
     algorithm.use_kl_prcp=true \
