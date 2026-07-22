@@ -62,4 +62,5 @@ python3 -m verl.trainer.main \
     trainer.max_steps=2 \
     trainer.save_freq=-1 \
     trainer.val_freq=-1 \
-    trainer.val_before_train=false
+    trainer.val_before_train=false \
+    "$@"   # extra overrides appended at launch (e.g. a tiny batch for a fast metrics run)
