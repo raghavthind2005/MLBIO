@@ -25,6 +25,17 @@ export WANDB_DIR=$RUN_DIR
 mkdir -p "$RUN_DIR"
 cd "$PAPO_DIR"
 
+# --- auto-resume: verl does NOT auto-load (ray_trainer.py:436 returns if
+# load_checkpoint_path is None). Point it at the latest global_step_* so a
+# resubmit CONTINUES (dataloader position included) instead of restarting at 0
+# and overwriting. First run: no ckpt -> empty -> fresh start.
+RESUME_ARG=""
+LAST_CKPT=$(ls -d "$RUN_DIR"/checkpoints/global_step_* 2>/dev/null | sort -t_ -k3 -n | tail -1)
+if [ -n "$LAST_CKPT" ]; then
+    echo "[resume] resuming from $LAST_CKPT"
+    RESUME_ARG="trainer.load_checkpoint_path=$LAST_CKPT"
+fi
+
 python3 -m verl.trainer.main \
     config=examples/configs/config_grpo_papo.yaml \
     data.train_files=PAPOGalaxy/PAPO_ViRL39K_train \
@@ -67,4 +78,5 @@ python3 -m verl.trainer.main \
     trainer.save_checkpoint_path="$RUN_DIR/checkpoints" \
     trainer.val_freq=-1 \
     trainer.val_before_train=true \
+    $RESUME_ARG \
     "$@"
