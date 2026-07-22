@@ -14,4 +14,5 @@
 
 srun --environment="$HOME/toml/verl_easyr1.toml" \
      bash "/iopsstor/scratch/cscs/$USER/code/runs/smoke_4b_thinking.sh" \
-     data.rollout_batch_size=16 worker.actor.global_batch_size=16
+     data.rollout_batch_size=16 worker.actor.global_batch_size=16 \
+     data.filter_overlong_prompts=false
