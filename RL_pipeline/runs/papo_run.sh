@@ -66,5 +66,5 @@ python3 -m verl.trainer.main \
     trainer.save_model_only=false \
     trainer.save_checkpoint_path="$RUN_DIR/checkpoints" \
     trainer.val_freq=-1 \
-    trainer.val_before_train=false \
+    trainer.val_before_train=true \
     "$@"

@@ -58,9 +58,10 @@ Legend — **R-N** = result-neutral (data movement / display / HW; math unchange
 | **max_steps** | **60** | **2** | ours (mechanistic scope) | R-A | ~0.6 epoch, ~8–10h; partial-training TRAJECTORY not benchmark convergence — per-step mechanism byte-identical to paper, only fewer steps |
 | **save_freq** | 6 | **-1** | ours → 10 ckpts | — | the trajectory to analyze |
 | save_limit / save_model_only | -1 / false | — | resumable | R-N |
-| val_freq / val_before_train | -1 / false | -1 / false | eval offline | — |
+| **val_freq / val_before_train** | **-1 / true** | -1 / false | **qwen3 recipe** | R-A | mirrors PAPO qwen3: no periodic val (paper's val_freq=5 infeasible in budget) but base(step0)+final avg@8 on MMK12 (`val_override n=8`). Final val is unavoidable in verl anyway (always fires). ~45min/pass → run may hit 12h wall during final val; checkpoints safe, recompute final val offline if cut |
+| val_batch_size / val n | 1024 / 8 | — | repo (avg@8) | R-A | paper's eval protocol |
 | n_gpus_per_node / nnodes | 4 / 1 | same | our cluster | R-N |
-| logger | console, wandb(offline) | same | ours | R-N |
+| logger | console, wandb(offline), **file** | same | ours | R-N | `file`→experiment_log.jsonl (wandb-independent) |
 | seed | 1 | 1 | repo | R-A |
 
 ## Local patches (result-neutral, verified)
