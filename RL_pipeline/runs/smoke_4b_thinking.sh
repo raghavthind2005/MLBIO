@@ -44,6 +44,9 @@ python3 -m verl.trainer.main \
     data.format_prompt=examples/format_prompt/math_perception.jinja \
     worker.actor.model.model_path="$MODEL" \
     worker.actor.global_batch_size=128 \
+    worker.actor.offload.offload_params=false \
+    worker.actor.offload.offload_optimizer=false \
+    worker.ref.fsdp.enable_cpu_offload=false \
     worker.rollout.tensor_parallel_size=1 \
     worker.rollout.disable_tqdm=true \
     worker.reward.reward_function=examples/reward_function/qwen3_vl_think.py:compute_score \
