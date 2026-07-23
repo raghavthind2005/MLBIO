@@ -34,7 +34,10 @@ RESUME_ARG=""
 LAST_CKPT=$(ls -d "$RUN_DIR"/checkpoints/global_step_* 2>/dev/null | sort -t_ -k3 -n | tail -1)
 if [ -n "$LAST_CKPT" ]; then
     echo "[resume] resuming from $LAST_CKPT"
-    RESUME_ARG="trainer.load_checkpoint_path=$LAST_CKPT"
+    # skip base val on RESUME: val_before_train (ray_trainer.py:715) re-fires on every job
+    # start and would waste ~2h re-validating the resumed ckpt. Base anchor is already
+    # captured in slot 1; the final val (ray_trainer.py:853) still fires at step 60.
+    RESUME_ARG="trainer.load_checkpoint_path=$LAST_CKPT trainer.val_before_train=false"
 fi
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m verl.trainer.main \
