@@ -34,10 +34,12 @@ RESUME_ARG=""
 LAST_CKPT=$(ls -d "$RUN_DIR"/checkpoints/global_step_* 2>/dev/null | sort -t_ -k3 -n | tail -1)
 if [ -n "$LAST_CKPT" ]; then
     echo "[resume] resuming from $LAST_CKPT"
-    # skip base val on RESUME: val_before_train (ray_trainer.py:715) re-fires on every job
-    # start and would waste ~2h re-validating the resumed ckpt. Base anchor is already
-    # captured in slot 1; the final val (ray_trainer.py:853) still fires at step 60.
-    RESUME_ARG="trainer.load_checkpoint_path=$LAST_CKPT trainer.val_before_train=false"
+    # On RESUME: (1) skip base val -- val_before_train (ray_trainer.py:715) re-fires on every
+    # job start and would waste ~2h re-validating the resumed ckpt (base anchor already captured
+    # slot 1; final val ray_trainer.py:853 still fires at step 60). (2) drop gpu_memory_utilization
+    # 0.60->0.55 for ~5GB extra headroom -- DE run peaks ~91/95, this makes an UNATTENDED resume
+    # OOM-safe. Result-neutral (KV-cache size only, not training math).
+    RESUME_ARG="trainer.load_checkpoint_path=$LAST_CKPT trainer.val_before_train=false worker.rollout.gpu_memory_utilization=0.55"
 fi
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python3 -m verl.trainer.main \
