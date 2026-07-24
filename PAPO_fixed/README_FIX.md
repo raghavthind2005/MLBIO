@@ -58,6 +58,28 @@ Other paper-vs-code items all verified faithful (after B+C): GRPO clip 0.2/0.3, 
 uniform KL weighting (`apply_mode=all`), no kl_prcp clipping/token-mask. γ=0.01 & η=0.03 match
 PAPO_D (paper PAPO_G-3B uses γ=0.02 — a documented alternative, not used here).
 
+## FINAL OBJECTIVE DECISION (user, 2026-07-24): "C+DE" — full paper Eq. 2
+
+We run the paper's complete PAPO objective (Eq. 2), on top of the authors' `config_grpo_papo.yaml`:
+GRPO (token avg) + **ref-KL** β=0.01 + **perception KL** γ=0.01 (maximized) + **Double Entropy**
+η₁=η₂=0.03 (penalized) + masking 14px/0.6, with **`RECOMPUTE_AUG_LOG_PROBS=True`** so η₂ and the
+perception-KL masked branch are full-gradient.
+
+**Deliberate, documented deviation from the authors' *exact* 2B Table-1 run:** their labeled
+"Config for Table 1 Results" script (`qwen3_vl_2b_grpo_papo.sh` + this config, unmodified) has
+**double entropy OFF** (`use_aug/ori_entropy_loss=false`; paper: "PAPO_G-3B: no entropy by default";
+entropy is used only for PAPO_G-7B η=0.05 and PAPO_D η=0.03) and **`RECOMPUTE=False`**. The user
+chose C+DE to be faithful to the paper's **written Eq. 2** (which includes both entropy terms) — the
+double entropy is enabled via run-script overrides (`algorithm.use_*_entropy_loss=true`), and
+`RECOMPUTE=True` makes it actually train. Trade-off acknowledged: vs the GRPO+ref-KL baseline this
+adds perception KL **and** double entropy together (two variables, not perception alone).
+
+**Resolved paper-vs-code items (first-hand):** loss averaging = **token** (code default, never
+overridden; the authors' Table-1 numbers used token even though Eq. 2 is *written* seq-style) —
+kept token to match the authors' code + our baseline. Ref-KL = **on** (config `use_kl_loss=true`;
+the labeled Table-1 script uses it — the README's "Qwen3 by default No Reference KL" line
+contradicts the actual config and is treated as stale).
+
 ## Apply on the cluster (baseline stays intact)
 ```bash
 cp -r $SCRATCH/code/PAPO_clone $SCRATCH/code/PAPO_fixed          # full copy incl. the 2 patches
