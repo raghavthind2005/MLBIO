@@ -33,6 +33,31 @@ graph); only the displayed curves were corrupted.
 
 `python3 -m py_compile` passes.
 
+## Fidelity flip: `RECOMPUTE_AUG_LOG_PROBS = False -> True` (dp_actor.py:47)
+
+**Why:** to make the code **dot-identical to the paper's written objective (Eq. 2)**. The paper's
+`+γ D_KL[π_θ‖π_θ^mask]` and `−η₂ H[π_θ^mask]` both have θ in the masked branch. The authors'
+**default `False`** uses the precomputed/detached `aug_log_probs`, which makes:
+  1. the Double-Entropy **η₂ term a no-op** (zero gradient), and
+  2. the perception KL backprop **only through the real branch**.
+
+The authors **document this gap themselves** (repo `README.md` L211-213): *"In theory ... we need to
+do an additional forward pass on the masked sequence to recompute the `aug_log_probs`. In practice ...
+does not significantly affect the performance,"* and they provide the `RECOMPUTE_AUG_LOG_PROBS` switch
+*"if one requires the explicit impact on the gradients from the `aug_log_probs`."*
+
+**Decision (user, 2026-07-24): flip to `True`** — the update loop runs the extra masked grad-forward
+(`_forward_micro_batch_aug`), giving the full-gradient perception KL **and** an active η₂ = paper Eq. 2.
+- Fidelity target: the paper's **written equation** (not necessarily the authors' *reported runs*,
+  which used the `False` default and which they claim is empirically similar).
+- **Cost:** +1 masked forward per micro-batch (~1.5-2x compute + more memory) -> memory must be
+  re-smoked; expect to keep `micro_batch=1/4` and possibly lower `gpu_memory_utilization`.
+
+Other paper-vs-code items all verified faithful (after B+C): GRPO clip 0.2/0.3, ref-KL β=0.01
+(PAPO_G), perception KL direction/estimator/sign, masking random-patch 14px/0.6, no annealing,
+uniform KL weighting (`apply_mode=all`), no kl_prcp clipping/token-mask. γ=0.01 & η=0.03 match
+PAPO_D (paper PAPO_G-3B uses γ=0.02 — a documented alternative, not used here).
+
 ## Apply on the cluster (baseline stays intact)
 ```bash
 cp -r $SCRATCH/code/PAPO_clone $SCRATCH/code/PAPO_fixed          # full copy incl. the 2 patches

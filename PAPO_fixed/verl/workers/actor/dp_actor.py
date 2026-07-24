@@ -44,7 +44,18 @@ except ImportError:
 __all__ = ["DataParallelPPOActor"]
 
 
-RECOMPUTE_AUG_LOG_PROBS=False
+# === MLBIO (2026-07-24): flipped False -> True to be DOT-IDENTICAL to the PAPO paper (Eq. 2). ===
+# With the authors' efficient DEFAULT (False), aug_log_probs is the precomputed/detached tensor, so:
+#   (a) the Double-Entropy eta_2*H[pi_theta^mask] term has ZERO gradient (a no-op), and
+#   (b) the perception KL D_KL[pi_theta || pi_theta^mask] only backprops through the real branch.
+# The paper's written objective has theta in BOTH branches. The authors document this gap in the
+# README (L211-213): "In theory ... we need to do an additional forward pass on the masked sequence
+# to recompute the aug_log_probs. In practice ... does not significantly affect the performance",
+# and they provide THIS switch "if one requires the explicit impact on the gradients from
+# aug_log_probs". We set True: the update loop does the extra masked grad-forward
+# (_forward_micro_batch_aug) -> full-gradient perception KL + active eta_2 = paper Eq. 2.
+# COST: +1 masked forward per micro-batch (more compute + memory -> re-smoke before running).
+RECOMPUTE_AUG_LOG_PROBS=True
 
 class DataParallelPPOActor(BasePPOActor):
     def __init__(
