@@ -1,5 +1,14 @@
 # PAPO_fixed — corrected loss composition (B + C)
 
+> **⚠️ CORRECTION (2026-07-27), see [`PAPO_MASTER_RECORD.md`](PAPO_MASTER_RECORD.md) §2.5.** The
+> §"FINAL OBJECTIVE DECISION" framing below ("C+DE = faithful to the written Eq. 2") is **superseded**.
+> A byte-exact audit of the paper (arXiv:2507.06448, Table 3) shows the paper instantiates Eq. 2
+> **per-model**, and its canonical **`PAPO_G-2B` uses γ=0.01, NO double entropy (η=—), β=0.01,
+> RECOMPUTE-default** — identical to the *unmodified* code. So the faithful 2B reproduction is
+> **C-pure**; our **C+DE (double entropy on, RECOMPUTE=True) is a deliberate OFF-SPEC variant**, not a
+> fidelity improvement. The B (backprop) and C (logging) bug fixes below remain fully valid. Read the
+> master record for the grounded audit and corrected next steps.
+
 **Purpose:** the *real* PAPO code. The baseline (`PAPO_clone`) is left **untouched** — it is the
 GRPO+ref-KL control arm whose checkpoints (`$SCRATCH/runs/papo_2b_8k_run`) match the buggy code.
 This folder holds ONLY the changed file: `verl/workers/actor/dp_actor.py`. Everything else is
