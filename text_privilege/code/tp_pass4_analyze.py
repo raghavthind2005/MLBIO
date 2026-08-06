@@ -171,13 +171,14 @@ def main():
         p = phat(per["A5"])
         # A5 HEADLINE = correct_tolerant (user decision, 2026-08-06, pre-outcome).
         # CapRL is a captioner: it was RL-trained to produce dense descriptions and never trained
-        # to follow an MCQ format instruction, so its boxed-compliance is expected to be poor.
-        # Under the boxed PRIMARY that would read as "cannot do VQA" when it actually means "does
-        # not box" -- a capability claim contaminated by a format artifact. The tolerant metric
-        # needs no box, so it measures what this arm is for. Descriptive only either way: A5 is
-        # NOT in the pre-registered contrast family.
+        # to follow an MCQ format instruction, so its answer-extraction rate is expected to be
+        # worse than the reasoners' even under D13's general extractor. Under the PRIMARY that
+        # would read as "cannot do VQA" when it actually means "doesn't conclude in a recognisable
+        # form" -- a capability claim contaminated by a format artifact. The tolerant metric falls
+        # back to can_infer over the whole text, so it measures what this arm is for. Descriptive
+        # only either way: A5 is NOT in the pre-registered contrast family.
         tag = "  <-- A5 HEADLINE" if a.metric == "correct_tolerant" else \
-              "  (not A5's headline; see box_missing_rate in score_meta)"
+              "  (not A5's headline; see unextract_rate in score_meta)"
         print(f"[pass4] A5 (captioner VQA, DESCRIPTIVE ONLY) acc = "
               f"{sum(p.values()) / len(p):.4f} on n={len(p)}{tag}")
 

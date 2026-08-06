@@ -8,7 +8,7 @@ Probe A smoke gates. Nothing runs at scale until every gate PASSES.
 
 Exit code is non-zero if any gate fails, so the sbatch driver stops instead of proceeding.
 """
-import argparse, collections, glob, json, os, sys
+import argparse, collections, glob, json, os, re, sys
 import tp_common as C
 
 FAILS = []
@@ -83,12 +83,27 @@ def static(tag, limit):
         print(f"\n### {arm} [{mk}] ###\n{repr(pre + payload)[-420:]}")
     gate("G4.prompt_dump", True, "printed for eyeball verification")
 
-    # G6 context assert behaviour -----------------------------------------
+    # G6a (found in the D13/D14 re-review): G6/G6b tokenize with ONE tokenizer, loaded from the
+    # "thinking" checkpoint, and reuse it for "instruct" and "caprl" prompts too. That assumption
+    # was previously implicit and unverified -- G5a's preprocessor-parity gate is about the IMAGE
+    # side only. Confirm it directly: encode a representative probe with EACH model's own
+    # tokenizer and require IDENTICAL token ids (not just equal vocab size), since G6b's new
+    # certified headroom for A5 depends on this holding.
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(C.MODELS["thinking"])
+    longest = df.loc[df["question"].str.len().idxmax()]
+    probe_str = C.chat_prefix("thinking", C.question_text(longest)) + "sample \\boxed{B} text"
+    ids_ref = tok(probe_str, add_special_tokens=False).input_ids
+    for k in ("instruct", "caprl"):
+        tk_k = AutoTokenizer.from_pretrained(C.MODELS[k])
+        ids_k = tk_k(probe_str, add_special_tokens=False).input_ids
+        gate(f"G6a.tokenizer_shared:{k}", ids_k == ids_ref,
+             f"len={len(ids_k)} vs thinking len={len(ids_ref)}" if ids_k != ids_ref
+             else f"len={len(ids_k)}")
+
+    # G6 context assert behaviour -----------------------------------------
     # worst case is the CAPTION arm on the LONGEST question: question + hint + wrapper + a
     # max-length caption + the largest image. That is the case that used to blow the budget.
-    longest = df.loc[df["question"].str.len().idxmax()]
     for mk in ("thinking", "instruct"):
         pre = C.chat_prefix(mk, C.question_text(longest))
         cap_worst = "x " * C.DECODE["caprl"]["max_tokens"]      # upper bound on caption tokens
@@ -98,6 +113,20 @@ def static(tag, limit):
         gate(f"G6.context_headroom:{mk}", hdr <= C.MAX_MODEL_LEN[mk],
              f"worst ptok={ptok} +img{C.IMG_TOK_MAX} +maxtok={C.DECODE[mk]['max_tokens']} "
              f"= {hdr} vs max_model_len={C.MAX_MODEL_LEN[mk]}")
+
+    # G6b (D14, 2026-08-06): context headroom for A5 (caprl model). UNLIKE T/I, caprl never
+    # carries a caption payload in this design (ARMS["A5"] = ("caprl", None)) -- A5's own worst
+    # case is the bare question, no WRAPPER. Reusing the wrapper-inclusive worst case from G6 above
+    # would be wrong (too conservative and answering the wrong question); this is A5's actual
+    # binding constraint, checked the same live way as G6 rather than hand-computed, because D14's
+    # whole premise is "certified by the gate, not by estimation". Shares the `tok` loaded from the
+    # thinking checkpoint -- G6a above just confirmed that's valid for caprl too.
+    pre_bare = C.chat_prefix("caprl", C.question_text(longest))
+    ptok_bare = len(tok(pre_bare, add_special_tokens=False).input_ids)
+    hdr_bare = ptok_bare + C.IMG_TOK_MAX + C.DECODE["caprl"]["max_tokens"]
+    gate("G6b.context_headroom:caprl", hdr_bare <= C.MAX_MODEL_LEN["caprl"],
+         f"worst ptok={ptok_bare} +img{C.IMG_TOK_MAX} +maxtok={C.DECODE['caprl']['max_tokens']} "
+         f"= {hdr_bare} vs max_model_len={C.MAX_MODEL_LEN['caprl']}")
 
     # G9 scorer self-test -- PRIMARY is MMStar's own position-0-anchored rule --------------
     ch = {"A": "the cat", "B": "the dog", "C": "the bird", "D": "the fish"}
@@ -126,7 +155,7 @@ def static(tag, limit):
                   f"tolerant={s['correct_tolerant']}(want {w_tol})")
     gate("G9.official_and_tolerant_selftest", bad == 0, f"{len(cases) - bad}/{len(cases)} cases")
 
-    # G9d PRIMARY = boxed letter. (text, gt, want_primary, want_kind)
+    # G9d PRIMARY = robust final-answer extraction (D13). (text, gt, want_primary, want_kind)
     bcases = [
         ("blah \\boxed{B}", "B", 1, "letter"),
         ("\\boxed{ B }", "B", 1, "letter"),
@@ -137,15 +166,33 @@ def static(tag, limit):
         ("no box here at all", "B", 0, "none"),
         ("\\boxed{B", "B", 0, "none"),                # truncated mid-box -> unbalanced -> none
         ("\\boxed{A} then \\boxed{B}", "B", 1, "letter"),   # LAST box wins
+        # non-boxed conclusions (D13: the prompt no longer asks for \boxed{})
+        ("The correct answer is B.", "B", 1, "letter"),
+        ("Final Answer: C", "B", 0, "letter"),
+        ("I'll go with option B.", "B", 1, "letter"),
+        ("My answer is **B**.", "B", 1, "letter"),
+        ("**D**", "D", 1, "letter"),
+        ("Based on the details, I'll go with (C)", "C", 1, "letter"),
+        ("So the correct one is D", "D", 1, "letter"),
+        ("\n\nD", "D", 1, "letter"),                  # T0's actual observed post-<think> tail
+        # ADVERSARIAL: a letter is mentioned but the response explicitly does not conclude.
+        # This is the exact shape of the smoke's runaway-truncation generations; an unrestricted
+        # whole-text scan for "option X" would wrongly credit B here.
+        ("Option A is close but option B fits better. I keep going back and forth without "
+         "landing on one.", "B", 0, "none"),
+        # real observed truncated I1 tail (trunc=1) -- must NOT be credited despite naming D
+        ("...D is the only option that mentions “beneath”, perhaps it is the intended "
+         "answer — even though it is false", "D", 0, "none"),
+        ("Therefore, the correct option is (A).\n\n\\boxed{A}", "A", 1, "letter"),  # real I1 case
     ]
     bbad = 0
     for text, gt, wp, wk in bcases:
         s = C.score_item(text, dict(ch), gt, is_thinking=False)
-        if s["correct"] != wp or s["box_kind"] != wk:
+        if s["correct"] != wp or s["ans_kind"] != wk:
             bbad += 1
-            print(f"   boxed mismatch {text!r}: primary={s['correct']}(want {wp}) "
-                  f"kind={s['box_kind']}(want {wk})")
-    gate("G9d.boxed_primary_selftest", bbad == 0, f"{len(bcases) - bbad}/{len(bcases)} cases")
+            print(f"   extraction mismatch {text!r}: primary={s['correct']}(want {wp}) "
+                  f"kind={s['ans_kind']}(want {wk})")
+    gate("G9d.primary_extractor_selftest", bbad == 0, f"{len(bcases) - bbad}/{len(bcases)} cases")
     gate("G9e.value_box_only_in_tolerant",
          C.score_item("\\boxed{the dog}", dict(ch), "B", False)["correct"] == 0
          and C.score_item("\\boxed{the dog}", dict(ch), "B", False)["correct_tolerant"] == 1,
@@ -158,6 +205,20 @@ def static(tag, limit):
          and C.official_firstchar_artifact("B", "B") == 0
          and C.official_firstchar_artifact("(B)", "B") == 0,
          "detector flags predict[0] false-positives but not genuine letter answers")
+    gate("G9f.unclosed_think_forces_none",
+         C.score_item("still reasoning about B and C, never concludes", dict(ch), "B", True,
+                      closed=False) == dict(correct=0, ans_kind="none", ans_pred=None,
+                                             correct_tolerant=0, correct_official=0, fc_artifact=0),
+         "an unclosed <think> (model never left the reasoning phase) forces a clean miss on ALL "
+         "three metrics, not just the primary -- found in the D13/D14 re-review")
+    gate("G9g.bare_end_excludes_article_a",
+         C.score_item("so it must be a", dict(ch), "A", False)["ans_kind"] == "none",
+         "the trailing English article 'a' must NOT be credited as letter A (bare-letter rule is "
+         "deliberately case-sensitive; see tp_common)")
+    gate("G9h.bold_paren_case_insensitive",
+         C.score_item("**d**", dict(ch), "D", False)["correct"] == 1
+         and C.score_item("(d)", dict(ch), "D", False)["correct"] == 1,
+         "bold/paren rules ARE case-insensitive (their context can't collide with ordinary prose)")
 
     # G12 decode dump ------------------------------------------------------
     print("\n--- G12 frozen decode ---")
@@ -220,26 +281,56 @@ def audit(tag):
             print(f"    CAPTION[1] (variance check):\n{v[1]['caption'][:600]}")
     gate("G7c.captions_printed", True, "inspect the text above before trusting any downstream number")
 
-    # G22 LEAK GATE for the question-conditioned captions (arms T3/I3). The captioner is given the
-    # question STEM ONLY -- options are stripped -- so it cannot name a choice it never saw. This
-    # verifies that structurally: a q-caption must not contain any option's text, nor a \boxed{},
-    # nor an explicit answer declaration. Track-T's comparable prompt leaked 2/2485 (0.08%);
-    # the gate threshold mirrors its <1% audit rule.
+    # G22 (D16, 2026-08-06, RESCOPED) for the question-conditioned captions (arms T3/I3). The
+    # captioner is given the question STEM ONLY -- options are stripped -- so it cannot name a
+    # choice it never saw.
+    #
+    # The ORIGINAL gate flagged ANY lexical overlap with ANY option's text as a "leak" and fired at
+    # 3.3% (8/240). Reading all 8 found zero \boxed{}, zero "the answer is", zero enumeration
+    # markers -- every flag was a truthful, question-relevant caption whose wording happened to
+    # overlap the CORRECT option (e.g. caption "holding her belly with her left hand" vs. the
+    # option's own "her left hand"). For a perception item, options ARE scene descriptions, so an
+    # accurate captioner overlapping the correct one is the captioner doing its job, not
+    # contamination -- and it is structurally impossible for it to have read a list it was never
+    # shown. That is not a leak signal; it was a mis-specified gate.
+    #
+    # The REAL trip-wires -- things that would be structurally impossible unless the captioner had
+    # somehow seen the choice list -- are format leakage: a \boxed{}, an explicit answer
+    # declaration, or literal enumeration markers ("A:" / "(A)" / "Choices:") that only exist in the
+    # options block it was never given. Those remain a hard gate (Track-T's comparable prompt
+    # leaked 2/2485 = 0.08%; threshold mirrors its <1% audit rule).
+    #
+    # Lexical overlap with option TEXT is downgraded to a DESCRIPTIVE rate, split by whether the
+    # overlapping option is the correct one (expected for an accurate caption -- and informative
+    # later for interpreting T3/I3, since it bounds how much of any T3 benefit could be answer-
+    # lookup rather than reasoning-aid) or an incorrect one (would be a genuinely surprising
+    # coincidence for a truthful caption -- surfaced, not blocking, since n=48 is too small to set
+    # a real threshold on it yet).
     qp = f"{base}/captions_q.jsonl"
     if os.path.exists(qp):
         dfq = C.load_mmstar()
         chq = {int(r["index"]): C.parse_choices(r["question"]) for _, r in dfq.iterrows()}
+        gtq = {int(r["index"]): str(r["answer"]).upper() for _, r in dfq.iterrows()}
         rows, _ = C.read_jsonl(qp)
-        leaks = []
+        _ENUM = re.compile(r"(?:^|\n)\s*\(?[A-D]\)?[.):]\s|\bChoices\s*:|\bOptions\s*:", re.I)
+        fmt_leaks, corr_hits, incorr_hits = [], 0, 0
         for r in rows:
             t = r["caption"].lower()
-            opts = [str(v).lower() for v in chq.get(r["index"], {}).values() if str(v).strip()]
-            hit = any(o in t for o in opts if len(o) > 12)
-            if hit or "\\boxed" in t or "the answer is" in t:
-                leaks.append(r["index"])
-        rate = len(leaks) / max(len(rows), 1)
-        gate("G22.qcaption_no_leak", rate < 0.01,
-             f"leak rate {rate:.4f} ({len(leaks)}/{len(rows)}) e.g. {leaks[:5]}")
+            idx = r["index"]
+            opts = {k: str(v).lower() for k, v in chq.get(idx, {}).items() if str(v).strip()}
+            gold = gtq.get(idx, "")
+            corr_hits += int(any(k == gold and v in t for k, v in opts.items() if len(v) > 12))
+            incorr_hits += int(any(k != gold and v in t for k, v in opts.items() if len(v) > 12))
+            if "\\boxed" in t or "the answer is" in t or "final answer" in t or _ENUM.search(r["caption"]):
+                fmt_leaks.append(idx)
+        rate = len(fmt_leaks) / max(len(rows), 1)
+        gate("G22.qcaption_no_format_leak", rate < 0.01,
+             f"format-leak rate {rate:.4f} ({len(fmt_leaks)}/{len(rows)}) e.g. {fmt_leaks[:5]}")
+        n = max(len(rows), 1)
+        print(f"   [descriptive] q-caption lexical overlap: correct-option={corr_hits/n:.3f} "
+              f"incorrect-option={incorr_hits/n:.3f} "
+              f"(overlap with the CORRECT option is expected for an accurate caption, not a leak; "
+              f"overlap with an INCORRECT option would be surprising -- watch this if it grows)")
         lq = sorted(r["ntok"] for r in rows)
         print(f"   q-caption ntok min/med/max = {lq[0]}/{lq[len(lq)//2]}/{lq[-1]}")
 
@@ -307,12 +398,13 @@ def audit(tag):
               f"{m['seconds']:7.0f}s  {m['rate_per_s']:.3f}/s  worst_ptok={m['worst_prompt_tokens']}")
     sm = json.load(open(f"{base}/score_meta.json"))["summary"]
     for arm, s in sm.items():
-        print(f"   {arm:3s} acc={s['acc']:.4f} uninferable={s['uninferable_rate']:.4f} "
+        print(f"   {arm:3s} acc={s['acc']:.4f} extract={s['extract_rate']:.4f} "
+              f"unextract={s['unextract_rate']:.4f} "
               f"trunc={s['trunc_rate']:.4f} unclosed={s['unclosed_think_rate']:.4f}")
-    ui = {a: s["uninferable_rate"] for a, s in sm.items()}
-    gate("G10.uninferable_rate_low", all(v < 0.15 for v in ui.values()), str(ui))
+    ui = {a: s["unextract_rate"] for a, s in sm.items()}
+    gate("G10.unextract_rate_low", all(v < 0.15 for v in ui.values()), str(ui))
     spread = (max(ui.values()) - min(ui.values())) if ui else 0
-    gate("G10b.uninferable_arm_spread", spread < 0.10,
+    gate("G10b.unextract_arm_spread", spread < 0.10,
          f"spread={spread:.3f} -- an arm-dependent format effect would confound accuracy")
     tr = {a: s["trunc_rate"] for a, s in sm.items()}
     gate("G11.truncation_low", all(v < 0.10 for v in tr.values()), str(tr))

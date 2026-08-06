@@ -24,18 +24,33 @@ MODELS = {
 # Source: each model card's **Multimodal** best-practice block (all arms carry an image).
 # `presence_penalty` and `max_tokens` exist ONLY in the cards, not in generation_config.json
 # (D11d). Thinking's block is byte-identical to Track-T's frozen recipe.
+# Re-verified 2026-08-06 against the live model cards (Qwen3-VL-4B-Thinking, Qwen3-VL-4B-Instruct):
+# sampling params (temperature/top_p/top_k/repetition_penalty/presence_penalty) are UNCHANGED --
+# both are already each model's own most-optimal published VL setting.
+#
+# D14 (2026-08-06): max_tokens raised for "instruct" and "caprl" ONLY, using certified UNUSED
+# headroom within max_model_len (verified live by gates G6/G6b, not hand-computed). Root cause,
+# confirmed by evidence, NOT presence_penalty (A5 runs presence_penalty=0.0 and shows the identical
+# failure mode, which rules that hypothesis out): neither model has a dedicated <think> scratchpad,
+# so on an ambiguous item its reasoning happens INLINE in the answer channel and can exhaust
+# max_tokens before ever reaching a conclusion (T0/T1/T2 do the same reasoning inside <think>,
+# where it has 40960 tokens of room and trunc_rate=0.000). This is a documented, named phenomenon
+# ("overthinking" / reasoning loops in LLMs without a bounded scratchpad) with the standard
+# community fix being exactly this: raise the output budget so the final answer isn't starved,
+# NOT a decode-sampling change. Sampling params are untouched; the fix stays within each model's
+# own max_model_len (no re-verification of GPU memory / KV-cache footprint needed).
 DECODE = {
     "thinking": dict(temperature=1.0, top_p=0.95, top_k=20,
                      repetition_penalty=1.0, presence_penalty=0.0, max_tokens=40960),
     "instruct": dict(temperature=0.7, top_p=0.80, top_k=20,
-                     repetition_penalty=1.0, presence_penalty=1.5, max_tokens=16384),
+                     repetition_penalty=1.0, presence_penalty=1.5, max_tokens=20480),
     # Q6 OPEN: CapRL-Qwen3VL-4B has NO model-specific recommendation. This is candidate A =
     # its shipped generation_config (== the Instruct base), with presence_penalty deliberately 0.0
     # because a presence penalty punishes token reuse, which is harmful for dense captioning and
     # was absent during CapRL's GRPO training. Candidate B is the README's CapRL-3B example
     # (temp 1.0 / top_p 1.0). RESOLVED BY MEASUREMENT AT THE SMOKE, not by this default.
     "caprl":    dict(temperature=0.7, top_p=0.80, top_k=20,
-                     repetition_penalty=1.0, presence_penalty=0.0, max_tokens=4096),
+                     repetition_penalty=1.0, presence_penalty=0.0, max_tokens=6144),
 }
 CAPRL_DECODE_CANDIDATES = {
     "A_genconfig": dict(temperature=0.7, top_p=0.80, top_k=20,
@@ -112,13 +127,17 @@ WRAPPER = "From the image, I can see the following:\n{payload}\n"
 # IDENTICALLY IN EVERY ARM. It therefore cannot confound any contrast (it only sets the absolute
 # level), and it materially reduces false negatives under the position-0-anchored official scorer.
 #
-# 2026-08-06 AMENDMENT (pre-outcome, no generation has run): we ALSO require a \boxed{} answer.
-# Rationale in tp_common's scorer section. Legitimacy note: changing the instrument is fine now
-# precisely because no outcome data exists; doing it after seeing results would be the violation.
+# 2026-08-06 AMENDMENT (pre-outcome): a \boxed{} requirement was added on top of this, then WALKED
+# BACK the same day after the smoke (D13). MMStar's own instruction says "answer ... directly,
+# such as answer letter 'A' only" -- appending "also put it in \boxed{}" asks the model to satisfy
+# two different, competing conventions, and the smoke measured a 34-69% "no box" rate that tracked
+# ARM IDENTITY (payload-carrying arms boxed less), not whether the model actually answered -- e.g.
+# a T0 generation whose entire post-<think> tail was the literal string "D" scored 0 under the
+# boxed rule. Reverting to the verbatim instruction and moving the extraction burden to a robust,
+# unit-tested PRIMARY parser (see extract_primary) instead of the prompt.
 ANSWER_HINT = ("Please select the correct answer from the options above. \n"
                "Answer with the option's letter from the given choices directly, "
-               "such as answer letter 'A' only. \n"
-               "Put your final answer letter in \\boxed{}. \n")
+               "such as answer letter 'A' only. \n")
 
 ARMS = {
     #  arm : (model_key, payload_kind)
@@ -363,60 +382,118 @@ def _canon_box(s):
         t = t.replace(w, "")
     return t.strip().strip("{}").strip().strip("().,:;$ ").strip()
 
-def score_boxed(text, choices, gt):
+# ---- PRIMARY EXTRACTION: robust "what did the model actually conclude" ------------------------
+# D13 (2026-08-06), superseding the earlier \boxed{}-required design (see ANSWER_HINT's amendment
+# note for why). PRIMARY now recognises whatever surface form the model used to conclude, instead
+# of requiring one specific one that the prompt no longer asks for.
+#
+# \boxed{} is still recognised -- some traces still use it unprompted -- and is checked over the
+# WHOLE text, LAST box wins, unchanged from before: an explicit \boxed{} is a deliberate,
+# unambiguous marker regardless of where it sits.
+#
+# Every OTHER rule is restricted to the response's FINAL SENTENCE-LIKE SEGMENT (split on . \n ; ! ?,
+# last non-empty piece). This is deliberate, not incidental: an UNrestricted "option B" or "answer
+# is B" search over the whole text would reproduce exactly the failure this redesign exists to
+# avoid -- crediting a letter mentioned mid-ramble in a response that goes on to hedge or never
+# conclude. Verified against a real smoke generation (I1, truncated, trunc=1) whose final segment is
+# "...D is the only option that mentions 'beneath', perhaps it is the intended answer -- even though
+# it is false": final-segment restriction correctly yields 'none' (D is mentioned but explicitly
+# hedged, not concluded); an unrestricted whole-text scan would have credited D.
+# Case sensitivity is deliberately NOT uniform across these five. _EXPLICIT/_OPTCHOICE/_BOLD/
+# _PAREN_END are case-INsensitive (re.I): their surrounding context ("answer is", "option", "**",
+# "()") cannot collide with ordinary English, so a lowercase letter is unambiguously the model's
+# answer. _BARE_END is deliberately left CASE-SENSITIVE (uppercase-only): an unanchored
+# case-insensitive bare-letter match would credit the English article "a" as an answer whenever a
+# response's final sentence happened to end "...so it must be a" -- the same "stray article"
+# failure already documented on upstream `can_infer_option`. The prompt itself shows an uppercase
+# example ("answer letter 'A'"), so real answers are overwhelmingly uppercase already; this asymmetry
+# trades a hypothetical lowercase bare answer (never observed) for ruling out a real false-positive
+# class (routinely observed in ordinary prose).
+_EXPLICIT  = re.compile(r"(?:final\s+)?answer\s*(?:is|:)\s*\**\(?([A-D])\)?\b", re.I)
+_OPTCHOICE = re.compile(r"\b(?:option|choice)\s*\**\(?([A-D])\)?\b", re.I)
+_BOLD      = re.compile(r"\*\*\(?([A-D])\)?\*\*", re.I)
+_PAREN_END = re.compile(r"\(([A-D])\)\s*\Z", re.I)
+_BARE_END  = re.compile(r"(?:^|[\s\n])\(?([A-D])\)?[\.\:\)]?\s*\Z")
+
+def _final_segment(text):
+    segs = [s.strip() for s in re.split(r"[.\n;!?]+", text) if s.strip()]
+    return segs[-1] if segs else ""
+
+def _last_match(pattern, text):
+    ms = list(pattern.finditer(text))
+    return ms[-1].group(1).upper() if ms else None
+
+def extract_primary(text, choices, gt):
     """
     PRIMARY. -> (correct, kind, payload)
-      kind = 'letter'  a bare A-D was boxed                       -> scored strictly
-             'value'   the boxed content matches one option's TEXT -> counted, credited only in
+      kind = 'letter'  a clean A-D was extracted                   -> scored strictly
+             'value'   a \\boxed{} matched one option's TEXT       -> counted, credited only in
                        the pre-registered TOLERANT metric (Track-T §11.8 pattern)
-             'other'   boxed something uninterpretable
-             'none'    no \\boxed{} at all  (or truncated mid-box)
+             'other'   a \\boxed{} matched something uninterpretable
+             'none'    nothing extractable (or truncated mid-box)  -> counted WRONG, never dropped
     """
     raw = extract_boxed(text)
-    if raw is None:
-        return 0, "none", None
-    c = _canon_box(raw)
-    if c and len(c) == 1 and c.upper() in "ABCD":
-        return int(c.upper() == gt), "letter", c.upper()
-    if choices:
-        cl = (c or "").lower()
-        hits = [k for k, v in choices.items() if str(v).strip() and str(v).lower() == cl]
-        if not hits:
-            hits = [k for k, v in choices.items() if str(v).strip() and str(v).lower() in cl]
-        if len(hits) == 1:
-            return 0, "value", hits[0]     # NOT credited by the primary; the tolerant metric does
-    return 0, "other", c
+    if raw is not None:
+        c = _canon_box(raw)
+        if c and len(c) == 1 and c.upper() in "ABCD":
+            return int(c.upper() == gt), "letter", c.upper()
+        if choices:
+            cl = (c or "").lower()
+            hits = [k for k, v in choices.items() if str(v).strip() and str(v).lower() == cl]
+            if not hits:
+                hits = [k for k, v in choices.items() if str(v).strip() and str(v).lower() in cl]
+            if len(hits) == 1:
+                return 0, "value", hits[0]     # NOT credited by the primary; the tolerant metric does
+        return 0, "other", c
+
+    seg = _final_segment(text)
+    for pattern in (_EXPLICIT, _OPTCHOICE, _BOLD, _PAREN_END, _BARE_END):
+        letter = _last_match(pattern, seg)
+        if letter:
+            return int(letter == gt), "letter", letter
+    return 0, "none", None
 
 def post_think(text):
     """Thinking models emit <think>…</think> then the answer. Score only what follows."""
     return text.split("</think>", 1)[1] if "</think>" in text else text
 
-def score_item(raw_text, choices, gt, is_thinking):
+def score_item(raw_text, choices, gt, is_thinking, closed=True):
     """
     THREE metrics on the SAME generation. Nothing is re-generated to produce them, so reporting
     all three costs nothing and lets the conclusion be checked under each.
 
-      correct           PRIMARY     — boxed letter, strict. No silent false-positive mode: a
-                                      missing/!letter box is WRONG and is counted.
+      correct           PRIMARY     — robust final-answer extraction (D13). No silent
+                                      false-positive mode: a response that never clearly concludes
+                                      is WRONG and is counted.
       correct_tolerant  SENSITIVITY — additionally credits a boxed option-VALUE that maps to the
-                                      gold choice, else falls back to can_infer. This is exactly
-                                      the Track-T §11.8 remedy, and it exists because boxing does
-                                      NOT remove the arm-dependent format effect (there,
-                                      non-letter-box rate was base 0.045 vs privileged 0.159).
+                                      gold choice, else falls back to can_infer over the WHOLE
+                                      text. This is exactly the Track-T §11.8 remedy.
       correct_official  COMPARABILITY — MMStar's own scorer, so we can state whether the finding
                                       survives under the benchmark's published definition.
+
+    `closed` (found in the D13/D14 re-review): for a thinking arm, post_think() falls back to the
+    FULL raw text when `</think>` never appears -- the model was still mid-reasoning when it hit
+    max_tokens and never left the thinking phase. Scoring that fallback text under any of the
+    three metrics would credit whatever the token cap happened to land next to (a stray letter
+    mid-reasoning, or predict[0] of an in-progress sentence for correct_official) as if it were a
+    real conclusion, which it structurally is not. `closed=False` short-circuits all three metrics
+    to a clean miss instead. Default True so every existing call site (including the self-tests
+    below, whose crafted strings already contain their own `</think>`) is unaffected.
     """
+    if is_thinking and not closed:
+        return dict(correct=0, ans_kind="none", ans_pred=None,
+                    correct_tolerant=0, correct_official=0, fc_artifact=0)
     body = post_think(raw_text) if is_thinking else raw_text
-    boxed_ok, kind, payload = score_boxed(body, choices, gt)
-    tol = boxed_ok
+    ok, kind, payload = extract_primary(body, choices, gt)
+    tol = ok
     if not tol:
         if kind == "value":
             tol = int(payload == gt)
         else:
             p = can_infer(body, choices) if choices else False
             tol = int(bool(p) and p != "Z" and p == gt)
-    return dict(correct=boxed_ok,
-                box_kind=kind, box_pred=payload,
+    return dict(correct=ok,
+                ans_kind=kind, ans_pred=payload,
                 correct_tolerant=int(tol),
                 correct_official=score_mmstar_official(body, gt),
                 fc_artifact=official_firstchar_artifact(body, gt))
