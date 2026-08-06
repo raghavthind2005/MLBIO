@@ -77,7 +77,13 @@ for ARM in T0 T1 T2 T3 A5; do
 done
 
 # ---- Stage D: score + analyse under all three metrics + audit ---------------------------------
-D=$(sub tp_ana debug 00:40:00 "$CDEPS" \
+# 01:30:00, raised from 00:40:00 (2026-08-06 final pre-launch check): the two-level bootstrap is
+# O(n x boot), and the smoke's own numbers (48 items, boot=2000) never exercised the real cost --
+# timed directly on real data (3.70s at smoke scale) and extrapolated to n=1500/boot=10000 x 3
+# metrics: ~29 min for the three analyse calls ALONE, before scoring/audit run on top. Too close
+# to 40 min to trust a single-measurement extrapolation; this is a config-only change (zero risk,
+# trivial cost against Stage C's GPU-hours) so there is no reason to run it that tight.
+D=$(sub tp_ana debug 01:30:00 "$CDEPS" \
       "python tp_pass3_score.py --tag $TAG && \
        python tp_pass4_analyze.py --tag $TAG --metric correct && \
        python tp_pass4_analyze.py --tag $TAG --metric correct_tolerant && \
