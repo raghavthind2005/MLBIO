@@ -106,7 +106,14 @@ def static(tag, limit):
     # max-length caption + the largest image. That is the case that used to blow the budget.
     for mk in ("thinking", "instruct"):
         pre = C.chat_prefix(mk, C.question_text(longest))
-        cap_worst = "x " * C.DECODE["caprl"]["max_tokens"]      # upper bound on caption tokens
+        # BUG (found by this gate's own failure on job 3020807, D14 fallout): the worst-case
+        # caption length must be the cap Pass 0 ACTUALLY generates captions with --
+        # CAPRL_DECODE_CANDIDATES["A_genconfig"]["max_tokens"] (still 4096, the frozen Q6
+        # resolution) -- NOT C.DECODE["caprl"]["max_tokens"], which is A5's own VQA-answering
+        # budget and has nothing to do with caption length. These two constants were both 4096
+        # before D14 raised the latter to 6144 for A5, so this line worked by COINCIDENCE, not by
+        # correct reference; the coincidence broke the moment D14 changed one but not the other.
+        cap_worst = "x " * C.CAPRL_DECODE_CANDIDATES["A_genconfig"]["max_tokens"]
         worst = pre + C.WRAPPER.format(payload=cap_worst)
         ptok = len(tok(worst, add_special_tokens=False).input_ids)
         hdr = ptok + C.IMG_TOK_MAX + C.DECODE[mk]["max_tokens"]
