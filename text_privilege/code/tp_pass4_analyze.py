@@ -4,8 +4,15 @@ with a 10k TWO-LEVEL bootstrap (resample items, then resample draws within item,
 variance enters the CI), plus exact McNemar on the majority-vote binarisation, Holm across the
 pre-registered family.
 
-Pre-registered contrast family (7):
-    T1-T0, I1-I0, INTERACTION (I1-I0)-(T1-T0), T1-T2, I1-I2, T2-T0, I2-I0
+Pre-registered contrast family, THINKING-ONLY (3), amended 2026-08-06:
+    T1-T0, T1-T2, T2-T0
+Instruct (I0-I3) was dropped from the full-scale run: the smoke measured an arm-dependent,
+payload-length-correlated non-convergence rate (unextract_rate spread 0.271; I0 0.021 < I1 0.090
+< I3 0.146, scaling with payload complexity, unchanged in character even after raising max_tokens)
+that is a real confound, not a metric artifact -- see submit_full.sh's SCOPE note. The ORIGINAL
+7-contrast family (T1-T0, I1-I0, INTERACTION, T1-T2, I1-I2, T2-T0, I2-I0) and the INTERACTION
+bootstrap in run() are left in place, unused by FAMILY_A now, so the already-collected Instruct
+SMOKE data (n=48) can still be reported as an explicitly-labelled exploratory footnote if wanted.
 A5 is DESCRIPTIVE ONLY and is not in the test family (Q4).
 
 Reported separately, pre-specified, not mined: the 500 perception items
@@ -17,13 +24,13 @@ import argparse, collections, json, math, random
 import tp_common as C
 
 # TWO pre-registered families, Holm-corrected SEPARATELY. They answer different questions, and
-# folding the four T3/I3 contrasts into family A would weaken the original endpoints under Holm
-# for no scientific reason. Both were fixed pre-outcome.
+# folding the T3 contrasts into family A would weaken the original endpoints under Holm for no
+# scientific reason. Both were fixed pre-outcome (amended 2026-08-06 to drop Instruct, also
+# pre-outcome relative to the full-scale run -- no full-scale generation has happened yet).
 #   A: does a strong QUESTION-BLIND articulation help?  (the original probe)
 #   B: does TARGETING the articulation at the question help, and help more than blind?
-FAMILY_A = [("T1", "T0"), ("I1", "I0"), ("INTERACTION", None),
-            ("T1", "T2"), ("I1", "I2"), ("T2", "T0"), ("I2", "I0")]
-FAMILY_B = [("T3", "T0"), ("I3", "I0"), ("T3", "T1"), ("I3", "I1")]
+FAMILY_A = [("T1", "T0"), ("T1", "T2"), ("T2", "T0")]
+FAMILY_B = [("T3", "T0"), ("T3", "T1")]
 PERCEPTION = C.PERCEPTION_CATS
 REASONING = C.REASONING_CATS
 
