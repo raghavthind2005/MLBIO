@@ -384,15 +384,23 @@ def audit(tag):
                 break
     gate("G16.payload_matches_frozen_caption", ok_pay)
 
-    # T1/I1 must consume byte-identical payloads ---------------------------
+    # T1/I1 must consume byte-identical payloads -- ONLY MEANINGFUL IF I1 EXISTS. Missed on the
+    # first post-scope-trim audit run (job 3021988): unlike G17/G18/G19/G20, this check had no
+    # guard for a dropped arm, so `set(t1) & set()` is unconditionally empty and the gate failed
+    # by construction the moment I1 stopped existing -- a stale check, not a real data-integrity
+    # problem (T1's OWN payload integrity is independently covered by G16 above, which DOES have
+    # the guard and passed). Fixed 2026-08-06.
     def paymap(arm):
         p = f"{base}/gen_{arm}.jsonl"
         return {(json.loads(l)["index"], json.loads(l)["draw"]): json.loads(l)["payload_sha"]
                 for l in open(p)} if os.path.exists(p) else {}
-    t1, i1 = paymap("T1"), paymap("I1")
-    shared = set(t1) & set(i1)
-    gate("G16b.T1_I1_same_captions",
-         bool(shared) and all(t1[k] == i1[k] for k in shared), f"n={len(shared)}")
+    if os.path.exists(f"{base}/gen_I1.jsonl"):
+        t1, i1 = paymap("T1"), paymap("I1")
+        shared = set(t1) & set(i1)
+        gate("G16b.T1_I1_same_captions",
+             bool(shared) and all(t1[k] == i1[k] for k in shared), f"n={len(shared)}")
+    else:
+        print("   [note] G16b skipped: I1 not in this run's arm scope (Instruct dropped, 2026-08-06)")
 
     # G10/G11 per-arm confound rates + G15 timing --------------------------
     print("\n--- per-arm rates & timing ---")
