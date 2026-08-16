@@ -14,16 +14,21 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
+
 import sys
 from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from virl_pool import ParseKind, answer_format, parse_problem  # noqa: E402
+from virl_pool import ParseKind, answer_format, parse_problem, stem_leaks_options  # noqa: E402
 
-OPTION_LABEL_ANYWHERE = re.compile(r"^[ \t]*\(?[A-E][.:)]+(?=\s|$)", re.MULTILINE)
+# NOTE: this gate deliberately calls parse_problem() rather than matching option
+# labels with its own regex. An earlier version used a line-anchored pattern and
+# drifted from the parser: it could not see the inline option layout at all, so
+# it reported 4 spurious failures AND -- far worse -- would have passed an
+# inline option leak in a stem silently. A gate that re-implements the logic it
+# is checking can only verify the re-implementation.
 
 
 def main() -> int:
@@ -56,16 +61,34 @@ def main() -> int:
     check("no empty stems", all(it["stem"].strip() for it in items))
     check("no empty full_text", all(it["full_text"].strip() for it in items))
 
-    # D18: the captioner must never see an option label.
-    leaked = [it["index"] for it in items
-              if it["kind"] == "mcq_labeled" and OPTION_LABEL_ANYWHERE.search(it["stem"])]
-    check("no MCQ stem contains an option label (D18)", not leaked, f"{len(leaked)} leaked: {leaked[:5]}")
+    mcq = [it for it in items if it["kind"] == "mcq_labeled"]
 
-    # An MCQ item's options must survive in the answerer's text, or the answerer
-    # is being asked to choose between options it cannot see.
-    missing = [it["index"] for it in items
-               if it["kind"] == "mcq_labeled" and not OPTION_LABEL_ANYWHERE.search(it["full_text"])]
-    check("every MCQ full_text still contains its options", not missing, f"{len(missing)}: {missing[:5]}")
+    # D18: the captioner must never see the options. Two independent tests --
+    # the stem must not itself parse as multiple-choice, and no option body may
+    # appear verbatim inside it.
+    reparses_as_mcq = [it["index"] for it in mcq
+                       if parse_problem(it["stem"]).kind is ParseKind.MCQ_LABELED]
+    check("no MCQ stem re-parses as multiple-choice (D18)",
+          not reparses_as_mcq, f"{len(reparses_as_mcq)}: {reparses_as_mcq[:5]}")
+
+    body_leak = []
+    for it in mcq:
+        stem_lc = it["stem"].lower()
+        bodies = parse_problem(it["full_text"]).option_texts
+        # Short bodies ("2", "no") occur naturally in a question stem and cannot
+        # be used as leak evidence without false positives.
+        if any(len(b.strip()) >= 8 and b.strip().lower() in stem_lc for b in bodies):
+            body_leak.append(it["index"])
+    check("no option body appears verbatim in a stem (D18)",
+          not body_leak, f"{len(body_leak)}: {body_leak[:5]}")
+
+    # The answerer must still see the options, or it is being asked to choose
+    # between alternatives it cannot read. Compared against the STORED labels,
+    # using the parser itself.
+    missing = [it["index"] for it in mcq
+               if tuple(parse_problem(it["full_text"]).option_labels) != tuple(it["option_labels"])]
+    check("every MCQ full_text still carries its stored options",
+          not missing, f"{len(missing)}: {missing[:5]}")
 
     # Image placeholders must be gone from both texts: the answerer is blind, and
     # a stray placeholder would break the D17 parity diff.
