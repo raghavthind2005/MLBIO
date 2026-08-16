@@ -38,12 +38,34 @@ Runs before any GPU work.
      grader problem rather than a data problem.
 3. **Options stripping (D18).** Split `problem` into stem and options. The captioner gets the stem; the
    answerer gets the full problem.
-   - **Gate OPEN-9:** the parser must classify every row as MCQ or non-MCQ and, for MCQ rows, produce a stem
-     containing **zero** option strings. Rows the parser cannot handle confidently are **dropped, counted, and
-     dumped** — never silently passed through. Known hazard **[V]**: a `Choices:|Options:` regex matched only
-     9.7% of a 600-row sample while 28.7% of answers were single letters, so format variety is real.
-   - Validation: assert no option text survives in any stem; assert non-MCQ stems are byte-identical to the
-     original problem.
+   - **Gate G-PARSE:** the parser must classify every row and, for MCQ rows, produce a stem containing **zero**
+     option strings. Rows it cannot handle confidently are **dropped, counted, and dumped** — never silently
+     passed through. The parser refuses rather than guesses.
+
+   **[V] Measured on 1,400 real rows** (`code/virl_pool.py`, 31 unit tests in `code/test_virl_pool.py`):
+
+   | outcome | share | note |
+   |---|---|---|
+   | `no_options` (free-form) | 54.6% | nothing to strip |
+   | `mcq_labeled` | 36.1% | stem/options cleanly separated |
+   | `unparseable` (dropped + dumped) | 9.2% | breakdown below |
+
+   Unparseable breakdown: 78 rows where the **options are images** (`A. <image_1> B. <image_2>` — a blind
+   answerer cannot answer these at all), 43 unlabeled bare-line rows (answer letters denote in-image labels),
+   5 with untrustworthy label runs, 2 with prose-length bodies, 1 malformed.
+
+   **Five option formats had to be handled; four were invisible until the data was inspected:**
+   1. `A. text` at line start — the *dominant* style (451/541), not `(A) text` (90).
+   2. Inline single-line options (`…choose from the options provided: A. 5 cm B. 10 cm …`) — 7.7% of
+      letter-answer rows. Missing these handed the captioner the full option list.
+   3. Stray prose labels *before* the options — this dataset is geometry-heavy, so "intersecting BC at point E"
+      yields a raw match list of `['E','A','B','C','D']`. Assuming the first match starts the run broke 7.7% of
+      MCQ rows; fixed by locating the **trailing canonical run**.
+   4. Literal backslash-`n` instead of real newlines (~1.4% of rows).
+   5. Lowercase labels `(a). … (b). …` (~0.07%) — detected only in order to **refuse**.
+
+   Residual: exactly **1** letter-answer row in 1,400 still parses as free-form, and inspection confirms it is
+   genuinely not multiple-choice ("…the hotel with better performance is hotel A. What is your reason?").
 4. Deterministic seeded sample of **n=200** items; a nested **50-item subset** flagged for the M=3 arm.
 5. Write `pool_manifest.json`: indices, answer formats, MCQ flags, seed, dataset revision SHA, code git SHA,
    and a content hash of the selected rows.
