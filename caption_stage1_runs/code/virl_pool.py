@@ -330,12 +330,35 @@ def stem_leaks_options(parsed: ParsedProblem) -> bool:
 # Gradeability (D22)
 # --------------------------------------------------------------------------
 
+#: Answer shapes. D22 restricts the pool to ``letter`` and ``numeric``, the
+#: shapes ``mathruler`` handles unambiguously; ``other`` (free text such as
+#: "Rectangles", "Mar 2-8, 2020", "30 minutes") is dropped.
+ANSWER_LETTER = re.compile(r"^[A-E]$")
+ANSWER_NUMERIC = re.compile(r"^[+-]?(\d+(\.\d+)?|\d+/\d+)$")
+
+DEFAULT_ALLOWED_FORMATS = ("letter", "numeric")
+
+
+def answer_format(answer: str) -> str:
+    """Classify an answer as ``letter`` / ``numeric`` / ``other``."""
+    a = (answer or "").strip()
+    if ANSWER_LETTER.match(a):
+        return "letter"
+    if ANSWER_NUMERIC.match(a):
+        return "numeric"
+    return "other"
+
+
 def is_gradeable(answer: str, grade_fn: Callable[[str, str], bool]) -> bool:
     """An answer is gradeable iff the grader matches it against itself.
 
-    If ``grade_answer(a, a)`` is False, no model response can ever be scored
-    correct on that row, so its accuracy is meaningless and it must not enter a
-    pool whose purpose is measuring accuracy.
+    A necessary condition only, and a weak one. Measured on all 38,870 rows with
+    the container's real ``mathruler``, this passes **100%** -- string equality
+    short-circuits any sane grader, so self-comparison cannot reveal whether the
+    grader would credit a correct-but-differently-rendered response (``1/2`` vs
+    ``0.5``). It is retained because it costs nothing and does exclude empty and
+    exception-raising answers, but the substantive pool restriction is
+    :func:`answer_format` (D22), not this.
 
     ``grade_fn`` is injected rather than imported so this module is testable
     without the container's ``mathruler`` stack.
@@ -360,9 +383,11 @@ class PoolStats:
     n_multi_image: int = 0
     n_unparseable: int = 0
     n_ungradeable: int = 0
+    n_wrong_format: int = 0
     n_stem_leak: int = 0
     n_eligible: int = 0
     by_kind: dict[str, int] = field(default_factory=dict)
+    by_answer_format: dict[str, int] = field(default_factory=dict)
     unparseable_reasons: dict[str, int] = field(default_factory=dict)
 
 
@@ -375,6 +400,7 @@ class PoolItem:
     kind: str
     option_labels: tuple[str, ...]
     image_paths: tuple[str, ...]
+    answer_fmt: str = ""
 
 
 def build_pool(
@@ -384,6 +410,7 @@ def build_pool(
     n_items: int,
     n_subset: int,
     seed: int,
+    allowed_formats: Sequence[str] = DEFAULT_ALLOWED_FORMATS,
 ) -> tuple[list[PoolItem], list[int], PoolStats, list[dict]]:
     """Filter, then draw a deterministic pilot sample.
 
@@ -440,6 +467,15 @@ def build_pool(
             rejects.append({"index": idx, "stage": "ungradeable", "answer": answer})
             continue
 
+        # D22 (the substantive restriction): keep only answer shapes the grader
+        # handles unambiguously. Free text is dropped.
+        fmt = answer_format(answer)
+        stats.by_answer_format[fmt] = stats.by_answer_format.get(fmt, 0) + 1
+        if fmt not in allowed_formats:
+            stats.n_wrong_format += 1
+            rejects.append({"index": idx, "stage": "wrong_answer_format", "answer": answer, "format": fmt})
+            continue
+
         eligible.append(
             PoolItem(
                 index=idx,
@@ -449,6 +485,7 @@ def build_pool(
                 kind=parsed.kind.value,
                 option_labels=parsed.option_labels,
                 image_paths=images,
+                answer_fmt=fmt,
             )
         )
 

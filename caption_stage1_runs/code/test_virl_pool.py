@@ -21,6 +21,7 @@ import unittest
 
 from virl_pool import (
     ParseKind,
+    answer_format,
     build_pool,
     is_gradeable,
     manifest_hash,
@@ -254,6 +255,29 @@ class TestGradeability(unittest.TestCase):
         self.assertFalse(is_gradeable("\\frac{1}{2}", boom))
 
 
+class TestAnswerFormat(unittest.TestCase):
+    """D22's substantive filter: letter and numeric only, free text dropped.
+
+    The self-match rule cannot do this job -- measured on all 38,870 real rows
+    it passes 100%, because string equality short-circuits the grader.
+    """
+
+    def test_letters(self):
+        for a in ("A", "B", "E"):
+            self.assertEqual(answer_format(a), "letter")
+
+    def test_numerics(self):
+        for a in ("100", "0", "-3", "2.5", "5/10"):
+            self.assertEqual(answer_format(a), "numeric")
+
+    def test_free_text_is_other(self):
+        for a in ("Rectangles", "Mar 2-8, 2020", "30 minutes", "1 or 100%", "4 - 3 = 1", "No"):
+            self.assertEqual(answer_format(a), "other")
+
+    def test_multi_letter_is_not_a_letter_answer(self):
+        self.assertEqual(answer_format("AB"), "other")
+
+
 def _row(i, problem=DOT_STYLE, answer="A", images=("img.jpg",)):
     return {"index": i, "problem": problem, "answer": answer, "images": list(images)}
 
@@ -278,6 +302,29 @@ class TestBuildPool(unittest.TestCase):
         self.assertEqual(len(rejects), 3)
         self.assertEqual({r["stage"] for r in rejects},
                          {"multi_image", "unparseable", "ungradeable"})
+
+    def test_free_text_answers_are_dropped_by_default(self):
+        rows = [_row(i) for i in range(20)]
+        rows.append(_row(200, answer="Rectangles"))
+        rows.append(_row(201, answer="30 minutes"))
+        items, _, stats, rejects = build_pool(
+            rows, self.grade, n_items=10, n_subset=3, seed=0
+        )
+        self.assertEqual(stats.n_wrong_format, 2)
+        self.assertEqual(stats.n_eligible, 20)
+        self.assertEqual(
+            {r["answer"] for r in rejects if r["stage"] == "wrong_answer_format"},
+            {"Rectangles", "30 minutes"},
+        )
+
+    def test_allowed_formats_is_configurable(self):
+        rows = [_row(i) for i in range(10)] + [_row(100 + i, answer="Rectangles") for i in range(10)]
+        _, _, stats, _ = build_pool(
+            rows, self.grade, n_items=15, n_subset=3, seed=0,
+            allowed_formats=("letter", "numeric", "other"),
+        )
+        self.assertEqual(stats.n_wrong_format, 0)
+        self.assertEqual(stats.n_eligible, 20)
 
     def test_sampling_is_deterministic_under_seed(self):
         rows = [_row(i) for i in range(50)]

@@ -37,7 +37,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from virl_pool import ParseKind, build_pool, manifest_hash, parse_problem  # noqa: E402
+from virl_pool import (  # noqa: E402
+    DEFAULT_ALLOWED_FORMATS,
+    ParseKind,
+    build_pool,
+    manifest_hash,
+    parse_problem,
+)
 
 DEFAULT_SNAPSHOT = (
     "/iopsstor/scratch/cscs/raghavthind/hf_cache/hub/"
@@ -47,9 +53,21 @@ DEFAULT_SNAPSHOT = (
 
 
 def _git_sha() -> str:
+    """Code provenance.
+
+    Prefers ``CS1_GIT_SHA``, exported by the sbatch from the synced clone: the
+    cluster code directory is a plain ``cp`` target, not a git repo, so asking
+    git there yields nothing and provenance would silently record "unknown".
+    """
+    env = os.environ.get("CS1_GIT_SHA", "").strip()
+    if env:
+        return env
     try:
         return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=Path(__file__).resolve().parent, text=True
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parent,
+            text=True,
+            stderr=subprocess.DEVNULL,
         ).strip()
     except Exception:
         return "unknown"
@@ -140,7 +158,13 @@ def main() -> int:
     ap.add_argument("--n-subset", type=int, default=50)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--report-only", action="store_true")
+    ap.add_argument(
+        "--allowed-formats",
+        default=",".join(DEFAULT_ALLOWED_FORMATS),
+        help="comma-separated answer shapes to keep (D22 default: letter,numeric)",
+    )
     args = ap.parse_args()
+    allowed = tuple(f.strip() for f in args.allowed_formats.split(",") if f.strip())
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -175,6 +199,7 @@ def main() -> int:
         "rejected_answer_examples": rejected,
         "snapshot": args.snapshot,
         "code_git_sha": _git_sha(),
+        "allowed_formats": list(allowed),
     }
     (out / "pool_report.json").write_text(json.dumps(report, indent=2))
     print(f"      wrote {out/'pool_report.json'}", flush=True)
@@ -185,7 +210,12 @@ def main() -> int:
 
     print(f"[4/4] drawing pool n={args.n_items} subset={args.n_subset} seed={args.seed}", flush=True)
     items, subset, stats, rejects = build_pool(
-        rows, grade_answer, n_items=args.n_items, n_subset=args.n_subset, seed=args.seed
+        rows,
+        grade_answer,
+        n_items=args.n_items,
+        n_subset=args.n_subset,
+        seed=args.seed,
+        allowed_formats=allowed,
     )
 
     (out / "pool_manifest.json").write_text(
@@ -209,7 +239,11 @@ def main() -> int:
 
     print(f"      eligible={stats.n_eligible:,}  drawn={len(items)}  subset={len(subset)}", flush=True)
     print(f"      dropped: multi_image={stats.n_multi_image} unparseable={stats.n_unparseable} "
-          f"ungradeable={stats.n_ungradeable} stem_leak={stats.n_stem_leak}", flush=True)
+          f"ungradeable={stats.n_ungradeable} wrong_format={stats.n_wrong_format} "
+          f"stem_leak={stats.n_stem_leak}", flush=True)
+    print(f"      answer formats seen: {dict(stats.by_answer_format)}", flush=True)
+    print(f"      drawn by format: "
+          f"{ {f: sum(1 for it in items if it.answer_fmt == f) for f in allowed} }", flush=True)
     print(f"      manifest sha256 = {manifest_hash(items)}", flush=True)
     return 0
 
