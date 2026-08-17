@@ -131,6 +131,60 @@ MAX_OPTION_BODY_CHARS = 200
 LOWER_OPTION_LABEL = re.compile(r"(?:[\s;,]|\\n)\(?(?P<label>[a-e])[.:)]+(?=\s|$)")
 
 
+#: Option lead-ins that survive into the stem once the option LABELS are cut.
+#: The parser slices from the first label, but the announcement precedes the
+#: labels, leaving a dangling "Choices:" at the end of the captioner's prompt --
+#: malformed, and a signal that options were removed. Each pattern must be
+#: anchored at the end and require the announcing colon (or parentheses), so an
+#: ordinary sentence ending in the word "options" is not truncated.
+_LEADIN_CORE = r"(?:choices?|options?)"
+
+DANGLING_LEADINS = (
+    # "Choices:", "from the choices:", "Please choose from the options provided:"
+    re.compile(
+        r"(?:\s*\b(?:please\s+)?(?:choose|select|pick)\b)?"
+        r"(?:\s*\b(?:from|of|among|in|between)\b)?"
+        r"(?:\s*\bthe\b)?(?:\s*\bfollowing\b)?"
+        rf"\s*\b{_LEADIN_CORE}\b"
+        r"(?:\s+(?:provided|below|listed|shown|available))?"
+        r"\s*[:\uff1a]\s*$",
+        re.IGNORECASE,
+    ),
+    # "(Choose from options below)"
+    re.compile(r"\s*\(\s*[^()\n]{0,60}?options?[^()\n]{0,20}?\)\s*$", re.IGNORECASE),
+    # a bare "Choices" / "Options" alone on the final line
+    re.compile(r"(?:^|\n)[ \t]*(?:choices?|options?)\s*$", re.IGNORECASE),
+)
+
+#: Safety net. If a strip would remove more than this, or empty the stem, it is
+#: refused: no lead-in is that long, so a larger removal means the pattern has
+#: eaten the question itself.
+MAX_LEADIN_STRIP_CHARS = 60
+
+
+def strip_dangling_leadin(stem: str) -> str:
+    """Remove an option announcement left stranded at the end of a stem.
+
+    Applied repeatedly, because a stem can end with more than one form, e.g.
+    ``"... (Please select the correct letter choice) Choices:"``. Every step is
+    guarded: a strip that empties the stem, or removes more than
+    :data:`MAX_LEADIN_STRIP_CHARS`, is discarded and the text kept as-is.
+    """
+    out = stem.strip()
+    changed = True
+    while changed:
+        changed = False
+        for pat in DANGLING_LEADINS:
+            candidate = pat.sub("", out).strip()
+            if candidate == out:
+                continue
+            if not candidate or len(out) - len(candidate) > MAX_LEADIN_STRIP_CHARS:
+                continue          # refuse: this is eating the question
+            out = candidate
+            changed = True
+    return out
+
+
 def _trailing_canonical_run(
     matches: list[re.Match[str]], first: str = "A"
 ) -> list[re.Match[str]]:
@@ -288,7 +342,7 @@ def parse_problem(problem: str) -> ParsedProblem:
                 reason=f"unexpected content after final option: {residue.strip()[:60]!r}",
             )
 
-    stem = strip_image_placeholders(stem_raw)
+    stem = strip_dangling_leadin(strip_image_placeholders(stem_raw))
     full_text = strip_image_placeholders(problem)
 
     if not stem:

@@ -27,6 +27,7 @@ from virl_pool import (
     manifest_hash,
     parse_problem,
     stem_leaks_options,
+    strip_dangling_leadin,
     strip_image_placeholders,
 )
 
@@ -86,11 +87,19 @@ class TestParseProblem(unittest.TestCase):
         for body in p.option_texts:
             self.assertNotIn(body, p.stem)
 
-    def test_choices_marker_kept_out_of_options(self):
+    def test_choices_marker_is_not_left_dangling_in_the_stem(self):
+        """The marker announces options; with the options cut it must go too.
+
+        This assertion previously required the opposite -- it locked in the bug.
+        Rendering a real captioner prompt exposed it: the model was being shown
+        a question ending in a bare "Choices:" with nothing after it.
+        """
         p = parse_problem(CHOICES_MARKER)
         self.assertIs(p.kind, ParseKind.MCQ_LABELED)
         self.assertEqual(p.option_texts, ("yes", "no"))
-        self.assertIn("Choices:", p.stem)  # marker belongs to the stem side
+        self.assertEqual(p.stem, "Is the dotted line a line of symmetry?")
+        self.assertNotIn("Choices:", p.stem)
+        self.assertIn("Choices:", p.full_text)  # answerer still sees it
 
     def test_image_after_options_does_not_lose_the_placeholder(self):
         """The trap: naive 'cut to end of string' would delete the image."""
@@ -253,6 +262,43 @@ class TestGradeability(unittest.TestCase):
             raise ValueError("bad latex")
 
         self.assertFalse(is_gradeable("\\frac{1}{2}", boom))
+
+
+class TestDanglingLeadin(unittest.TestCase):
+    """The parser cuts from the first option LABEL, but the announcement that
+    precedes the labels ("Choices:") survives into the stem. Caught by rendering
+    a real prompt: the captioner was being shown a dangling "Choices:" with
+    nothing after it -- malformed, and a signal that options were removed.
+    """
+
+    def test_choices_line_removed(self):
+        p = parse_problem("What was the height?\nChoices:\n(A) 5m\n(B) 6m\n(C) 7m\n(D) 8m")
+        self.assertEqual(p.stem, "What was the height?")
+
+    def test_inline_connector_removed(self):
+        p = parse_problem("Find the length of CE from the choices: A. 6, B. 5, C. 4, D. 3.")
+        self.assertEqual(p.stem, "Find the length of CE")
+
+    def test_parenthetical_removed(self):
+        p = parse_problem("What is the distance? (Choose from options below) A. 5 cm B. 4 cm C. 3 cm")
+        self.assertEqual(p.stem, "What is the distance?")
+
+    def test_please_choose_phrase_removed(self):
+        p = parse_problem("Determine the length of EF. Please choose from the options provided: "
+                          "A. 5 cm B. 10 cm C. 20 cm D. Undetermined.")
+        self.assertEqual(p.stem, "Determine the length of EF.")
+
+    def test_sentence_ending_in_options_is_untouched(self):
+        self.assertEqual(strip_dangling_leadin("Which of these are valid options"),
+                         "Which of these are valid options")
+
+    def test_strip_never_empties_the_stem(self):
+        """Guard: a strip that would leave nothing is refused."""
+        self.assertEqual(strip_dangling_leadin("Choices:"), "Choices:")
+
+    def test_strip_never_removes_more_than_the_cap(self):
+        long_tail = "x" * 80 + " options:"
+        self.assertEqual(strip_dangling_leadin(long_tail), long_tail[:-9].strip() or long_tail)
 
 
 class TestAnswerFormat(unittest.TestCase):
