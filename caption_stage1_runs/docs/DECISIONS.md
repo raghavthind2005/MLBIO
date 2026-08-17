@@ -225,6 +225,18 @@ rollout: GRPO's policy gradient assumes samples come from `π_θ`.
 cap. Here the model is **Instruct**, answers are ~8 tokens, and captions are length-capped. Degeneration risk is
 low and monitored; estimator bias would have been certain.
 
+> **⚠️ EMPIRICAL PREMISE PARTLY FALSIFIED (measured 2026-08-16 on 2B).** "Answers are ~8 tokens" is **false**:
+> measured **median 3072, 75% truncated**, `eos` reached on only 25%. The decision's *conclusion* stands, but on
+> different evidence than written — repetition analysis of those answers found **0/20 looping (mean 5-gram rep
+> 0.101)**; they are coherent, self-correcting reasoning that simply does not converge, not degeneration.
+>
+> The correctness argument above (truncated sampling ⇒ `p̃ ≠ p` ⇒ biased `D̂`) is model-independent and is
+> **unaffected**. What is stale is the *safety* argument, which rested on 2B measurements:
+> the supporting finding that model-card sampling is **13× more repetitive** than untruncated (0.450 vs 0.035)
+> — i.e. that off-card is both more correct *and* better behaved — is **not yet re-measured at 4B** (D33).
+> Pending: the D33 preset sweep re-establishes this at the new backbone. This does **not** reopen D23; the
+> training preset is `untruncated` on correctness grounds regardless of how the sweep comes out.
+
 **[V]** `Qwen3-VL-4B-Instruct` `generation_config.json` (re-verified under D33; **byte-identical to the 2B's**):
 `temperature 0.7, top_p 0.8, top_k 20,
 repetition_penalty 1.0, eos_token_id [151645, 151643]`. Recorded for provenance; deliberately not used for
