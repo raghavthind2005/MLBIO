@@ -110,10 +110,23 @@ Question: {stem}
 
 ## 4. Generation and scoring
 
-**Sampling parameters (D23):** read from `Qwen3-VL-4B-Instruct`'s own `generation_config.json` (verified
-2026-08-17 to be byte-identical to the 2B's, so the recorded values are unchanged by D33),
-and record the values in the run manifest. Do not inherit VLM-CapCurriculum's `top_p=1.0` — unbounded sampling
-is what made Qwen3-VL degenerate into loops in the PAPO line.
+**Sampling parameters (D23, as AMENDED):** `temperature 1.0`, `top_p 1.0`, `top_k -1` — **untruncated** — for
+both caption and answer. Rationale is correctness, not preference: the D9 estimator identity holds only for
+`y` drawn from the true policy `p`, and any `top_p`/`top_k` truncation draws from `p̃ ≠ p`, silently biasing
+every `D̂`. GRPO's policy gradient makes the same on-policy assumption.
+
+> **Corrected 2026-08-17.** This paragraph previously said to read the values from the model's
+> `generation_config.json` and warned *"do not inherit VLM-CapCurriculum's `top_p=1.0`"* — i.e. it described
+> the **pre-amendment** D23 and advised against precisely what the amended D23 requires. Stale text, now
+> aligned. The card values (`temp 0.7 / top_p 0.8 / top_k 20`, identical on 2B and 4B) are still recorded in
+> the run manifest **for provenance only** and are not used for rollouts.
+
+*Independent corroboration (2026-08-17).* EasyR1's own default (`examples/config.yaml`) is `temperature 1.0`,
+`top_p 1.0`, `top_k` unset — untruncated. Vision-SR1, whose method is the closest published analogue to ours,
+overrides only to `temperature 1.0`, `top_p 0.99`, `n 8` (`vision_sr1/config.yaml`), and likewise never uses
+its backbone's card — Qwen2.5-VL-7B-Instruct's card is `temperature 1e-6`, effectively greedy. Their `top_p
+0.99` clips the extreme tail for stability at the cost of a small bias; we hold `1.0` for strict
+unbiasedness, and treat `0.99` as the documented fallback if the D33 sweep shows degeneration.
 
 **Two-pass structure** (the PAPO-probe pattern): generate with vLLM → persist to disk → score with HF in a
 separate process, so vLLM and HF never co-reside and we avoid the sleep/wake OOM class.
