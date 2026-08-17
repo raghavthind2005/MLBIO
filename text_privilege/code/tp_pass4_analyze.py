@@ -4,8 +4,15 @@ with a 10k TWO-LEVEL bootstrap (resample items, then resample draws within item,
 variance enters the CI), plus exact McNemar on the majority-vote binarisation, Holm across the
 pre-registered family.
 
-Pre-registered contrast family (7):
-    T1-T0, I1-I0, INTERACTION (I1-I0)-(T1-T0), T1-T2, I1-I2, T2-T0, I2-I0
+Pre-registered contrast family, THINKING-ONLY (3), amended 2026-08-06:
+    T1-T0, T1-T2, T2-T0
+Instruct (I0-I3) was dropped from the full-scale run: the smoke measured an arm-dependent,
+payload-length-correlated non-convergence rate (unextract_rate spread 0.271; I0 0.021 < I1 0.090
+< I3 0.146, scaling with payload complexity, unchanged in character even after raising max_tokens)
+that is a real confound, not a metric artifact -- see submit_full.sh's SCOPE note. The ORIGINAL
+7-contrast family (T1-T0, I1-I0, INTERACTION, T1-T2, I1-I2, T2-T0, I2-I0) and the INTERACTION
+bootstrap in run() are left in place, unused by FAMILY_A now, so the already-collected Instruct
+SMOKE data (n=48) can still be reported as an explicitly-labelled exploratory footnote if wanted.
 A5 is DESCRIPTIVE ONLY and is not in the test family (Q4).
 
 Reported separately, pre-specified, not mined: the 500 perception items
@@ -17,13 +24,13 @@ import argparse, collections, json, math, random
 import tp_common as C
 
 # TWO pre-registered families, Holm-corrected SEPARATELY. They answer different questions, and
-# folding the four T3/I3 contrasts into family A would weaken the original endpoints under Holm
-# for no scientific reason. Both were fixed pre-outcome.
+# folding the T3 contrasts into family A would weaken the original endpoints under Holm for no
+# scientific reason. Both were fixed pre-outcome (amended 2026-08-06 to drop Instruct, also
+# pre-outcome relative to the full-scale run -- no full-scale generation has happened yet).
 #   A: does a strong QUESTION-BLIND articulation help?  (the original probe)
 #   B: does TARGETING the articulation at the question help, and help more than blind?
-FAMILY_A = [("T1", "T0"), ("I1", "I0"), ("INTERACTION", None),
-            ("T1", "T2"), ("I1", "I2"), ("T2", "T0"), ("I2", "I0")]
-FAMILY_B = [("T3", "T0"), ("I3", "I0"), ("T3", "T1"), ("I3", "I1")]
+FAMILY_A = [("T1", "T0"), ("T1", "T2"), ("T2", "T0")]
+FAMILY_B = [("T3", "T0"), ("T3", "T1")]
 PERCEPTION = C.PERCEPTION_CATS
 REASONING = C.REASONING_CATS
 
@@ -171,13 +178,14 @@ def main():
         p = phat(per["A5"])
         # A5 HEADLINE = correct_tolerant (user decision, 2026-08-06, pre-outcome).
         # CapRL is a captioner: it was RL-trained to produce dense descriptions and never trained
-        # to follow an MCQ format instruction, so its boxed-compliance is expected to be poor.
-        # Under the boxed PRIMARY that would read as "cannot do VQA" when it actually means "does
-        # not box" -- a capability claim contaminated by a format artifact. The tolerant metric
-        # needs no box, so it measures what this arm is for. Descriptive only either way: A5 is
-        # NOT in the pre-registered contrast family.
+        # to follow an MCQ format instruction, so its answer-extraction rate is expected to be
+        # worse than the reasoners' even under D13's general extractor. Under the PRIMARY that
+        # would read as "cannot do VQA" when it actually means "doesn't conclude in a recognisable
+        # form" -- a capability claim contaminated by a format artifact. The tolerant metric falls
+        # back to can_infer over the whole text, so it measures what this arm is for. Descriptive
+        # only either way: A5 is NOT in the pre-registered contrast family.
         tag = "  <-- A5 HEADLINE" if a.metric == "correct_tolerant" else \
-              "  (not A5's headline; see box_missing_rate in score_meta)"
+              "  (not A5's headline; see unextract_rate in score_meta)"
         print(f"[pass4] A5 (captioner VQA, DESCRIPTIVE ONLY) acc = "
               f"{sum(p.values()) / len(p):.4f} on n={len(p)}{tag}")
 

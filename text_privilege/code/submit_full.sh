@@ -3,7 +3,7 @@
 #
 #   Stage A  captions        1 job   (CapRL)                     ]
 #   Stage B  placebo         1 job   (CPU, needs A)              ] strictly serial: the stimulus
-#   Stage C  9 arm jobs      PARALLEL (needs B)                  ] must exist before it is used
+#   Stage C  5 arm jobs      PARALLEL (needs B)                  ] must exist before it is used
 #   Stage D  score+analyse   1 job   (needs ALL of C)            ]
 #
 # Why ONE ARM PER JOB in stage C (not grouped by model as the smoke does):
@@ -15,9 +15,25 @@
 #     batching -- so no arm is treated differently from any other. Symmetry across arms is worth
 #     more than a few minutes of load time.
 #
-# Usage:  bash submit_full.sh [K]      (K defaults to 5; fix it from smoke gate G15 first)
+# SCOPE (2026-08-06): Instruct (I0-I3) DROPPED from the full-scale run. The smoke (job 3020838,
+# clean pipeline, all gates through G20 ran) measured an arm-dependent, payload-length-correlated
+# non-convergence rate on Instruct that a boxed-primary conflict does NOT explain this time --
+# unextract_rate spread 0.271 (T-arms 0.000-0.014, I3 0.271), scaling I0(0.021)<I1(0.090)<I3(0.146)
+# with payload complexity, identical hedging text at the raised cap (every truncated I1/I3
+# generation hit exactly the new 20480-token ceiling with the same "Wait -- perhaps..." pattern as
+# before the raise) -- i.e. more budget delays the failure, doesn't fix it. That is a real,
+# unresolved confound, not a metric artifact, and Instruct's own arms are also the most expensive
+# per item (I3 alone projects to 7.53h against its 6h budget at K=3 on this smoke's real rates).
+# Thinking (T0-T3) is clean (extract_rate ~1.0 across the board) and is the primary evidence.
+# The already-collected Instruct SMOKE data (n=48, out/smoke/) is kept as a documented exploratory
+# footnote, not deleted; FAMILY_A's original 7-contrast form and the INTERACTION bootstrap in
+# tp_pass4_analyze.py's run() are left in place (just unused by the new FAMILY_A) for that purpose.
+#
+# Usage:  bash submit_full.sh [K]      (K=3, fixed 2026-08-06 from this smoke's real per-arm rates
+#                                        on the T0-T3+A5 set: T3, the new long pole, projects to
+#                                        6.41h at K=3 vs its 12h budget -- comfortable margin)
 set -euo pipefail
-K=${1:-5}
+K=${1:-3}
 TAG=${TAG:-full}
 M=${M:-5}
 S=/iopsstor/scratch/cscs/$USER/text_privilege
@@ -38,8 +54,8 @@ A=$(sub tp_cap normal 04:00:00 - \
       "python tp_pass0_captions.py --captions-per-item $M --tag $TAG")
 echo "A captions      = $A"
 
-# Stage A2: question-conditioned captions (arms T3/I3). Independent of A, but chained after it so
-# only one CapRL job is resident at a time.
+# Stage A2: question-conditioned captions (arm T3; I3 dropped, see SCOPE note above). Independent
+# of A, but chained after it so only one CapRL job is resident at a time.
 A2=$(sub tp_capq normal 04:00:00 "$A" \
       "python tp_pass0_captions.py --captions-per-item $M --tag $TAG --variant q")
 echo "A2 q-captions   = $A2"
@@ -49,12 +65,11 @@ B=$(sub tp_plc debug 00:20:00 "$A2" \
       "python tp_pass1_placebo.py --tag $TAG")
 echo "B placebo       = $B"
 
-# ---- Stage C: seven arms, in parallel ---------------------------------------------------------
-# Thinking arms get the long wall-clock: max_tokens 40960 vs 16384, so they dominate.
-declare -A TIME=( [T0]=12:00:00 [T1]=12:00:00 [T2]=12:00:00 [T3]=12:00:00
-                  [I0]=06:00:00 [I1]=06:00:00 [I2]=06:00:00 [I3]=06:00:00 [A5]=04:00:00 )
+# ---- Stage C: five arms, in parallel -----------------------------------------------------------
+# Thinking arms get the long wall-clock: max_tokens 40960 vs A5's 6144, so they dominate.
+declare -A TIME=( [T0]=12:00:00 [T1]=12:00:00 [T2]=12:00:00 [T3]=12:00:00 [A5]=04:00:00 )
 CDEPS=""
-for ARM in T0 T1 T2 T3 I0 I1 I2 I3 A5; do
+for ARM in T0 T1 T2 T3 A5; do
   J=$(sub "tp_$ARM" normal "${TIME[$ARM]}" "$B" \
         "python tp_pass2_generate.py --arm $ARM --draws $K --tag $TAG")
   echo "C arm $ARM       = $J"
@@ -62,7 +77,13 @@ for ARM in T0 T1 T2 T3 I0 I1 I2 I3 A5; do
 done
 
 # ---- Stage D: score + analyse under all three metrics + audit ---------------------------------
-D=$(sub tp_ana debug 00:40:00 "$CDEPS" \
+# 01:30:00, raised from 00:40:00 (2026-08-06 final pre-launch check): the two-level bootstrap is
+# O(n x boot), and the smoke's own numbers (48 items, boot=2000) never exercised the real cost --
+# timed directly on real data (3.70s at smoke scale) and extrapolated to n=1500/boot=10000 x 3
+# metrics: ~29 min for the three analyse calls ALONE, before scoring/audit run on top. Too close
+# to 40 min to trust a single-measurement extrapolation; this is a config-only change (zero risk,
+# trivial cost against Stage C's GPU-hours) so there is no reason to run it that tight.
+D=$(sub tp_ana debug 01:30:00 "$CDEPS" \
       "python tp_pass3_score.py --tag $TAG && \
        python tp_pass4_analyze.py --tag $TAG --metric correct && \
        python tp_pass4_analyze.py --tag $TAG --metric correct_tolerant && \

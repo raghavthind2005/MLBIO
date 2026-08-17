@@ -63,12 +63,13 @@ def main():
             print(f"[pass3] {arm}: torn_lines={torn} duplicate_keys_dropped={dupes}", flush=True)
         for r in raw:
             idx = r["index"]
-            s = C.score_item(r["text"], dict(ch[idx]), gt[idx], is_think)
+            s = C.score_item(r["text"], dict(ch[idx]), gt[idx], is_think,
+                             closed=bool(r.get("closed_think", 1)))
             rows.append(dict(index=idx, draw=r["draw"], arm=arm,
-                             correct=s["correct"],                    # boxed letter (PRIMARY)
+                             correct=s["correct"],                    # extracted letter (PRIMARY)
                              correct_tolerant=s["correct_tolerant"],  # sensitivity
                              correct_official=s["correct_official"],  # MMStar's own scorer
-                             box_kind=s["box_kind"], pred=s["box_pred"],
+                             ans_kind=s["ans_kind"], pred=s["ans_pred"],
                              fc_artifact=s["fc_artifact"],
                              trunc=r["trunc"], ntok=r["ntok"], ptok=r["ptok"],
                              # carried so downstream analysis never has to re-join to gen_*.jsonl
@@ -85,8 +86,8 @@ def main():
             stats["fc_artifact"] += s["fc_artifact"]
             stats["trunc"] += r["trunc"]
             stats["unclosed"] += (0 if r.get("closed_think", 1) else 1)
-            kinds[s["box_kind"]] += 1
-            preds[s["box_pred"] or "NONE"] += 1
+            kinds[s["ans_kind"]] += 1
+            preds[s["ans_pred"] or "NONE"] += 1
         app.write(rows)
         n = max(stats["n"], 1)
         summary[arm] = dict(
@@ -95,10 +96,10 @@ def main():
             acc_tolerant=stats["correct_tolerant"] / n,                 # SENSITIVITY
             acc_official=stats["correct_official"] / n,                 # COMPARABILITY
             format_gap=(stats["correct_tolerant"] - stats["correct"]) / n,
-            box_kind_dist={k: v / n for k, v in sorted(kinds.items())},
-            box_letter_rate=kinds["letter"] / n,
-            box_missing_rate=kinds["none"] / n,
-            box_value_rate=kinds["value"] / n,                          # the Track-T §11.8 confound
+            ans_kind_dist={k: v / n for k, v in sorted(kinds.items())},
+            extract_rate=kinds["letter"] / n,
+            unextract_rate=kinds["none"] / n,
+            value_rate=kinds["value"] / n,                              # the Track-T §11.8 confound
             firstchar_artifact_rate=stats["fc_artifact"] / n,
             trunc_rate=stats["trunc"] / n,
             unclosed_think_rate=stats["unclosed"] / n,
@@ -114,8 +115,8 @@ def main():
         print(f"[pass3] {arm:3s} n={s['n']:6d} acc={s['acc']:.4f} "
               f"tol={s['acc_tolerant']:.4f} official={s['acc_official']:.4f} "
               f"fmt_gap={s['format_gap']:+.4f}", flush=True)
-        print(f"          box: letter={s['box_letter_rate']:.4f} value={s['box_value_rate']:.4f} "
-              f"missing={s['box_missing_rate']:.4f} | trunc={s['trunc_rate']:.4f} "
+        print(f"          ans: extract={s['extract_rate']:.4f} value={s['value_rate']:.4f} "
+              f"unextract={s['unextract_rate']:.4f} | trunc={s['trunc_rate']:.4f} "
               f"unclosed={s['unclosed_think_rate']:.4f} "
               f"fc_artifact={s['firstchar_artifact_rate']:.4f}", flush=True)
         _f = lambda x: "n/a" if x is None else f"{x:.1f}"
