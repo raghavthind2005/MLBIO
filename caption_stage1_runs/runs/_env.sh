@@ -13,7 +13,10 @@
 # --- paths ---------------------------------------------------------------
 export CS1=${CS1:-/iopsstor/scratch/cscs/raghavthind/caption_stage1}
 export CS1_REPO=${CS1_REPO:-/iopsstor/scratch/cscs/raghavthind/MLBIO}
-export CS1_MODEL=${CS1_MODEL:-/iopsstor/scratch/cscs/raghavthind/models/Qwen3-VL-2B-Instruct}
+# Backbone: Qwen3-VL-4B-Instruct (D33, supersedes D4's 2B). Deliberately the
+# /capstor/store copy, not a scratch copy: scratch has already lost data on this
+# project once (Aug 11), and store is the durable filesystem.
+export CS1_MODEL=${CS1_MODEL:-/capstor/store/cscs/swissai/a0174/models/Qwen3-VL-4B-Instruct}
 export CS1_SNAPSHOT=${CS1_SNAPSHOT:-/iopsstor/scratch/cscs/raghavthind/hf_cache/hub/datasets--PAPOGalaxy--PAPO_ViRL39K_train/snapshots/ff6996d5cdd0e5fc12c01f3dab96f1af37453ceb/data}
 export CS1_POOL=${CS1_POOL:-$CS1/pool}
 export CS1_PRESERVE_ROOT=${CS1_PRESERVE_ROOT:-/capstor/store/cscs/swissai/a0174/caption_stage1_ckpts}

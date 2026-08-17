@@ -35,7 +35,10 @@ image-conditioned answer is wrong **by construction on every row**. Training `J_
 captions to reproduce a wrong answer 100% of the time, with a healthy-looking loss curve. `D_perc` is
 therefore excluded as a `J_cap` training set. See `VLMCC_STAGE1_REFERENCE.md` §5.
 
-## D4 — Backbone: `Qwen3-VL-2B-Instruct` **[U]**
+## D4 — Backbone: `Qwen3-VL-2B-Instruct` **[U]** — ***SUPERSEDED by D33 (4B-Instruct)***
+
+> Retained for the record. Its Instruct-over-Thinking argument still holds and carries over to D33;
+> its *size* argument and its 8B-rejection rationale were both partly wrong — see D33.
 
 *Considered and rejected:* `Qwen2-VL-2B-Instruct` (user's initial proposal). Same parameter count but released
 2024-08-28 vs 2025-10-19; would break comparability with every first-party result we hold (all Qwen3-VL);
@@ -124,7 +127,7 @@ essentially no extra cost, since both forward passes already produce the logits.
 
 ## D11 — Data filtering: measure before deciding **[U]**
 
-No filter is adopted yet. A pre-flight measurement of `Qwen3-VL-2B-Instruct`'s image-conditioned accuracy on a
+No filter is adopted yet. A pre-flight measurement of `Qwen3-VL-4B-Instruct`'s image-conditioned accuracy on a
 ViRL39K sample decides it. Do not assume the rate. → resolved by Pilot 0.
 
 ## D12 — Vision tower: open (`freeze_vision_tower=false`) **[U]**
@@ -222,13 +225,15 @@ rollout: GRPO's policy gradient assumes samples come from `π_θ`.
 cap. Here the model is **Instruct**, answers are ~8 tokens, and captions are length-capped. Degeneration risk is
 low and monitored; estimator bias would have been certain.
 
-**[V]** `Qwen3-VL-2B-Instruct` `generation_config.json`: `temperature 0.7, top_p 0.8, top_k 20,
+**[V]** `Qwen3-VL-4B-Instruct` `generation_config.json` (re-verified under D33; **byte-identical to the 2B's**):
+`temperature 0.7, top_p 0.8, top_k 20,
 repetition_penalty 1.0, eos_token_id [151645, 151643]`. Recorded for provenance; deliberately not used for
 rollouts. `repetition_penalty 1.0` (a no-op) is retained.
 
 ## D24 — `max_pixels = 4,194,304`; `min_pixels = 262,144` **[U]**
 
-**[V]** `Qwen3-VL-2B-Instruct`: `patch_size 16`, `merge_size 2` ⇒ **1,024 px² per visual token** ⇒ 4194304 ≈
+**[V]** `Qwen3-VL-4B-Instruct` (re-verified under D33; `preprocessor_config.json` **byte-identical to the
+2B's**): `patch_size 16`, `merge_size 2` ⇒ **1,024 px² per visual token** ⇒ 4194304 ≈
 **4,096 visual tokens**. (Model's own preprocessor default is `longest_edge 16777216` ≈ 16,384 tokens.)
 
 *Field practice at RL-training time:* EasyR1 default **4194304**; VLM-CapCurriculum Stage 1 **4194304**; PAPO
@@ -342,6 +347,60 @@ wrongness is in the supervision target.
 
 ---
 
+## D33 — Backbone changed to `Qwen3-VL-4B-Instruct` **[U]** *(supersedes D4)*
+
+Path: `/capstor/store/cscs/swissai/a0174/models/Qwen3-VL-4B-Instruct` — **already present, no download**.
+Verified 2026-08-17: 8.88 GB across the 2 shards HF's index declares, `Qwen3VLForConditionalGeneration`,
+**`vocab_size` 151,936**, 36 layers, hidden 2560. `generation_config.json` (temp 0.7 / top_p 0.8 / top_k 20)
+and `preprocessor_config.json` (patch 16, merge 2) are **byte-identical to the 2B's**, so `PRESETS`
+in `sampling_compare.py` and the D24 pixel budget carry over unchanged. Migration was one line in `_env.sh`.
+Deliberately the **store** copy, not scratch — scratch already lost this project's data once (Aug 11).
+
+*Why change at all.* The 2B's blind answers ran to the 3072 cap on 75% of items. Analysis of those
+answers (2026-08-16) found **0/20 looping, mean 5-gram repetition 0.101** — they are coherent,
+self-correcting mathematical reasoning that simply never converges. Not degeneration; a capability limit.
+
+*Why 4B and not 8B.* The two considerations point opposite ways and detectability wins:
+
+| consideration | favours | magnitude |
+|---|---|---|
+| pool composition (less-skewed retained set) | 8B | small — we need only a **12.3%** pass rate (3,360 of 27,326 valid rows) |
+| detectability of the transfer effect | **4B** | large — McNemar's power lives in the *base-wrong* cell, which a stronger base shrinks |
+| wall-clock (⇒ affordability of the power measures below) | **4B** | ~44 h vs ~86 h for 60 steps, extrapolated from PAPO 2B ≈ 21 min/step, 1 node |
+
+**The compute saved by not choosing 8B is earmarked for statistical power, not parameters** — avg@k
+scoring, the checkpoint-trend test, and the D30 placebo arm. An 8B run with a single endpoint comparison
+is a strictly weaker experiment than a 4B run that can afford all three. See D34 and OPEN-8.
+
+*Correcting D4's rejection of 8B* ("4×GH200 memory; 4B-Thinking already OOMed under PAPO"): the memory
+claim was wrong in its reasoning. Static training memory is ≈`18·P/N` bytes — 20.0 GB/GPU at 4B and
+39.5 GB/GPU at 8B on 4×GH200 (95.6 GB each, measured). **Both fit comfortably.** The PAPO 4B failure was
+not a weights problem — see D34.
+
+## D34 — The estimator's logits tensor is the binding memory constraint, not parameter count **[U]**
+
+`PAPO_MASTER_RECORD.md:260` records the real 4B failure on this exact stack: vLLM sleep/wake OOM
+(`cumem_allocator.cpp:112`) **and a 32.6 GiB logits OOM**. That number decodes exactly:
+32.6 GB ÷ (151,936 × 4 bytes) ≈ **53,600 token positions**. A logits tensor, not a weights tensor.
+
+**This is worse for us than for PAPO.** PAPO's `low_var_kl` needs only the *sampled* token's log-prob — one
+gather, `T` floats. Our Rao-Blackwellized `D(c) = KL(π(·|c,x) ‖ π(·|I,x))` needs the **full 151,936-dim
+distribution at every position, under two contexts**. At `T=3072` that is 934 MB per context per sequence
+in bf16, ~3.7 GB per sequence if reduced in fp32 — before any batching.
+
+Two consequences, both binding:
+
+1. **The dominant memory term scales with `vocab × T × micro_batch`, independent of parameter count.**
+   Answer length, not model size, is our first-order memory risk. This is an additional reason the
+   answer-side cap (OPEN-4's sibling) is a correctness decision and not a convenience one.
+2. **The estimator must chunk over positions and never materialise `[T, V]` twice.** Reduce to a scalar
+   per chunk. This is code we own, so it must be designed in now — not discovered at step 40 of a run.
+
+Also relevant: `_env.sh` already warns never to set `expandable_segments:True`, which crashes the vLLM
+`CuMemAllocator` on this stack. Same allocator family as the PAPO sleep/wake OOM.
+
+---
+
 ## Open items (not yet decided)
 
 - **OPEN-9** Options-parser validation: how we prove stem-extraction is correct across ViRL39K's format
@@ -359,7 +418,7 @@ wrongness is in the supervision target.
   `feedback_normative_must_be_frozen`.
 
 - **OPEN-1** Pre-filter the train pool by image-conditioned correctness? Requires a pre-flight measurement of
-  `Qwen3-VL-2B-Instruct` image-conditioned accuracy on ViRL39K — do not assume it.
+  `Qwen3-VL-4B-Instruct` image-conditioned accuracy on ViRL39K — do not assume it.
 - **OPEN-2** Estimator: spec's 1-sample k1 vs per-position exact full-vocab KL (Rao-Blackwellized, same
   estimand, strictly lower variance). **[CC]** recommends the latter.
 - **OPEN-3** Group size `G`; answer samples per caption `M` (spec uses 1); `θ_old` refresh cadence.

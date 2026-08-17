@@ -119,7 +119,7 @@ Step 1 (pool construction) is **complete and gated**: 27,326 eligible of 38,870;
 
 | Parameter | Value | Source | Result-affecting? |
 |---|---|---|---|
-| Backbone | `Qwen3-VL-2B-Instruct` | D4 | **yes** |
+| Backbone | `Qwen3-VL-4B-Instruct` | D33 (supersedes D4) | **yes** |
 | Train pool | `PAPO_ViRL39K_train` @ `ff6996d5` | D5 | **yes** |
 | Answer shapes kept | letter, numeric (free text dropped) | D22 | **yes** — drops 7,892 rows |
 | Answer form | short answer, no chain | D6 | **yes** — defines the estimand |

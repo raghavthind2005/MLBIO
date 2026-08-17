@@ -4,7 +4,7 @@
 Base-model inference only — **no training, no weight updates**. Approved in principle (D20); this document is
 the detail that needs sign-off before any code exists.
 
-Model: `Qwen3-VL-2B-Instruct` (D4). Data: `PAPO_ViRL39K_train` (D5). Container: `easyr1_vllm0112.sqsh`
+Model: `Qwen3-VL-4B-Instruct` (D33, supersedes D4). Data: `PAPO_ViRL39K_train` (D5). Container: `easyr1_vllm0112.sqsh`
 (vLLM 0.11.2, transformers 4.57.3, torch 2.9.0+cu129) via `~/toml/verl_easyr1.toml`. Execution: `sbatch`,
 never interactive `srun` (SSH disconnect kills it — established run-ops lesson).
 
@@ -110,7 +110,8 @@ Question: {stem}
 
 ## 4. Generation and scoring
 
-**Sampling parameters (D23):** read from `Qwen3-VL-2B-Instruct`'s own `generation_config.json` on download,
+**Sampling parameters (D23):** read from `Qwen3-VL-4B-Instruct`'s own `generation_config.json` (verified
+2026-08-17 to be byte-identical to the 2B's, so the recorded values are unchanged by D33),
 and record the values in the run manifest. Do not inherit VLM-CapCurriculum's `top_p=1.0` — unbounded sampling
 is what made Qwen3-VL degenerate into loops in the PAPO line.
 
