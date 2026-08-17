@@ -78,18 +78,27 @@ Three prompts are rendered. **Two of them must be identical except for the evide
 
 **Captioner** — image + stem, `q_cap` (D15/D18):
 
+> **`cs1_prompts.py` is authoritative for every prompt string; this block is a copy for reading.**
+> It previously showed a superseded draft, and a frozen doc disagreeing with the code on a
+> result-affecting string is worse than no copy at all. Synced 2026-08-17.
+
 ```
-Look at the image carefully and describe everything in it that could help answer the question below.
+Look at the image carefully and describe what it shows, so that someone who cannot see the
+image would have everything they need to answer the question below.
 
-Report concrete visual facts — objects, attributes, colours, counts, text, positions — and any
-relationships between them that can be derived from the image, such as relative position, size,
-order, grouping, or sequence. Include anything that might be relevant, even if you are not certain
-it is needed; it is better to describe too much than to leave something out.
+Report the concrete visual facts and the relationships between them — objects, attributes,
+colours, counts, text and labels, positions, and how things relate to one another. Keep the
+description compact and to the point, but do not leave out anything that could be useful.
 
-Do not give the answer to the question. Describe only what can be seen in the image.
+Do not give the answer to the question.
 
 Question: {stem}
 ```
+
+*Clause removed (user-approved):* "Describe only what can be seen in the image." It stacked a second
+prohibition on top of the answer ban and risked suppressing the relational content the caption exists to
+carry — a caption forbidden from stating how things relate cannot substitute for the image. Track T's
+over-restrictive `q_cap` is the precedent. Leak risk is handled by D16/leak-rate gates, not by this clause.
 
 **Answerer (caption context)** — the `p` side of the KL:
 `[caption text] + {full problem} + {SHARED_SUFFIX}` — **no image, no `q_cap`**.
@@ -97,8 +106,14 @@ Question: {stem}
 **Reference (image context)** — the `q` side of the KL:
 `[image] + {full problem} + {SHARED_SUFFIX}`.
 
-`SHARED_SUFFIX` (D19) is one string constant used by both, e.g. *"Answer with only the final answer, in
-`\boxed{}`."* — exact wording pending approval.
+`SHARED_SUFFIX` (D19/D25) is one string constant used by both, and is **`Put your final answer in
+\boxed{}.`** ([cs1_prompts.py:57](../code/cs1_prompts.py#L57)).
+
+> **Corrected 2026-08-17.** This line and §6 both still carried the superseded draft *"Answer with only the
+> final answer, in `\boxed{}`."* — the wording that **fought the model and lost** (65–75% of answers ran to
+> the cap, only 25–35% emitted `\boxed{}`). It was replaced precisely because it forbade the reasoning the
+> model insists on doing; both reference pipelines permit reasoning and demand a parseable final slot. Two
+> frozen locations were still specifying the abandoned string.
 
 **Gates:**
 - **G-PARITY:** render both scored prompts, strip the evidence span from each, assert the remainders are
@@ -179,7 +194,7 @@ All previously-open knobs are now decided (see `DECISIONS.md`):
 |---|---|---|
 | `max_pixels` / `min_pixels` | **4,194,304** (≈4,096 visual tokens) / 262,144 | D24 |
 | Sampling, captions **and** answers | temperature **1.0**, `top_p=1.0`, `top_k=-1` (untruncated) | D23 (amended) |
-| `SHARED_SUFFIX` | `Answer with only the final answer, in \boxed{}.` | D25 |
+| `SHARED_SUFFIX` | `Put your final answer in \boxed{}.` | D25 |
 | Measurement (a) draws | n=5 per item | D26 |
 | Pool rule | `grade_answer(a, a) is True` | D22 |
 | Variance decomposition | M=3 on a nested 50-item subset | D21 |

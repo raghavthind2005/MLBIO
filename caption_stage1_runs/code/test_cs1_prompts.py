@@ -10,6 +10,7 @@ blind arm, captions that carry option text.
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 import cs1_prompts as P
 
@@ -137,6 +138,52 @@ class TestEvidenceIsTheOnlyDifference(unittest.TestCase):
         ref = " ".join(P._text_parts(P.build_reference_messages(FULL)))
         self.assertNotIn(CAPTION, ref)
         self.assertNotIn(P.CAPTION_PREAMBLE, ref)
+
+
+class TestFrozenDocMatchesCode(unittest.TestCase):
+    """The design doc must not specify prompt strings the code does not use.
+
+    This has now drifted twice: PILOT_0_DESIGN.md carried a superseded
+    ``SHARED_SUFFIX`` (the wording that was abandoned for driving 65-75%
+    truncation) and a superseded caption instruction, while the code had moved
+    on. A frozen document that disagrees with the code on a result-affecting
+    string is worse than no document, because it is the one people read when
+    deciding what the run *was*. Catch it in CI instead of by eye.
+    """
+
+    DOC = Path(__file__).resolve().parent.parent / "docs" / "PILOT_0_DESIGN.md"
+
+    @staticmethod
+    def _normalise(text: str) -> str:
+        """Collapse whitespace so markdown re-wrapping is not a false positive."""
+        return " ".join(text.split())
+
+    def setUp(self):
+        if not self.DOC.exists():
+            self.skipTest(f"{self.DOC} not present")
+        self.doc = self._normalise(self.DOC.read_text())
+
+    def test_shared_suffix_is_the_one_in_the_doc(self):
+        self.assertIn(self._normalise(P.SHARED_SUFFIX), self.doc,
+                      "PILOT_0_DESIGN.md does not contain the live SHARED_SUFFIX")
+
+    def test_caption_instruction_body_is_in_the_doc(self):
+        body = P.CAPTION_INSTRUCTION.split("Question:")[0]
+        for para in (p for p in body.split("\n\n") if p.strip()):
+            self.assertIn(self._normalise(para), self.doc,
+                          f"PILOT_0_DESIGN.md is missing q_cap text: {para[:60]!r}")
+
+    def test_removed_clause_is_gone_from_the_live_instruction(self):
+        """The user-approved removal must hold in the string that is actually sent.
+
+        Deliberately asserts nothing about the doc: the doc *should* still name
+        the clause when explaining why it was dropped. What must not happen is
+        the clause surviving in `CAPTION_INSTRUCTION`. The doc's copy is kept
+        honest by :meth:`test_caption_instruction_body_is_in_the_doc`, which
+        requires it to match the live paragraphs.
+        """
+        self.assertNotIn("Describe only what can be seen in the image",
+                         P.CAPTION_INSTRUCTION)
 
 
 if __name__ == "__main__":

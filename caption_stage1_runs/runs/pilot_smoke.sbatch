@@ -19,6 +19,14 @@
 #   G-PARITY   the two scored prompts differ only by their evidence
 #   D18        no option body reaches the captioner
 #   plus: captions non-empty, answers parse, truncation rates sane
+#
+# Caps (2026-08-17): answer budget was 48 tokens, a relic of the abandoned
+# assumption that answers would be ~8 tokens. Measured median is 1,125 with a
+# heavy tail, so the budget is now 16,384 -- deliberately non-binding, because a
+# censored sample cannot report its own p99 and the whole point of this pass is
+# to observe the true length distribution before any cap is frozen. That in turn
+# needs max_model_len 32,768: an image can occupy 4,096 visual tokens, so 16k of
+# answer does not fit the old 16,384 window and would silently clip.
 
 set -euo pipefail
 
@@ -52,8 +60,10 @@ python3 "$CS1/code/pilot_generate.py" \
     --m-answers 1 \
     --m-answers-subset 3 \
     --n-image-answers 2 \
-    --caption-max-tokens 1024 \
-    --answer-max-tokens 48
+    --preset untruncated \
+    --max-model-len 32768 \
+    --caption-max-tokens 3072 \
+    --answer-max-tokens 16384
 
 echo
 echo "=== outputs ==="

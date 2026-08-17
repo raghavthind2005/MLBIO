@@ -36,14 +36,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import cs1_prompts as P  # noqa: E402
-from pilot_generate import MAX_PIXELS, MIN_PIXELS, load_images, render  # noqa: E402
-
-PRESETS = {
-    # D23 as decided: untruncated, for estimator unbiasedness / on-policy GRPO.
-    "untruncated": dict(temperature=1.0, top_p=1.0, top_k=-1),
-    # Qwen3-VL vendor preset, from the model's own generation_config.json.
-    "model_card": dict(temperature=0.7, top_p=0.8, top_k=20),
-}
+# PRESETS is imported, never redefined: this file previously carried its own
+# copy, which is exactly how two scripts end up sampling differently while both
+# claiming to be "untruncated".
+from pilot_generate import (  # noqa: E402
+    MAX_PIXELS, MIN_PIXELS, PRESETS, load_images, render,
+)
 
 ANSWER_PREFILL = "\\boxed{"
 
