@@ -236,6 +236,21 @@ low and monitored; estimator bias would have been certain.
 > — i.e. that off-card is both more correct *and* better behaved — is **not yet re-measured at 4B** (D33).
 > Pending: the D33 preset sweep re-establishes this at the new backbone. This does **not** reopen D23; the
 > training preset is `untruncated` on correctness grounds regardless of how the sweep comes out.
+>
+> **⚠️ SWEEP RESULT (job 3105710, 4B, n=30 items / 60 captions / 60 answers): the safety argument does NOT
+> reproduce.** The 13× repetition gap **vanished**:
+>
+> | preset | capMed | capP90 | capTr | rep | ansMed | ansTr | boxed | eos |
+> |---|---|---|---|---|---|---|---|---|
+> | untruncated | 181 | 320 | 0.0% | **0.016** | 1125 | 31.7% | 70.0% | 68.3% |
+> | model_card | 165 | 291 | 0.0% | **0.021** | 1073 | 35.0% | 66.7% | 65.0% |
+>
+> Every preset difference is **2 items out of 60** — indistinguishable noise. The 2B's 13× gap was a
+> **2B-specific artifact**, not a general property of off-card sampling.
+>
+> **Consequence for the record:** D23 now rests on its **correctness argument alone** (`p̃ ≠ p` ⇒ biased `D̂`).
+> That argument is sufficient and unchanged, so the decision stands — but we may **no longer claim** that
+> untruncated is also empirically better behaved. Any writeup must not repeat that claim.
 
 **[V]** `Qwen3-VL-4B-Instruct` `generation_config.json` (re-verified under D33; **byte-identical to the 2B's**):
 `temperature 0.7, top_p 0.8, top_k 20,
