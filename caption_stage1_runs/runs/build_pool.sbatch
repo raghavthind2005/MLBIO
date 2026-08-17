@@ -18,18 +18,11 @@
 
 set -euo pipefail
 
-CS1=/iopsstor/scratch/cscs/raghavthind/caption_stage1
+source /iopsstor/scratch/cscs/raghavthind/caption_stage1/runs/_env.sh
+
 CODE=$CS1/code
 OUT=$CS1/pool
-REPO=/iopsstor/scratch/cscs/raghavthind/MLBIO
-
-mkdir -p "$CS1/logs" "$OUT"
-
-# Code provenance: $CODE is a plain cp target, not a git repo, so the SHA has to
-# come from the clone the files were copied FROM. Without this the manifest
-# silently records "unknown".
-export CS1_GIT_SHA="$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)"
-echo "code git sha: $CS1_GIT_SHA"
+mkdir -p "$OUT"
 
 echo "=== environment ==="
 python3 -c "import sys; print('python', sys.version.split()[0])"

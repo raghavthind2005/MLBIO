@@ -22,18 +22,13 @@
 
 set -euo pipefail
 
-CS1=/iopsstor/scratch/cscs/raghavthind/caption_stage1
-REPO=/iopsstor/scratch/cscs/raghavthind/MLBIO
-MODEL=/iopsstor/scratch/cscs/raghavthind/models/Qwen3-VL-2B-Instruct
-SNAP=/iopsstor/scratch/cscs/raghavthind/hf_cache/hub/datasets--PAPOGalaxy--PAPO_ViRL39K_train/snapshots/ff6996d5cdd0e5fc12c01f3dab96f1af37453ceb/data
+source /iopsstor/scratch/cscs/raghavthind/caption_stage1/runs/_env.sh
+
+MODEL=$CS1_MODEL
+SNAP=$CS1_SNAPSHOT
 export OUT=$CS1/pilot_smoke
 
-export CS1_GIT_SHA="$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)"
-export HF_HOME=/iopsstor/scratch/cscs/raghavthind/hf_cache
-export VLLM_WORKER_MULTIPROC_METHOD=spawn
-
-mkdir -p "$CS1/logs" "$OUT"
-echo "code git sha: $CS1_GIT_SHA"
+mkdir -p "$OUT"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | head -4
 echo
 
@@ -43,12 +38,12 @@ python3 -m unittest test_virl_pool test_cs1_prompts 2>&1 | tail -4
 echo
 
 echo "=== pool gate ==="
-python3 "$CS1/code/verify_pool.py" --pool "$CS1/pool"
+python3 "$CS1/code/verify_pool.py" --pool "$CS1_POOL"
 echo
 
 echo "=== generation smoke: 10 items, G=2 ==="
 python3 "$CS1/code/pilot_generate.py" \
-    --pool "$CS1/pool" \
+    --pool "$CS1_POOL" \
     --out "$OUT" \
     --model "$MODEL" \
     --snapshot "$SNAP" \
