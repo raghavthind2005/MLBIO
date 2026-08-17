@@ -2,7 +2,7 @@
 #SBATCH --account=a0174
 #SBATCH --job-name=cs1-pilot
 #SBATCH --partition=normal
-#SBATCH --time=08:00:00
+#SBATCH --time=12:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-node=4
