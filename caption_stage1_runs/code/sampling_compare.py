@@ -92,8 +92,15 @@ def main() -> int:
     ap.add_argument("--n-items", type=int, default=10)
     ap.add_argument("--g-captions", type=int, default=2)
     ap.add_argument("--caption-max-tokens", type=int, default=2048)
-    ap.add_argument("--answer-max-tokens", type=int, default=512)
+    ap.add_argument("--answer-max-tokens", type=int, default=2048)
+    ap.add_argument("--presets", default="untruncated",
+                    help="comma-separated subset of PRESETS to run")
+    ap.add_argument("--prefill-modes", default="off",
+                    help="comma-separated subset of {off,on}; prefill was REJECTED as a design "
+                         "choice (it overrides natural answering) and is kept only as a diagnostic")
     args = ap.parse_args()
+    presets = {k: PRESETS[k] for k in args.presets.split(",") if k.strip()}
+    prefill_modes = [m.strip() == "on" for m in args.prefill_modes.split(",") if m.strip()]
 
     from transformers import AutoProcessor, AutoTokenizer
     from vllm import LLM, SamplingParams
@@ -121,7 +128,7 @@ def main() -> int:
     )
 
     rows = []
-    for preset_name, preset in PRESETS.items():
+    for preset_name, preset in presets.items():
         print(f"\n########## sampling preset: {preset_name} {preset} ##########", flush=True)
 
         cap_reqs = [{"prompt": render(processor, P.build_captioner_messages(it["stem"])),
@@ -134,7 +141,7 @@ def main() -> int:
                 for it, o in zip(items, cap_out) for k, c in enumerate(o.outputs)]
 
         by_index = {it["index"]: it for it in items}
-        for prefill in (False, True):
+        for prefill in prefill_modes:
             reqs = []
             for c in caps:
                 it = by_index[c["index"]]

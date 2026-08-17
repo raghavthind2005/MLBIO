@@ -35,20 +35,26 @@ from typing import Any
 #: an over-restrictive clause there ("do not infer relationships") suppressed
 #: legitimate content and biased the result.
 CAPTION_INSTRUCTION = (
-    "Look at the image carefully and describe everything in it that could help answer the "
-    "question below.\n\n"
-    "Report concrete visual facts — objects, attributes, colours, counts, text, positions — and any "
-    "relationships between them that can be derived from the image, such as relative position, size, "
-    "order, grouping, or sequence. Include anything that might be relevant, even if you are not certain "
-    "it is needed; it is better to describe too much than to leave something out.\n\n"
+    "Look at the image carefully and describe what it shows, so that someone who cannot see the "
+    "image would have everything they need to answer the question below.\n\n"
+    "Report the concrete visual facts and the relationships between them — objects, attributes, "
+    "colours, counts, text and labels, positions, and how things relate to one another. Keep the "
+    "description compact and to the point, but do not leave out anything that could be useful.\n\n"
     "Do not give the answer to the question. Describe only what can be seen in the image.\n\n"
     "Question: {stem}"
 )
 
-#: Appended identically to BOTH scored prompts (D19/D25). Short, invites no
-#: reasoning, and its near-deterministic wrapper tokens contribute ~0 to the KL,
-#: concentrating the signal on content tokens.
-SHARED_SUFFIX = "Answer with only the final answer, in \\boxed{}."
+#: Appended identically to BOTH scored prompts (D19/D25).
+#:
+#: The original wording ("Answer with only the final answer, in \\boxed{}")
+#: fought the model and lost: 65-75% of answers ran to the cap and only 25-35%
+#: emitted \\boxed{} at all. Both reference pipelines instead PERMIT reasoning
+#: and demand a parseable final slot -- VLM-CapCurriculum's math.jinja says the
+#: reasoning comes first and "The final answer MUST BE put in \\boxed{}" -- and
+#: VLMEvalKit's answer to non-compliance is robust two-stage extraction, never
+#: forcing the format. We follow that: work with the model's behaviour and make
+#: the harness robust.
+SHARED_SUFFIX = "Put your final answer in \\boxed{}."
 
 #: Introduces the caption as the evidence. This label is part of the EVIDENCE
 #: SPAN, not part of the shared tail: the reference presents its evidence as an
