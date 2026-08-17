@@ -30,17 +30,31 @@ BOXED = __import__("re").compile(r"\\boxed\{([^{}]*)\}")
 
 
 def fake_extract(response: str) -> str:
-    """Stand-in for ``mathruler.grader.extract_boxed_content``."""
+    """Stand-in for ``mathruler.grader.extract_boxed_content``.
+
+    Behaviour confirmed against the container's real library (job 3106726):
+    the **last** boxed span wins, and an unboxed response yields the literal
+    **string** ``"None"`` -- not Python ``None``, and not the input. That string
+    is then simply ungradeable, which is what makes "unboxed = wrong" hold.
+
+    (If a gold answer were ever literally ``"None"`` this would false-positive.
+    D22 restricts the pool to ``letter`` and ``numeric``, so it cannot arise.)
+    """
     m = BOXED.findall(response or "")
     if not m:
-        # mathruler returns the input unchanged when there is no boxed span;
-        # the point is that it does NOT yield a gradeable answer.
-        return response or ""
+        return "None"
     return m[-1].strip()
 
 
 def fake_grade(pred: str, gold: str) -> bool:
-    """Stand-in for ``mathruler.grader.grade_answer``: normalised equality."""
+    """Stand-in for ``mathruler.grader.grade_answer``: normalised equality.
+
+    Deliberately **stricter** than the real grader, which job 3106726 showed to
+    be mathematically fuzzy: ``1/2``≡``0.5``, ``3.0``≡``3``, ``03``≡``3``,
+    ``(A)``≡``A``, ``a``≡``A``. Keeping the fake strict means these tests assert
+    our *logic* rather than re-testing mathruler's equivalence rules, and it
+    cannot make a test pass that the real, more permissive grader would fail.
+    """
     return (pred or "").strip().lower() == (gold or "").strip().lower()
 
 
