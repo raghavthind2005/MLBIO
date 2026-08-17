@@ -261,6 +261,85 @@ built its `pass_rate` difficulty signal (they used 16 rollouts). Symmetric with 
 
 A small-scale run to prove the harness and every gate fires **before** spending on the real measurement.
 
+## D28 — GOAL RESTATED (user, 2026-08-17) — supersedes the framing in earlier entries **[U]**
+
+Train the model to **articulate the regions of the image that bear on the question**. Hypothesis: doing so
+improves the model's **general perception**, so the trained model should beat the base model on a **held-out
+VQA benchmark**, evaluated at **every checkpoint**. Explicitly a hypothesis, not an assumption.
+
+**What this changes.** The `J_cap` parity ceiling (METHOD.md §5.1) bounds *blind-from-caption* performance
+only. It does **not** bound image-conditioned VQA, which is the actual outcome. The concern is therefore
+resolved for the headline metric.
+
+**What it relocates.** `J_cap`'s gradient reaches **caption tokens only** (answerer and reference are
+stop-grad), so any VQA change arrives as a **side effect of shared weights**. The hypothesis rests entirely
+on that indirect pathway. It is plausible — this is effectively self-supervised perception training — but
+unproven, and drift toward caption-style outputs could equally *degrade* direct QA. This makes the
+reference-KL leash (D13) far more load-bearing than it appeared when set. **This is now the central risk.**
+
+**Prior-work caution.** VLM-CapCurriculum's Table 6 ablation
+(`training/examples/ablations/qwen3_vl_8b_sft_perception_then_stage23.sh`) is exactly "caption training
+replaces Stage-1 perception RLVR", and their headline is that perception learns better via RLVR. Their
+caption arm was **next-token SFT on generic human DOCCI captions** ("Please generate a detailed caption") —
+imitative, not question-conditioned, and with nothing tying the caption to usefulness. Our objective differs
+on all three axes, so their negative result arguably identifies the missing ingredient we supply. Carry it
+as motivation *and* as a warning.
+
+## D29 — Validation: MMK12_test **+ MMStar**, direct VQA only **[U]**
+
+Per-checkpoint validation of the **image-conditioned** model (image + question → answer). MMK12 for
+comparability with the PAPO arms; **MMStar** added because MMK12 is K12 science/math from the same curator
+and family as ViRL39K — near-in-distribution, dominated by math-reasoning ability, and therefore a weak
+instrument for a *general-perception* claim. MMStar is the instrument that can detect the effect, and Probe
+A baselines already exist on it.
+
+**Contamination check required** on both before use.
+
+**Caption-mediated evaluation is deferred, not abandoned** — it can be run offline from preserved
+checkpoints, which is one reason D31 is mandatory.
+
+**Statistical power is a first-class requirement, not a detail.** VLM-CapCurriculum's *entire three-stage
+recipe on 8B* moved overall accuracy **+1.46%**; a Stage-1-only run on 2B plausibly moves less. On 1,500
+items the SE of a single accuracy is ~1.2 points, so a 1-point effect is **undetectable** by independent
+comparison. Validation must therefore use **paired, same-item comparison with McNemar** (base vs
+checkpoint, identical items and prompts), as Track T did — roughly an order of magnitude more sensitive, at
+no extra cost.
+
+## D30 — Placebo control: sequenced, revisit after the first analysis **[U]**
+
+Run real-vs-base first. **If VQA moves, the placebo arm must be run before any claim is made** — otherwise
+"is this just RL pressure on caption tokens?" is unanswerable. A null needs no control. User asked to be
+consulted after the run's analysis. Placebo design (if run): identical loop, `D̂` computed against a
+*different item's* image, so the reward carries no item-specific perceptual signal.
+
+## D31 — Checkpoint preservation is MANDATORY **[U, emphatic]**
+
+Every checkpoint is copied to `/capstor/store/cscs/swissai/a0174/caption_stage1_ckpts/` and **verified**, as
+it is produced. Never left only on scratch.
+
+**[V] Cause:** all 21 PAPO checkpoints were lost from scratch on 2026-08-11. Directory skeletons survived, so
+the loss was invisible to `ls` — `global_step_60/actor/huggingface/` existed and was empty. The frozen
+perception-KL probe is now unrunnable without ~3 twelve-hour slots per arm of retraining.
+
+**[V] Target verified 2026-08-17:** `/capstor/.../a0174` is writable, **753 GB free of 1.0 TB**. Different
+filesystem, untouched by that event (models there date from June and survive). It is a **shared** store, so
+size discipline applies — the preserve script enforces a 50 GB headroom reserve.
+
+Mechanism: `runs/preserve_checkpoint.sh`. Builds a sha256 manifest **from the source** before copying,
+copies, then verifies every digest and the file count. Refuses to preserve a zero-file checkpoint — that is
+the exact PAPO failure signature. Adds a replica; never moves or deletes.
+
+## D32 — D11 threshold: decided from the measured pass-rate histogram **[U]**
+
+Filter the training pool to rows the base model answers correctly from the image — but the **threshold** is
+chosen once Pilot 0 measurement (a) reports the distribution.
+
+*Why the threshold is not cosmetic:* the objective matches **distributions**, not modal answers. At
+`pass_rate = 3/5` roughly **40% of the target probability mass sits on wrong answers**, so we would train
+captions to make the blind model wrong 40% of the time on those rows. The filter's purpose was
+"parity ⇒ correct"; at 3/5 it delivers "parity ⇒ 60% correct". The threshold directly sets how much
+wrongness is in the supervision target.
+
 ---
 
 ## Open items (not yet decided)
