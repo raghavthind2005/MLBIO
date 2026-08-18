@@ -131,6 +131,15 @@ def main() -> int:
         missing = [it["index"] for it in shard_items if it["index"] not in images]
         if missing:
             raise SystemExit(f"missing images for {len(missing)} rows, e.g. {missing[:5]}")
+        # Proves the `only=` restriction actually restricted. Without this the
+        # over-decode bug is invisible at smoke scale -- the run still succeeds,
+        # just having decoded the entire candidate pool on every shard.
+        if len(images) != len(shard_items):
+            raise AssertionError(
+                f"load_images returned {len(images)} images for a {len(shard_items)}-row "
+                f"shard: the only= restriction is not being applied")
+        print(f"[gate] decoded exactly {len(images)} images for {len(shard_items)} shard rows",
+              flush=True)
         for it in shard_items:
             msgs = P.build_reference_messages(it["full_text"])
             reqs.append({"prompt": render(processor, msgs),

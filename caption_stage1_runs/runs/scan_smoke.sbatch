@@ -61,6 +61,33 @@ echo "  OK  selector refused the incomplete scan"
 mv "$OUT/held.bak" "$OUT/scan_image_shard000of003.jsonl"
 
 echo
+echo "=== provenance guard (must FAIL on a foreign shard) ==="
+cp "$OUT/_meta_image_shard000of003.json" "$OUT/meta.bak"
+python3 - <<PY
+import json
+p = "$OUT/_meta_image_shard000of003.json"
+m = json.load(open(p))
+m["pool_manifest_sha256"] = "0"*64          # pretend it came from another pool
+json.dump(m, open(p, "w"))
+PY
+if python3 "$CS1/code/scan_select.py" --pool "$CS1_POOL" --scan-dir "$OUT" \
+       --mode image --keep-min 0.8 --out "$OUT/tmp.json" 2>/dev/null; then
+    echo "  FAIL: selector accepted a shard from a different pool"; exit 1
+fi
+echo "  OK  selector refused the foreign shard"
+mv "$OUT/meta.bak" "$OUT/_meta_image_shard000of003.json"
+
+echo
+echo "=== missing-sidecar guard (must FAIL) ==="
+mv "$OUT/_meta_image_shard001of003.json" "$OUT/meta1.bak"
+if python3 "$CS1/code/scan_select.py" --pool "$CS1_POOL" --scan-dir "$OUT" \
+       --mode image --keep-min 0.8 --out "$OUT/tmp.json" 2>/dev/null; then
+    echo "  FAIL: selector accepted a shard with no provenance sidecar"; exit 1
+fi
+echo "  OK  selector refused the sidecar-less shard"
+mv "$OUT/meta1.bak" "$OUT/_meta_image_shard001of003.json"
+
+echo
 echo "=== stage 1 selection: image >= 4/5 (D11/D32) ==="
 python3 "$CS1/code/scan_select.py" \
     --pool "$CS1_POOL" --scan-dir "$OUT" --mode image \
