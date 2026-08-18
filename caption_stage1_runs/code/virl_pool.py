@@ -380,6 +380,32 @@ def stem_leaks_options(parsed: ParsedProblem) -> bool:
     return False
 
 
+def stem_reparses_as_mcq(parsed: ParsedProblem) -> bool:
+    """True if the stem, re-parsed on its own, still looks multiple-choice.
+
+    A *stricter* condition than :func:`stem_leaks_options`, and it is not
+    redundant with it: a stem can carry option-*shaped* structure without
+    carrying any option *body*. Row 36987 is the real example -- a survey
+    problem whose stem legitimately defines histogram groups::
+
+        ... the groups were divided as follows (unit: cm):
+            A: x < 155, B: 155 <= x < 160, C: 160 <= x < 165, ...
+
+    The four real options were stripped correctly and no option body leaks, so
+    ``stem_leaks_options`` passes. But the residual ``A: ... B: ... C: ...``
+    shape is indistinguishable from an option block to the parser.
+
+    Such rows are **dropped rather than repaired**. Loosening the check to admit
+    them would weaken D18 -- the invariant that keeps the captioner from seeing
+    answer options -- for a row that is one in ~27,000. A leak there would
+    silently invalidate the blind arm, which is a far worse trade than losing a
+    single training row.
+    """
+    if parsed.kind is not ParseKind.MCQ_LABELED:
+        return False
+    return parse_problem(parsed.stem).kind is ParseKind.MCQ_LABELED
+
+
 # --------------------------------------------------------------------------
 # Gradeability (D22)
 # --------------------------------------------------------------------------
@@ -439,6 +465,7 @@ class PoolStats:
     n_ungradeable: int = 0
     n_wrong_format: int = 0
     n_stem_leak: int = 0
+    n_stem_reparse_mcq: int = 0
     n_eligible: int = 0
     by_kind: dict[str, int] = field(default_factory=dict)
     by_answer_format: dict[str, int] = field(default_factory=dict)
@@ -514,6 +541,16 @@ def build_pool(
         if stem_leaks_options(parsed):
             stats.n_stem_leak += 1
             rejects.append({"index": idx, "stage": "stem_leak", "problem": problem})
+            continue
+
+        # Dropped at BUILD time so the pool gate can assert the invariant rather
+        # than discover a violation of it. A gate that fails the whole build on a
+        # row the builder was always going to admit is a gate the builder should
+        # have honoured first.
+        if stem_reparses_as_mcq(parsed):
+            stats.n_stem_reparse_mcq += 1
+            rejects.append({"index": idx, "stage": "stem_reparse_mcq",
+                            "problem": problem, "stem": parsed.stem})
             continue
 
         if not is_gradeable(answer, grade_fn):

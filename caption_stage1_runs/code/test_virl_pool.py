@@ -20,6 +20,7 @@ from __future__ import annotations
 import unittest
 
 from virl_pool import (
+    stem_reparses_as_mcq,
     ParseKind,
     answer_format,
     build_pool,
@@ -407,3 +408,51 @@ class TestBuildPool(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestStemReparsesAsMCQ(unittest.TestCase):
+    """Regression: real ViRL39K row 36987, found only at full-pool scale.
+
+    Its stem legitimately defines histogram groups "A: x < 155, B: ..., C: ...",
+    which is option-SHAPED without containing any option BODY. The four real
+    options are stripped correctly, so ``stem_leaks_options`` passes -- but the
+    residual structure is indistinguishable from an option block, and the pool
+    gate rightly refused it. Such rows are dropped, never repaired: D18 is what
+    keeps the captioner from seeing answer options, and weakening it for one row
+    in ~27,000 would risk silently invalidating the blind arm.
+    """
+
+    STEM = (
+        "A school conducted a sampling survey to understand the height conditions "
+        "of students. The sample included an equal number of boys and girls, and "
+        "the groups were divided as follows (unit: cm): A: x < 155, B: 155 ≤ x < 160, "
+        "C: 160 ≤ x < 165, D: 165 ≤ x < 170, E: x ≥ 170. The following statistical "
+        "chart was created using the collected data.  Based on the information "
+        "provided by the chart, which of the following statements is correct?"
+    )
+    FULL = STEM + (
+        " A. There are 3 more boys than girls in the height range 155 ≤ x < 160."
+        " B. The proportion of boys and girls in Group B is the same."
+        " C. More than half of the boys are taller than 165 cm."
+        " D. There are 2 girls in Group E."
+    )
+
+    def test_options_are_stripped_correctly(self):
+        parsed = parse_problem(self.FULL)
+        self.assertEqual(parsed.kind, ParseKind.MCQ_LABELED)
+        self.assertNotIn("There are 2 girls in Group E", parsed.stem)
+
+    def test_no_option_body_leaks(self):
+        """The weaker check passes -- which is exactly why the stricter one exists."""
+        self.assertFalse(stem_leaks_options(parse_problem(self.FULL)))
+
+    def test_stem_reparses_and_is_therefore_rejected(self):
+        self.assertTrue(stem_reparses_as_mcq(parse_problem(self.FULL)))
+
+    def test_ordinary_mcq_is_not_rejected(self):
+        """The guard must not eat normal rows."""
+        full = ("Which shape is largest?\nA. the red cube\nB. the blue sphere\n"
+                "C. the green cylinder\nD. the yellow cone")
+        parsed = parse_problem(full)
+        self.assertEqual(parsed.kind, ParseKind.MCQ_LABELED)
+        self.assertFalse(stem_reparses_as_mcq(parsed))

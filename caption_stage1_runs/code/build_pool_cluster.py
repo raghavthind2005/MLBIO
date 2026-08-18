@@ -240,7 +240,8 @@ def main() -> int:
     print(f"      eligible={stats.n_eligible:,}  drawn={len(items)}  subset={len(subset)}", flush=True)
     print(f"      dropped: multi_image={stats.n_multi_image} unparseable={stats.n_unparseable} "
           f"ungradeable={stats.n_ungradeable} wrong_format={stats.n_wrong_format} "
-          f"stem_leak={stats.n_stem_leak}", flush=True)
+          f"stem_leak={stats.n_stem_leak} "
+          f"stem_reparse_mcq={stats.n_stem_reparse_mcq}", flush=True)
     print(f"      answer formats seen: {dict(stats.by_answer_format)}", flush=True)
     print(f"      drawn by format: "
           f"{ {f: sum(1 for it in items if it.answer_fmt == f) for f in allowed} }", flush=True)
