@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --account=a0174
 #SBATCH --job-name=cs1-ctrl
-#SBATCH --partition=normal
-#SBATCH --time=01:30:00
+#SBATCH --partition=debug
+#SBATCH --time=01:15:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-node=4
