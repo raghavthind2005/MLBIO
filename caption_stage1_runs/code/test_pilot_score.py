@@ -17,6 +17,8 @@ from __future__ import annotations
 import unittest
 
 from pilot_score import (
+    _summarise,
+    _summarise_by_item,
     fallback_extract,
     grade_strict,
     grade_with_fallback,
@@ -262,6 +264,46 @@ class TestScoreRecords(unittest.TestCase):
     def test_empty_is_loud(self):
         with self.assertRaises(ValueError):
             self._score([])
+
+
+class TestByItemSummary(unittest.TestCase):
+    """The item-level estimand must not let heavily-sampled items dominate."""
+
+    def test_equal_item_weighting_despite_unequal_draws(self):
+        """Pilot 0's real shape: some items get 15 draws, most get 5.
+
+        Item 1 is wrong on all 15 of its draws; item 2 is right on both of its 2.
+        Pooled, item 1's volume drags the mean to 2/17 = 0.118. Per item, the
+        answer is 0.5 -- one item right, one wrong. The latter is what "how
+        accurate is the model on these items" actually means.
+        """
+        per_item = {1: [False] * 15, 2: [True] * 2}
+        by_item = _summarise_by_item(per_item)
+        self.assertAlmostEqual(by_item["accuracy"], 0.5)
+        self.assertEqual(by_item["n_items"], 2)
+        pooled = _summarise([f for v in per_item.values() for f in v])
+        self.assertAlmostEqual(pooled["accuracy"], 2 / 17)
+        self.assertNotAlmostEqual(by_item["accuracy"], pooled["accuracy"])
+
+    def test_partial_credit_within_item(self):
+        self.assertAlmostEqual(
+            _summarise_by_item({1: [True, False, False, False]})["accuracy"], 0.25)
+
+    def test_ci_is_wider_than_the_pooled_interval(self):
+        """Clustered draws must not be reported as independent ones."""
+        per_item = {i: [i % 2 == 0] * 10 for i in range(10)}
+        by_item = _summarise_by_item(per_item)
+        pooled = _summarise([f for v in per_item.values() for f in v])
+        width = lambda d: d["ci95"][1] - d["ci95"][0]
+        self.assertGreater(width(by_item), width(pooled))
+
+    def test_zero_variance_gives_zero_se(self):
+        b = _summarise_by_item({1: [True], 2: [True], 3: [True]})
+        self.assertAlmostEqual(b["accuracy"], 1.0)
+        self.assertAlmostEqual(b["se"], 0.0)
+
+    def test_empty(self):
+        self.assertEqual(_summarise_by_item({})["n_items"], 0)
 
 
 class TestGGrade(unittest.TestCase):

@@ -213,11 +213,46 @@ def wilson_ci(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
 
 
 def _summarise(flags: list[bool]) -> dict[str, Any]:
+    """Pooled, answer-level. Reported for continuity -- see :func:`_summarise_by_item`."""
     k, n = sum(flags), len(flags)
     lo, hi = wilson_ci(k, n)
     return {"n": n, "correct": k,
             "accuracy": (k / n) if n else 0.0,
             "ci95": [round(lo, 4), round(hi, 4)]}
+
+
+def _summarise_by_item(per_item: dict[int, list[bool]]) -> dict[str, Any]:
+    """Item-level mean with a cluster-robust CI. **This is the honest estimand.**
+
+    Two defects in the pooled answer-level figure make it the wrong headline:
+
+    1. **Unequal weighting.** Pilot 0's M=3 subset gives 50 items 15 answers each
+       while 150 items get 5, so a quarter of the items carry half the pooled
+       mean. The question we are asking ("how accurate is the model on this item
+       population?") weights every item equally.
+    2. **Understated uncertainty.** Answers within an item -- and within one
+       caption -- are strongly correlated, so a Wilson interval over pooled
+       answers treats ~1,500 dependent draws as independent and reports an
+       interval far too narrow.
+
+    Averaging within item, then across items, fixes the weighting; taking the
+    SE across item means treats the ITEM as the independent unit, which it is.
+    """
+    accs = [sum(v) / len(v) for v in per_item.values() if v]
+    n = len(accs)
+    if n == 0:
+        return {"n_items": 0, "accuracy": 0.0, "ci95": [0.0, 0.0], "se": 0.0}
+    mean = sum(accs) / n
+    if n > 1:
+        var = sum((a - mean) ** 2 for a in accs) / (n - 1)
+        se = math.sqrt(var / n)
+    else:
+        se = 0.0
+    return {"n_items": n,
+            "accuracy": mean,
+            "se": round(se, 4),
+            "ci95": [round(max(0.0, mean - 1.96 * se), 4),
+                     round(min(1.0, mean + 1.96 * se), 4)]}
 
 
 # --------------------------------------------------------------------------
@@ -289,11 +324,13 @@ def score_records(
         "n_items": len(per_item_strict),
         "draws_per_item": sorted(draws),
         "strict": {  # PRIMARY -- Vision-SR1's rule
+            "by_item": _summarise_by_item(per_item_strict),   # the honest estimand
             "overall": _summarise([g["strict_correct"] for g in graded]),
             "by_format": by_fmt_strict,
             "pass_rate_histogram": histogram(per_item_strict),
         },
         "fallback_sensitivity": {  # SECONDARY -- never reported alone
+            "by_item": _summarise_by_item(per_item_fb),
             "overall": _summarise([g["fallback_correct"] for g in graded]),
             "by_format": by_fmt_fb,
             "pass_rate_histogram": histogram(per_item_fb),
@@ -358,10 +395,13 @@ def main() -> int:
     s, f, d = report["strict"], report["fallback_sensitivity"], report["diagnostics"]
     print(f"\n=== measurement ({args.label}) ===")
     print(f"  answers {report['n_answers']}  items {report['n_items']}  draws {report['draws_per_item']}")
-    print(f"  STRICT   (primary, Vision-SR1): {s['overall']['accuracy']:.3f} "
-          f"CI{s['overall']['ci95']}")
-    print(f"  FALLBACK (sensitivity)        : {f['overall']['accuracy']:.3f} "
-          f"CI{f['overall']['ci95']}   delta={d['delta_fallback_minus_strict']:+.3f}")
+    print(f"  STRICT   by-item (HEADLINE)   : {s['by_item']['accuracy']:.3f} "
+          f"CI{s['by_item']['ci95']}  (n_items={s['by_item']['n_items']}, "
+          f"se={s['by_item']['se']})")
+    print(f"  STRICT   pooled answer-level  : {s['overall']['accuracy']:.3f} "
+          f"CI{s['overall']['ci95']}  <- unequal item weights, CI too narrow")
+    print(f"  FALLBACK by-item (sensitivity): {f['by_item']['accuracy']:.3f} "
+          f"CI{f['by_item']['ci95']}   delta_pooled={d['delta_fallback_minus_strict']:+.3f}")
     print(f"  boxed {d['boxed_rate']:.1%} · fallback recovered {d['fallback_rate']:.1%} "
           f"· unrecoverable {d['fallback_unrecoverable_count']} · truncated {d['truncation_rate']:.1%}")
     print(f"  by format (strict): " + "  ".join(
