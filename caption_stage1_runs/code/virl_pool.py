@@ -544,6 +544,13 @@ def build_pool(
         )
 
     stats.n_eligible = len(eligible)
+
+    # n_items <= 0 means "every eligible row". Needed for the full-pool scan,
+    # where the candidate set is the whole eligible population rather than a
+    # pilot draw. Passing a literal count instead would silently truncate the
+    # scan if the eligible total ever shifted.
+    if n_items <= 0:
+        n_items = len(eligible)
     if len(eligible) < n_items:
         raise ValueError(f"pool too small: {len(eligible)} eligible < {n_items} requested")
 
@@ -552,6 +559,7 @@ def build_pool(
     items = rng.sample(eligible, n_items)
     items.sort(key=lambda it: it.index)
 
+    n_subset = min(n_subset, len(items))
     subset = sorted(rng.sample([it.index for it in items], n_subset))
     return items, subset, stats, rejects
 
