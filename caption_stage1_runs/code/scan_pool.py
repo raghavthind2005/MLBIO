@@ -124,7 +124,10 @@ def main() -> int:
 
     reqs = []
     if args.mode == "image":
-        images = load_images(manifest, Path(args.snapshot))
+        # `only=` is essential here, not an optimisation: without it every shard
+        # decodes the whole ~27,000-row candidate pool to use one eighth of it.
+        images = load_images(manifest, Path(args.snapshot),
+                             only={it["index"] for it in shard_items})
         missing = [it["index"] for it in shard_items if it["index"] not in images]
         if missing:
             raise SystemExit(f"missing images for {len(missing)} rows, e.g. {missing[:5]}")

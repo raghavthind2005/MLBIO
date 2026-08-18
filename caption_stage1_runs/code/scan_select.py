@@ -68,6 +68,32 @@ def main() -> int:
     if seen != set(range(n_shards)):
         raise SystemExit(f"incomplete scan: have {sorted(seen)}, expected 0..{n_shards-1}")
 
+    # Provenance: every shard must have been generated from THIS pool, by one
+    # code version. Otherwise a stale shard left in the directory by an earlier
+    # run would be silently folded into the pool -- and because it would still
+    # carry valid indices and gradeable answers, nothing downstream would
+    # notice. Cheap check; the failure it prevents is invisible.
+    metas = []
+    for p in shards:
+        mp = p.parent / f"_meta_{p.stem[len('scan_'):]}.json"
+        if not mp.exists():
+            raise SystemExit(f"shard {p.name} has no _meta sidecar: provenance unverifiable")
+        metas.append((p.name, json.loads(mp.read_text())))
+    pool_shas = {m.get("pool_manifest_sha256") for _, m in metas}
+    if len(pool_shas) != 1:
+        raise SystemExit(f"shards came from different pools: {pool_shas}")
+    shard_sha = pool_shas.pop()
+    if shard_sha != manifest.get("manifest_sha256"):
+        raise SystemExit(
+            f"shards were generated from a DIFFERENT pool than --pool\n"
+            f"  shards: {shard_sha}\n  --pool: {manifest.get('manifest_sha256')}")
+    code_shas = {m.get("code_git_sha") for _, m in metas}
+    if len(code_shas) != 1:
+        print(f"  [warn] shards span multiple code versions: {code_shas}", flush=True)
+    modes = {m.get("mode") for _, m in metas}
+    if modes != {args.mode}:
+        raise SystemExit(f"shard metas disagree with --mode {args.mode}: {modes}")
+
     per_item: dict[int, list[bool]] = defaultdict(list)
     truncated = 0
     total = 0

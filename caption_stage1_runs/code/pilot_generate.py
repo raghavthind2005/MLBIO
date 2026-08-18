@@ -62,17 +62,28 @@ PRESETS = {
 DEFAULT_MAX_MODEL_LEN = 32_768
 
 
-def load_images(manifest: dict, snapshot_dir: Path) -> dict[int, "object"]:
-    """Pull only the images the pool actually needs, by ``<shard>#<row>`` locator.
+def load_images(manifest: dict, snapshot_dir: Path,
+                only: "set[int] | None" = None) -> dict[int, "object"]:
+    """Pull only the images the caller actually needs, by ``<shard>#<row>`` locator.
 
     The parquet embeds image bytes; we never copied them (2.7 GB) so they are
-    fetched here. Only the ~200 pool rows are materialised.
+    fetched here.
+
+    ``only`` restricts materialisation to a specific set of pool indices, and is
+    **required at scan scale**. Without it this decodes every row in the
+    manifest: for the 200-row pilot that is harmless, but the full candidate
+    pool has ~27,000 rows, so each of the 8 scan shards would decode ~39 GB of
+    PIL images to use one eighth of them -- 8x redundant work, on top of reading
+    every parquet shard on every node. A 200-row smoke cannot expose this.
     """
     import pyarrow.parquet as pq
     from PIL import Image
 
+    entries = [it for it in manifest["items"]
+               if only is None or it["index"] in only]
+
     wanted: dict[str, dict[int, int]] = defaultdict(dict)  # shard -> {row: index}
-    for it in manifest["items"]:
+    for it in entries:
         shard, row = it["image_paths"][0].split("#")
         wanted[shard][int(row)] = it["index"]
 
@@ -88,7 +99,7 @@ def load_images(manifest: dict, snapshot_dir: Path) -> dict[int, "object"]:
                     raw = payload["bytes"] if isinstance(payload, dict) else payload
                     images[rows[row_in_shard]] = Image.open(io.BytesIO(raw)).convert("RGB")
                 row_in_shard += 1
-    missing = {it["index"] for it in manifest["items"]} - set(images)
+    missing = {it["index"] for it in entries} - set(images)
     if missing:
         raise RuntimeError(f"could not load {len(missing)} pool images, e.g. {sorted(missing)[:5]}")
     return images
