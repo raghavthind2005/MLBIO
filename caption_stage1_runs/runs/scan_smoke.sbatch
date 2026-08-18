@@ -2,7 +2,7 @@
 #SBATCH --account=a0174
 #SBATCH --job-name=cs1-scansmoke
 #SBATCH --partition=debug
-#SBATCH --time=00:40:00
+#SBATCH --time=01:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-node=4
