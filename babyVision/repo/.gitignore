@@ -6,6 +6,12 @@
 !babyvision_gen_eval/generated/nanobanana-pro/round1/
 !babyvision_gen_eval/generated/nanobanana-pro/round1/**
 
+# macOS metadata, re-excluded. The `!data/**` negation above un-ignores
+# EVERYTHING under data/, including the root .gitignore's .DS_Store rule, so
+# these must be named again here or Finder droppings show up as untracked.
+data/**/.DS_Store
+data/**/._*
+
 # remove all claude cache files in all folders
 **/.claude/
 

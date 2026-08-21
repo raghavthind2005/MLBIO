@@ -1,5 +1,6 @@
 # macOS
 .DS_Store
+._*
 
 # Python build artifacts
 __pycache__/
@@ -20,6 +21,8 @@ venv/
 #   PAPO            main_qwen3 @ 1263a29   -> PAPO_clone/PAPO/PROVENANCE_MLBIO.md
 #   DeepEyes        main       @ 11d20c6b  -> DeepEyes_clone/DEEPEYES_RECORD.md
 #   EasyR1          main       @ dd71bbd   -> RL_SeeingToThinking/runs/RESULTS.md
+#   VLM-CapCurriculum          @ ccde3ff   -> docs/VLMCC_STAGE1_REFERENCE.md
 PAPO_clone/PAPO/
 DeepEyes_clone/DeepEyes/
 RL_SeeingToThinking/EasyR1/
+RL_SeeingToThinking/VLM-CapCurriculum/
