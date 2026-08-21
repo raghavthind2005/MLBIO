@@ -1,1 +1,25 @@
+# macOS
+.DS_Store
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# Machine-local Claude Code settings (permissions, per-machine paths).
+# .claude/ itself is NOT ignored -- shared project config belongs in git.
+.claude/settings.local.json
+
+# Vendored third-party clones. We study these in place and never modify them
+# (see feedback_no_reimplementing_external_code). Each is reproducible from the
+# upstream repo + the pinned commit recorded in the accompanying record doc, so
+# carrying tens of megabytes of someone else's history here buys nothing:
+#   PAPO            main_qwen3 @ 1263a29   -> PAPO_clone/PAPO/PROVENANCE_MLBIO.md
+#   DeepEyes        main       @ 11d20c6b  -> DeepEyes_clone/DEEPEYES_RECORD.md
+#   EasyR1          main       @ dd71bbd   -> RL_SeeingToThinking/runs/RESULTS.md
 PAPO_clone/PAPO/
+DeepEyes_clone/DeepEyes/
+RL_SeeingToThinking/EasyR1/
