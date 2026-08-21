@@ -34,13 +34,20 @@ from typing import Any
 #: everything derivable from the image. Track T's precedent is the reason --
 #: an over-restrictive clause there ("do not infer relationships") suppressed
 #: legitimate content and biased the result.
+#:
+#: The clause "Describe only what can be seen in the image" was REMOVED (user
+#: approved). It read as a second prohibition on top of the answer ban and
+#: risked suppressing exactly the relational content the caption exists to
+#: carry -- a caption that may not state how things relate is not a caption
+#: that can substitute for the image. The answer ban alone does the work the
+#: objective actually needs, since D16/leak-rate gates the failure it guards.
 CAPTION_INSTRUCTION = (
     "Look at the image carefully and describe what it shows, so that someone who cannot see the "
     "image would have everything they need to answer the question below.\n\n"
     "Report the concrete visual facts and the relationships between them — objects, attributes, "
     "colours, counts, text and labels, positions, and how things relate to one another. Keep the "
     "description compact and to the point, but do not leave out anything that could be useful.\n\n"
-    "Do not give the answer to the question. Describe only what can be seen in the image.\n\n"
+    "Do not give the answer to the question.\n\n"
     "Question: {stem}"
 )
 

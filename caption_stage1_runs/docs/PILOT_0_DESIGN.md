@@ -4,7 +4,7 @@
 Base-model inference only — **no training, no weight updates**. Approved in principle (D20); this document is
 the detail that needs sign-off before any code exists.
 
-Model: `Qwen3-VL-2B-Instruct` (D4). Data: `PAPO_ViRL39K_train` (D5). Container: `easyr1_vllm0112.sqsh`
+Model: `Qwen3-VL-4B-Instruct` (D33, supersedes D4). Data: `PAPO_ViRL39K_train` (D5). Container: `easyr1_vllm0112.sqsh`
 (vLLM 0.11.2, transformers 4.57.3, torch 2.9.0+cu129) via `~/toml/verl_easyr1.toml`. Execution: `sbatch`,
 never interactive `srun` (SSH disconnect kills it — established run-ops lesson).
 
@@ -78,18 +78,27 @@ Three prompts are rendered. **Two of them must be identical except for the evide
 
 **Captioner** — image + stem, `q_cap` (D15/D18):
 
+> **`cs1_prompts.py` is authoritative for every prompt string; this block is a copy for reading.**
+> It previously showed a superseded draft, and a frozen doc disagreeing with the code on a
+> result-affecting string is worse than no copy at all. Synced 2026-08-17.
+
 ```
-Look at the image carefully and describe everything in it that could help answer the question below.
+Look at the image carefully and describe what it shows, so that someone who cannot see the
+image would have everything they need to answer the question below.
 
-Report concrete visual facts — objects, attributes, colours, counts, text, positions — and any
-relationships between them that can be derived from the image, such as relative position, size,
-order, grouping, or sequence. Include anything that might be relevant, even if you are not certain
-it is needed; it is better to describe too much than to leave something out.
+Report the concrete visual facts and the relationships between them — objects, attributes,
+colours, counts, text and labels, positions, and how things relate to one another. Keep the
+description compact and to the point, but do not leave out anything that could be useful.
 
-Do not give the answer to the question. Describe only what can be seen in the image.
+Do not give the answer to the question.
 
 Question: {stem}
 ```
+
+*Clause removed (user-approved):* "Describe only what can be seen in the image." It stacked a second
+prohibition on top of the answer ban and risked suppressing the relational content the caption exists to
+carry — a caption forbidden from stating how things relate cannot substitute for the image. Track T's
+over-restrictive `q_cap` is the precedent. Leak risk is handled by D16/leak-rate gates, not by this clause.
 
 **Answerer (caption context)** — the `p` side of the KL:
 `[caption text] + {full problem} + {SHARED_SUFFIX}` — **no image, no `q_cap`**.
@@ -97,8 +106,14 @@ Question: {stem}
 **Reference (image context)** — the `q` side of the KL:
 `[image] + {full problem} + {SHARED_SUFFIX}`.
 
-`SHARED_SUFFIX` (D19) is one string constant used by both, e.g. *"Answer with only the final answer, in
-`\boxed{}`."* — exact wording pending approval.
+`SHARED_SUFFIX` (D19/D25) is one string constant used by both, and is **`Put your final answer in
+\boxed{}.`** ([cs1_prompts.py:57](../code/cs1_prompts.py#L57)).
+
+> **Corrected 2026-08-17.** This line and §6 both still carried the superseded draft *"Answer with only the
+> final answer, in `\boxed{}`."* — the wording that **fought the model and lost** (65–75% of answers ran to
+> the cap, only 25–35% emitted `\boxed{}`). It was replaced precisely because it forbade the reasoning the
+> model insists on doing; both reference pipelines permit reasoning and demand a parseable final slot. Two
+> frozen locations were still specifying the abandoned string.
 
 **Gates:**
 - **G-PARITY:** render both scored prompts, strip the evidence span from each, assert the remainders are
@@ -110,9 +125,23 @@ Question: {stem}
 
 ## 4. Generation and scoring
 
-**Sampling parameters (D23):** read from `Qwen3-VL-2B-Instruct`'s own `generation_config.json` on download,
-and record the values in the run manifest. Do not inherit VLM-CapCurriculum's `top_p=1.0` — unbounded sampling
-is what made Qwen3-VL degenerate into loops in the PAPO line.
+**Sampling parameters (D23, as AMENDED):** `temperature 1.0`, `top_p 1.0`, `top_k -1` — **untruncated** — for
+both caption and answer. Rationale is correctness, not preference: the D9 estimator identity holds only for
+`y` drawn from the true policy `p`, and any `top_p`/`top_k` truncation draws from `p̃ ≠ p`, silently biasing
+every `D̂`. GRPO's policy gradient makes the same on-policy assumption.
+
+> **Corrected 2026-08-17.** This paragraph previously said to read the values from the model's
+> `generation_config.json` and warned *"do not inherit VLM-CapCurriculum's `top_p=1.0`"* — i.e. it described
+> the **pre-amendment** D23 and advised against precisely what the amended D23 requires. Stale text, now
+> aligned. The card values (`temp 0.7 / top_p 0.8 / top_k 20`, identical on 2B and 4B) are still recorded in
+> the run manifest **for provenance only** and are not used for rollouts.
+
+*Independent corroboration (2026-08-17).* EasyR1's own default (`examples/config.yaml`) is `temperature 1.0`,
+`top_p 1.0`, `top_k` unset — untruncated. Vision-SR1, whose method is the closest published analogue to ours,
+overrides only to `temperature 1.0`, `top_p 0.99`, `n 8` (`vision_sr1/config.yaml`), and likewise never uses
+its backbone's card — Qwen2.5-VL-7B-Instruct's card is `temperature 1e-6`, effectively greedy. Their `top_p
+0.99` clips the extreme tail for stability at the cost of a small bias; we hold `1.0` for strict
+unbiasedness, and treat `0.99` as the documented fallback if the D33 sweep shows degeneration.
 
 **Two-pass structure** (the PAPO-probe pattern): generate with vLLM → persist to disk → score with HF in a
 separate process, so vLLM and HF never co-reside and we avoid the sleep/wake OOM class.
@@ -165,7 +194,7 @@ All previously-open knobs are now decided (see `DECISIONS.md`):
 |---|---|---|
 | `max_pixels` / `min_pixels` | **4,194,304** (≈4,096 visual tokens) / 262,144 | D24 |
 | Sampling, captions **and** answers | temperature **1.0**, `top_p=1.0`, `top_k=-1` (untruncated) | D23 (amended) |
-| `SHARED_SUFFIX` | `Answer with only the final answer, in \boxed{}.` | D25 |
+| `SHARED_SUFFIX` | `Put your final answer in \boxed{}.` | D25 |
 | Measurement (a) draws | n=5 per item | D26 |
 | Pool rule | `grade_answer(a, a) is True` | D22 |
 | Variance decomposition | M=3 on a nested 50-item subset | D21 |
