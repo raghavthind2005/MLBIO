@@ -245,6 +245,26 @@ def build(rows: list[dict], grade_fn: Callable[[str, str], bool], seed: int,
     return splits, report
 
 
+def derive_trial_smoke(trial: list[dict], n: int, seed: int) -> list[dict]:
+    """A small stratified SUBSET of trial, for fast iteration only.
+
+    Deliberately not a disjoint split. Smoke runs exist to exercise mechanics and their
+    results are never reported, so sharing images with trial contaminates nothing -- and
+    spending 2,000 more images on a throwaway split would cost real training data from a
+    pool that is capped at 31,798 (4.3).
+
+    STRATIFIED, not a head slice. `build` lays each split out as concatenated
+    per-category blocks, so `trial[:2000]` would be one or two categories -- precisely
+    the bug that made job 3168166 measure Chart and nothing else (4.6.4). This reuses the
+    sampler written to fix that rather than introducing a second one to get wrong.
+    """
+    if n > len(trial):
+        raise AssertionError(
+            f"trial_smoke of {n:,} exceeds trial ({len(trial):,})")
+    from pool_io import get_split
+    return get_split({"splits": {"trial": trial}}, "trial", n, seed=seed)
+
+
 def assert_invariants(splits: dict[str, list[dict]]) -> None:
     """Verified, not trusted. Each of these failing would be silent otherwise."""
     seen_images: dict[str, str] = {}
@@ -274,9 +294,23 @@ def main() -> int:
                     help="dataset_provenance.json written by fetch_dataset.py")
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--n-trial", type=int, default=5000)
-    ap.add_argument("--n-eval", type=int, default=1000)
+    # Sizes revised 2026-08-24 (see DECISION_LOG S5 v2 and O7/O8).
+    #   trial 22,000  -- ~100 steps of FRESH data at rollout_batch_size 128 once the
+    #                    28.3% dead-group rate (4.8) is absorbed by online filtering.
+    #                    The former 5,000 capped a confirmatory run at ~28 fresh steps
+    #                    against Vision-SR1's ~93. Pool size does NOT set run length --
+    #                    `trainer.max_steps` does (verl config.py:101) -- so a large pool
+    #                    costs iteration speed nothing.
+    #   eval_final 8,000 -- powered to 2.0pp at discordance 0.40, 1.6pp at 0.25. At the
+    #                    former 1,000 the minimum detectable effect was 4.4-5.6pp, which
+    #                    could not have detected Vision-SR1's own +1.7pp.
+    ap.add_argument("--n-trial", type=int, default=22000)
+    ap.add_argument("--n-eval-final", type=int, default=8000)
+    ap.add_argument("--n-eval-monitor", type=int, default=1000)
     ap.add_argument("--n-dev", type=int, default=300)
+    # A SUBSET of trial, not a disjoint split: used only for fast iteration, and its
+    # results are never reported, so there is nothing to contaminate.
+    ap.add_argument("--n-trial-smoke", type=int, default=2000)
     ap.add_argument("--target", choices=("eligible", "raw"), default="eligible",
                     help="which category distribution the draw preserves")
     args = ap.parse_args()
@@ -298,9 +332,22 @@ def main() -> int:
 
     # Order defines how each category's block is carved; trial first so any
     # rounding remainder lands there rather than in the held-out set.
-    sizes = {"trial": args.n_trial, "eval": args.n_eval, "dev": args.n_dev}
+    sizes = {"trial": args.n_trial,
+             "eval_final": args.n_eval_final,
+             "eval_monitor": args.n_eval_monitor,
+             "dev": args.n_dev}
     splits, report = build(rows, grade_answer, args.seed, sizes, args.target)
+
+    # Invariants run over the DISJOINT splits only, before trial_smoke is derived --
+    # trial_smoke shares images with trial by design, and would fail the cross-split
+    # disjointness check that S5.3 requires of the real splits.
     assert_invariants(splits)
+
+    if args.n_trial_smoke:
+        splits["trial_smoke"] = derive_trial_smoke(
+            splits["trial"], args.n_trial_smoke, args.seed)
+        print(f"[derived] trial_smoke: {len(splits['trial_smoke']):,} rows, "
+              f"stratified subset OF trial (shares images with it by design)")
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

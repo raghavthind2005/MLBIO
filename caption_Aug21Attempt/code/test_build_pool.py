@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import unittest
 
-from build_pool import CATEGORIES, build, category_of, assert_invariants
+from build_pool import CATEGORIES, build, category_of, assert_invariants, derive_trial_smoke
 
 
 def rows_for(spec: dict[str, int], per_image: int = 1,
@@ -236,3 +236,46 @@ class TestDeterminism(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestTrialSmoke(unittest.TestCase):
+    """trial_smoke is a subset, so the disjointness machinery cannot vet it."""
+
+    def _trial(self, n_per_cat=60):
+        rows = []
+        pid = 0
+        for c in ("Chart", "General", "Knowledge", "Math", "Spatial"):
+            for _ in range(n_per_cat):
+                rows.append({"problem_id": pid, "path": f"./{c}/{pid}.png",
+                             "category": c, "answer": "x", "problem": "q",
+                             "data_source": "s", "problem_type": "multiple choice",
+                             "shard": "s0.parquet", "row_in_shard": pid})
+                pid += 1
+        return rows
+
+    def test_is_a_strict_subset_of_trial(self):
+        trial = self._trial()
+        smoke = derive_trial_smoke(trial, 50, seed=0)
+        ids = {r["problem_id"] for r in trial}
+        self.assertTrue({r["problem_id"] for r in smoke} <= ids)
+        self.assertEqual(len(smoke), 50)
+
+    def test_is_stratified_not_a_head_slice(self):
+        """A head slice would be one category -- the job 3168166 failure."""
+        trial = self._trial()
+        smoke = derive_trial_smoke(trial, 50, seed=0)
+        cats = {r["category"] for r in smoke}
+        self.assertEqual(len(cats), 5, f"only {cats} represented")
+        head = {r["category"] for r in trial[:50]}
+        self.assertEqual(len(head), 1, "fixture should reproduce the head-slice hazard")
+
+    def test_deterministic_under_seed(self):
+        trial = self._trial()
+        a = [r["problem_id"] for r in derive_trial_smoke(trial, 40, seed=0)]
+        b = [r["problem_id"] for r in derive_trial_smoke(trial, 40, seed=0)]
+        self.assertEqual(a, b)
+
+    def test_oversized_request_is_a_loud_error(self):
+        with self.assertRaises(AssertionError) as cm:
+            derive_trial_smoke(self._trial(n_per_cat=2), 500, seed=0)
+        self.assertIn("exceeds trial", str(cm.exception))

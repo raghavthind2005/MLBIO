@@ -131,7 +131,8 @@ def main() -> int:
     ap.add_argument("--pool", required=True)
     ap.add_argument("--provenance", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--splits", default="trial,eval,dev")
+    ap.add_argument("--splits",
+                    default="trial,trial_smoke,eval_final,eval_monitor,dev")
     args = ap.parse_args()
 
     prov = json.loads(Path(args.provenance).read_text())
@@ -167,15 +168,39 @@ def main() -> int:
 
     # 6. S5.3, re-checked on the artifacts: one image lands in exactly one split.
     #    Verified at build time too, but this is the file the trainer actually reads.
+    #
+    #    DERIVED_SUBSETS are exempt BY NAME, never by weakening the check. trial_smoke is
+    #    a stratified subset of trial and shares its images deliberately; it is used only
+    #    for fast iteration and its results are never reported. Listing it explicitly
+    #    means a genuine leak between two real splits still fails, and adding a new split
+    #    cannot silently inherit the exemption.
+    DERIVED_SUBSETS = {"trial_smoke": "trial"}
     for a in names:
         for b in names:
-            if a < b:
-                overlap = paths_seen[a] & paths_seen[b]
-                if overlap:
-                    raise AssertionError(
-                        f"S5.3 violated: {len(overlap)} images in BOTH {a} and {b}, "
-                        f"e.g. {sorted(overlap)[:3]}")
-    print(f"\n[gate] cross-split image disjointness holds over {names}", flush=True)
+            if a >= b:
+                continue
+            if DERIVED_SUBSETS.get(a) == b or DERIVED_SUBSETS.get(b) == a:
+                continue
+            overlap = paths_seen[a] & paths_seen[b]
+            if overlap:
+                raise AssertionError(
+                    f"S5.3 violated: {len(overlap)} images in BOTH {a} and {b}, "
+                    f"e.g. {sorted(overlap)[:3]}")
+
+    # The exemption is a claim in its own right, so it is checked rather than assumed:
+    # a "subset" that is not actually contained in its parent would be a real leak.
+    for sub, parent in DERIVED_SUBSETS.items():
+        if sub in paths_seen and parent in paths_seen:
+            stray = paths_seen[sub] - paths_seen[parent]
+            if stray:
+                raise AssertionError(
+                    f"{sub} is declared a subset of {parent} but {len(stray)} of its "
+                    f"images are not in {parent}, e.g. {sorted(stray)[:3]}. That is "
+                    f"leakage wearing an exemption.")
+            print(f"[gate] {sub} verified as a true subset of {parent}", flush=True)
+
+    checked = [n for n in names if n not in DERIVED_SUBSETS]
+    print(f"[gate] cross-split image disjointness holds over {checked}", flush=True)
 
     meta = {
         "pool_manifest_sha256": declared,
@@ -187,7 +212,11 @@ def main() -> int:
                     "'train' and verl takes the isfile branch "
                     "(verl/utils/dataset.py:129-143)",
             "train_files": written.get("trial", {}).get("path"),
-            "val_files": written.get("eval", {}).get("path"),
+            "train_files_smoke": written.get("trial_smoke", {}).get("path"),
+            "val_files": written.get("eval_monitor", {}).get("path"),
+            "eval_final": written.get("eval_final", {}).get("path"),
+            "eval_final_note": "CONFIRMATORY. Touched once per run, at the end. "
+                               "Never used for monitoring -- see O7/O8 prereg 8.2.",
             "prompt_key": "problem",
             "answer_key": "answer",
             "image_key": "images",

@@ -30,8 +30,9 @@ srun --environment="$HOME/toml/verl_easyr1.toml" \
         --provenance "$CA21_POOL/dataset_provenance.json" \
         --out "$CA21_POOL" \
         --seed "${CA21_SEED:-0}" \
-        --n-trial "${CA21_N_TRIAL:-5000}" \
-        --n-eval "${CA21_N_EVAL:-1000}" \
+        --n-trial "${CA21_N_TRIAL:-22000}" \
+        --n-eval-final "${CA21_N_EVAL_FINAL:-8000}" \
+        --n-eval-monitor "${CA21_N_EVAL_MONITOR:-1000}" \
         --n-dev "${CA21_N_DEV:-300}" \
         --target "${CA21_TARGET:-eligible}"
 
