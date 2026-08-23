@@ -45,6 +45,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import ca21_prompts as P  # noqa: E402
+from container_gate import assert_vit_attn_patch  # noqa: E402
 from pool_io import check_pixel_budget, get_split, load_images, load_manifest  # noqa: E402
 
 # Vision-SR1's config.yaml: max_pixels 4194304, max_model_len 16896.
@@ -53,22 +54,31 @@ MIN_PIXELS = 3_136          # Qwen2.5-VL-3B-Instruct preprocessor default
 MAX_MODEL_LEN = 16_896
 SAMPLING = dict(temperature=1.0, top_p=0.99)
 
-#: Qwen2.5-VL's VISION tower has head_dim = 1280/16 = 80, and the FlashAttention
-#: build bundled with vLLM in this aarch64 container refuses any head_dim that is
-#: not a multiple of 32:
+#: Qwen2.5-VL's VISION tower has head_dim = 1280/16 = 80, and the flash_attn build
+#: in this container refuses any head_dim that is not a multiple of 32:
 #:
 #:   RuntimeError: This flash attention build does not support headdim not being
-#:   a multiple of 32.        (job 3167519, in vit_flash_attn_wrapper)
+#:   a multiple of 32.        (jobs 3167519 AND 3167568, in vit_flash_attn_wrapper)
 #:
-#: Qwen3-VL's ViT has different head geometry, which is why this never appeared
-#: before. TORCH_SDPA is the class default in vLLM's own Qwen2_5_VL attention and
-#: has an explicit branch there, so this selects a supported kernel rather than
-#: working around a bug.
+#: Setting this alone is NOT sufficient. vLLM 0.11.2 accepts the value, echoes it
+#: back in its own non-default-args log line, and then reverts it internally: the
+#: CUDA branch of maybe_get_vit_flash_attn_backend never consults
+#: attn_backend_override, though the ROCm branch ten lines above does. That is why
+#: job 3167568 failed IDENTICALLY to 3167519 despite carrying this setting.
+#:
+#: It works only alongside the patched layer.py mounted by runs/ca21_vllm.toml, and
+#: gate G-VITATTN below proves the pair is actually in force rather than trusting
+#: the log line that misled us the first time.
 #:
 #: RESULT-NEUTRAL: SDPA and FlashAttention both compute exact softmax attention;
 #: they differ in kernel and summation order, so outputs differ only at rounding
-#: level. Same class of change as the conv3d->matmul patch in the EasyR1 line.
+#: level. TORCH_SDPA is also vLLM's own class default for Qwen2_5_VisionAttention.
+#: Full rationale: patches/vllm_0_11_2/README.md
 MM_ENCODER_ATTN_BACKEND = "TORCH_SDPA"
+
+#: sha256 of our patched layer.py, so G-VITATTN can check identity as well as
+#: behaviour. Kept in sync with patches/vllm_0_11_2/PATCHED.sha256 by a test.
+PATCHED_LAYER_SHA256 = "d47643a080a09be7db1b1f1bbeadc9153b43912156e96d1abf588162bc51377a"
 
 THINK_OPEN = re.compile(r"<think>")
 THINK_CLOSE = re.compile(r"</think>")
@@ -137,6 +147,12 @@ def main() -> int:
     from transformers import AutoProcessor
     from vllm import LLM, SamplingParams
     from mathruler.grader import extract_boxed_content, grade_answer
+
+    # FIRST, before any other work. Two jobs have now died ~90 s in, during the
+    # profile pass, on a ViT kernel that was mis-selected at import time. This
+    # decides the same question in about a second.
+    print("[gate] G-VITATTN: is the ViT attention patch in force?", flush=True)
+    vit_gate = assert_vit_attn_patch(expect_sha256=PATCHED_LAYER_SHA256)
 
     prov = json.loads(Path(args.provenance).read_text())
     snapshot = Path(prov["snapshot_path"])
@@ -207,6 +223,8 @@ def main() -> int:
         "max_tokens": args.max_tokens, "max_model_len": MAX_MODEL_LEN,
         "max_pixels": MAX_PIXELS,
         "mm_encoder_attn_backend": MM_ENCODER_ATTN_BACKEND,
+        # The kernel the ViT actually ran, as measured -- not as requested.
+        "vit_attn_gate": vit_gate,
     }
 
     out = Path(args.out)

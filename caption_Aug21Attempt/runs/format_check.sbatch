@@ -28,7 +28,7 @@ source "$CA21_ROOT/runs/_env.sh"
 echo "[job] $SLURM_JOB_ID on $(hostname) at $(date -Is)"
 
 echo "=== rebuilding pool (manifest now carries problem text) ==="
-srun --environment="$HOME/toml/verl_easyr1.toml" \
+srun --environment="$CA21_TOML" \
     python3 "$CA21/code/build_pool.py" \
         --provenance "$CA21_POOL/dataset_provenance.json" \
         --out "$CA21_POOL" \
@@ -40,7 +40,7 @@ srun --environment="$HOME/toml/verl_easyr1.toml" \
 
 echo
 echo "=== sighted prompt compliance check ==="
-srun --environment="$HOME/toml/verl_easyr1.toml" \
+srun --environment="$CA21_TOML" \
     python3 "$CA21/code/format_check.py" \
         --pool "$CA21_POOL" \
         --model "$CA21_MODEL" \

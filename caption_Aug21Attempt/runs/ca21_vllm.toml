@@ -1,0 +1,48 @@
+# Container environment for caption_Aug21Attempt.
+#
+# This is a COPY of ~/toml/verl_easyr1.toml plus exactly one extra mount. It is deliberately
+# a separate file rather than an edit to the shared one, because the shared toml is used by
+# the PAPO and DeepEyes lines and a mount that changes vLLM's attention selection must not
+# appear underneath a run that did not ask for it.
+#
+# THE EXTRA MOUNT overlays our patched vllm/attention/layer.py. Without it, vLLM 0.11.2
+# accepts `mm_encoder_attn_backend="TORCH_SDPA"`, logs it, reverts it internally, and dies
+# in the ViT on Qwen2.5-VL's head_dim=80. Full rationale, the end-to-end trace, and the
+# reproducibility controls: caption_Aug21Attempt/patches/vllm_0_11_2/README.md
+#
+# The mount is verified at runtime by gate G-VITATTN (code/container_gate.py), which checks
+# both that the file landed and that the override actually survives -- because the failure
+# this patch fixes was itself a setting that was applied and silently ignored.
+
+image = "/capstor/store/cscs/swissai/a0174/ce-images/easyr1_vllm0112.sqsh"
+mounts = [
+    "/capstor/store/cscs/swissai/infra01/ocf-share:/ocfbin",
+    "/capstor",
+    "/iopsstor",
+    "/usr/lib64/libhwloc.so.15:/usr/lib/libhwloc.so.15",
+    "/usr/lib64/libpciaccess.so.0:/usr/lib/libpciaccess.so.0",
+    "/usr/lib64/libxml2.so.2:/usr/lib/libxml2.so.2",
+    "/usr/lib64/libnuma.so.1:/usr/lib/libnuma.so.1",
+    # --- CA21 patch: see patches/vllm_0_11_2/README.md ---
+    "/iopsstor/scratch/cscs/raghavthind/caption_aug21/patches/vllm_0_11_2/layer.py:/usr/local/lib/python3.12/dist-packages/vllm/attention/layer.py",
+]
+
+[annotations]
+com.hooks.aws_ofi_nccl.enabled = "true"
+com.hooks.aws_ofi_nccl.variant = "cuda12"
+com.hooks.cxi.enabled = "true"
+
+[env]
+NCCL_NET = "AWS Libfabric"
+NCCL_CROSS_NIC = "1"
+NCCL_NET_GDR_LEVEL = "PHB"
+NCCL_SOCKET_IFNAME = "hsn"
+NCCL_PROTO = "^LL128"
+FI_CXI_COMPAT = "0"
+FI_MR_CACHE_MONITOR = "userfaultfd"
+FI_CXI_RX_MATCH_MODE = "software"
+FI_CXI_DEFAULT_CQ_SIZE = "131072"
+FI_CXI_DEFAULT_TX_SIZE = "32768"
+FI_CXI_DISABLE_HOST_REGISTER = "1"
+OFI_NCCL_DISABLE_DMABUF = "1"
+VLLM_ALLREDUCE_USE_SYMM_MEM = "0"

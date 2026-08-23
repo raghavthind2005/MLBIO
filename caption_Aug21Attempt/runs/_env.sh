@@ -38,6 +38,12 @@ export HF_HOME=${HF_HOME:-/iopsstor/scratch/cscs/raghavthind/hf_cache}
 
 export CA21_POOL=${CA21_POOL:-$CA21/pool}
 
+# Container. NOT ~/toml/verl_easyr1.toml: ours adds a bind-mount that overlays a patched
+# vllm/attention/layer.py, and that must not appear underneath the PAPO or DeepEyes lines,
+# which share the other file. See patches/vllm_0_11_2/README.md.
+export CA21_TOML=${CA21_TOML:-$CA21/runs/ca21_vllm.toml}
+export CA21_PATCH_LAYER=${CA21_PATCH_LAYER:-$CA21/patches/vllm_0_11_2/layer.py}
+
 # --- runtime -------------------------------------------------------------
 # REQUIRED for vLLM in this container; without it the engine core dies with
 # "Cannot re-initialize CUDA in forked subprocess".
@@ -59,3 +65,21 @@ echo "[_env] git     = $CA21_GIT_SHA"
 echo "[_env] dataset = $CA21_DATASET @ $CA21_DATASET_REV"
 echo "[_env] hf_home = $HF_HOME"
 echo "[_env] pool    = $CA21_POOL"
+echo "[_env] toml    = $CA21_TOML"
+
+# The mount source must exist and be the file we patched. If it is missing, the container
+# engine may start anyway with the stock layer.py and the run dies 90 s later in the ViT --
+# so this is checked here, not discovered there.
+if [ ! -f "$CA21_PATCH_LAYER" ]; then
+    echo "[_env] FATAL: patched layer.py absent at $CA21_PATCH_LAYER" >&2
+    exit 1
+fi
+_want=$(awk '{print $1}' "$CA21/patches/vllm_0_11_2/PATCHED.sha256")
+_got=$(sha256sum "$CA21_PATCH_LAYER" | awk '{print $1}')
+if [ "$_want" != "$_got" ]; then
+    echo "[_env] FATAL: patched layer.py hash mismatch" >&2
+    echo "[_env]   expected $_want" >&2
+    echo "[_env]   found    $_got" >&2
+    exit 1
+fi
+echo "[_env] patch   = layer.py OK ($(echo "$_got" | cut -c1-16)...)"
