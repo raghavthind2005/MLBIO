@@ -53,6 +53,23 @@ MIN_PIXELS = 3_136          # Qwen2.5-VL-3B-Instruct preprocessor default
 MAX_MODEL_LEN = 16_896
 SAMPLING = dict(temperature=1.0, top_p=0.99)
 
+#: Qwen2.5-VL's VISION tower has head_dim = 1280/16 = 80, and the FlashAttention
+#: build bundled with vLLM in this aarch64 container refuses any head_dim that is
+#: not a multiple of 32:
+#:
+#:   RuntimeError: This flash attention build does not support headdim not being
+#:   a multiple of 32.        (job 3167519, in vit_flash_attn_wrapper)
+#:
+#: Qwen3-VL's ViT has different head geometry, which is why this never appeared
+#: before. TORCH_SDPA is the class default in vLLM's own Qwen2_5_VL attention and
+#: has an explicit branch there, so this selects a supported kernel rather than
+#: working around a bug.
+#:
+#: RESULT-NEUTRAL: SDPA and FlashAttention both compute exact softmax attention;
+#: they differ in kernel and summation order, so outputs differ only at rounding
+#: level. Same class of change as the conv3d->matmul patch in the EasyR1 line.
+MM_ENCODER_ATTN_BACKEND = "TORCH_SDPA"
+
 THINK_OPEN = re.compile(r"<think>")
 THINK_CLOSE = re.compile(r"</think>")
 BOXED = re.compile(r"\\boxed\{")
@@ -153,6 +170,7 @@ def main() -> int:
               max_model_len=MAX_MODEL_LEN, gpu_memory_utilization=0.85,
               limit_mm_per_prompt={"image": 1},
               mm_processor_kwargs={"min_pixels": MIN_PIXELS, "max_pixels": MAX_PIXELS},
+              mm_encoder_attn_backend=MM_ENCODER_ATTN_BACKEND,
               seed=args.seed, enforce_eager=False, disable_log_stats=True)
 
     reqs = [{"prompt": processor.apply_chat_template(
@@ -188,6 +206,7 @@ def main() -> int:
         "sampling": {**SAMPLING, "seed": args.seed},
         "max_tokens": args.max_tokens, "max_model_len": MAX_MODEL_LEN,
         "max_pixels": MAX_PIXELS,
+        "mm_encoder_attn_backend": MM_ENCODER_ATTN_BACKEND,
     }
 
     out = Path(args.out)
