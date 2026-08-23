@@ -85,6 +85,75 @@ THINK_CLOSE = re.compile(r"</think>")
 BOXED = re.compile(r"\\boxed\{")
 
 
+def group_analysis(records: list[dict], gold: dict[int, str],
+                   extract_fn, grade_fn, n_draws: int) -> dict:
+    """R2, measured properly: GRPO's signal lives in WITHIN-item variance.
+
+    THE ERROR THIS EXISTS TO CORRECT. Job 3168210 measured 30.7% accuracy at one draw
+    per item and it was recorded as "R2 satisfied". That inference does not hold. A 30.7%
+    *marginal* rate is equally consistent with
+
+      - every item at p ~ 0.307          -> almost no dead groups, healthy gradient
+      - 30.7% of items at p ~ 1, rest 0  -> EVERY group dead, no gradient at all
+
+    and one draw cannot tell them apart. GRPO's advantage is group-relative: a group whose
+    rollouts all agree contributes exactly nothing, whatever the marginal rate is.
+
+    So this reports the distribution of per-item correct counts, and the honest headline
+    is `live_frac` -- the fraction of items that would actually produce a gradient.
+
+    Also reports what an i.i.d. model would have predicted from the marginal alone. The
+    gap between predicted and observed dead fractions IS the item heterogeneity, made
+    visible rather than assumed away.
+    """
+    by_item: dict[int, list[bool]] = defaultdict(list)
+    for r in records:
+        ok = False
+        try:
+            ok = bool(grade_fn(extract_fn(r["text"]), gold[r["problem_id"]]))
+        except Exception:
+            pass
+        by_item[r["problem_id"]].append(ok)
+
+    cat_of = {r["problem_id"]: r["category"] for r in records}
+    counts = {pid: sum(v) for pid, v in by_item.items()}
+    n_items = len(counts)
+    if n_items == 0:
+        return {}
+
+    def block(pids: list[int]) -> dict:
+        m = len(pids)
+        c = [counts[p] for p in pids]
+        all_wrong = sum(1 for x in c if x == 0)
+        all_right = sum(1 for x in c if x == n_draws)
+        marginal = sum(c) / (m * n_draws)
+        # What i.i.d. draws at the observed marginal WOULD have given.
+        iid_dead = marginal ** n_draws + (1 - marginal) ** n_draws
+        return {
+            "n_items": m,
+            "marginal_accuracy": marginal,
+            "all_wrong": all_wrong / m,
+            "all_correct": all_right / m,
+            "dead_frac": (all_wrong + all_right) / m,
+            "live_frac": 1 - (all_wrong + all_right) / m,
+            "at_least_one_correct": 1 - all_wrong / m,   # O4 with m trajectories
+            "iid_predicted_dead_frac": iid_dead,
+            "heterogeneity_gap": (all_wrong + all_right) / m - iid_dead,
+            "mean_correct_per_item": sum(c) / m,
+        }
+
+    by_cat: dict[str, list[int]] = defaultdict(list)
+    for pid in counts:
+        by_cat[cat_of[pid]].append(pid)
+
+    return {
+        "n_draws": n_draws,
+        "histogram": {str(k): v for k, v in sorted(Counter(counts.values()).items())},
+        "overall": block(list(counts)),
+        "by_category": {c: block(p) for c, p in sorted(by_cat.items())},
+    }
+
+
 def summarise(records: list[dict], gold: dict[int, str],
               extract_fn, grade_fn) -> dict:
     n = len(records)
@@ -230,6 +299,9 @@ def main() -> int:
             })
 
     report = summarise(records, gold, extract_boxed_content, grade_answer)
+    if args.n_draws > 1:
+        report["groups"] = group_analysis(
+            records, gold, extract_boxed_content, grade_answer, args.n_draws)
     report["_meta"] = {
         "model": args.model,
         "model_revision": os.environ.get("CA21_MODEL_REV", "unknown"),
@@ -250,8 +322,11 @@ def main() -> int:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2))
+    # H2: persist EVERY record. Job 3168210 saved 20 of 300, so 3 of its 32 \boxed{}
+    # failures could be characterised rather than all 32. Full responses are needed for
+    # L1 anyway, and at these lengths the file is a few MB.
     out.with_suffix(".samples.jsonl").write_text(
-        "\n".join(json.dumps(r) for r in records[:20]))
+        "\n".join(json.dumps(r) for r in records))
 
     o = report["overall"]
     L = report["length"]
@@ -270,6 +345,28 @@ def main() -> int:
     for c, r in report["by_category"].items():
         print(f"    {c:<10} n={r['n']:<4} boxed {r['boxed']:5.1%}  eos {r['eos']:5.1%}  "
               f"acc {r['accuracy']:5.1%}")
+    if "groups" in report:
+        g = report["groups"]
+        go = g["overall"]
+        print(f"\n=== R2: GROUP-LEVEL SIGNAL (n_draws={g['n_draws']}) ===")
+        print("  This, not the marginal accuracy above, is what decides whether GRPO")
+        print("  has a gradient. Groups whose rollouts all agree contribute nothing.\n")
+        print(f"  items                     {go['n_items']}")
+        print(f"  all {g['n_draws']} wrong             {go['all_wrong']:6.1%}   <- dead")
+        print(f"  all {g['n_draws']} correct           {go['all_correct']:6.1%}   <- dead")
+        print(f"  DEAD groups               {go['dead_frac']:6.1%}")
+        print(f"  LIVE groups               {go['live_frac']:6.1%}   <- the gradient lives here")
+        print(f"\n  >=1 correct trajectory    {go['at_least_one_correct']:6.1%}   <- O4 with m trajectories")
+        print(f"  mean correct per item     {go['mean_correct_per_item']:.2f} / {g['n_draws']}")
+        print(f"\n  i.i.d. would predict dead {go['iid_predicted_dead_frac']:6.1%}")
+        print(f"  heterogeneity gap         {go['heterogeneity_gap']:+6.1%}   "
+              f"(observed dead - i.i.d. prediction)")
+        print(f"\n  correct-count histogram:  {g['histogram']}")
+        print(f"\n  by category:")
+        for c, r in g["by_category"].items():
+            print(f"    {c:<10} n={r['n_items']:<4} live {r['live_frac']:5.1%}  "
+                  f"dead {r['dead_frac']:5.1%}  >=1ok {r['at_least_one_correct']:5.1%}")
+
     print(f"\n[done] -> {out}")
     return 0
 

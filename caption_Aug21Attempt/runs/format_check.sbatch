@@ -48,7 +48,7 @@ srun --environment="$CA21_TOML" \
         --out "$CA21_POOL/format_check.json" \
         --split dev \
         --limit "${CA21_FMT_LIMIT:-0}" \
-        --n-draws "${CA21_FMT_DRAWS:-1}" \
+        --n-draws "${CA21_FMT_DRAWS:-8}" \
         --max-tokens "${CA21_FMT_MAXTOK:-8192}"
 
 echo "[job] done at $(date -Is)"
