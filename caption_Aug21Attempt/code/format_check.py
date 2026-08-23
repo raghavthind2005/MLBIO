@@ -135,7 +135,10 @@ def main() -> int:
     ap.add_argument("--provenance", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--split", default="dev")
-    ap.add_argument("--limit", type=int, default=50)
+    ap.add_argument("--limit", type=int, default=0,
+                    help="0 = the whole split. Any limit is drawn STRATIFIED by "
+                         "category; see pool_io.get_split and job 3168166.")
+    ap.add_argument("--sample", choices=("stratified", "head"), default="stratified")
     ap.add_argument("--n-draws", type=int, default=1)
     # Deliberately NON-BINDING: measuring at Vision-SR1's 4096 and concluding
     # "4096 suffices" is circular, because a censored sample cannot report its
@@ -158,9 +161,24 @@ def main() -> int:
     snapshot = Path(prov["snapshot_path"])
 
     manifest = load_manifest(Path(args.pool))
-    items = get_split(manifest, args.split, args.limit)
+    items = get_split(manifest, args.split, args.limit,
+                      sample=args.sample, seed=args.seed)
     gold = {it["problem_id"]: it["answer"] for it in items}
-    print(f"[setup] {len(items)} items from split '{args.split}'", flush=True)
+    # Printed BEFORE any generation. Job 3168166 measured 50 Chart rows and nothing
+    # else while reporting "50 items from split 'dev'"; the skew only surfaced in the
+    # by-category table at the very end, after the GPU time had been spent.
+    composition = Counter(it["category"] for it in items)
+    full = Counter(it["category"] for it in manifest["splits"][args.split])
+    print(f"[setup] {len(items)} items from split '{args.split}' "
+          f"(sample={args.sample}, seed={args.seed})", flush=True)
+    print(f"[setup] composition: {dict(sorted(composition.items()))}", flush=True)
+    print(f"[setup] full split:  {dict(sorted(full.items()))}", flush=True)
+    if len(composition) < len(full):
+        missing = sorted(set(full) - set(composition))
+        raise AssertionError(
+            f"sample covers only {sorted(composition)} but the split has {sorted(full)}; "
+            f"missing {missing}. A single-category measurement is not a measurement of "
+            f"this pool -- this is the job 3168166 failure.")
 
     processor = AutoProcessor.from_pretrained(
         args.model, min_pixels=MIN_PIXELS, max_pixels=MAX_PIXELS)
@@ -219,6 +237,8 @@ def main() -> int:
         "dataset_revision": prov.get("revision"),
         "code_git_sha": os.environ.get("CA21_GIT_SHA", "unknown"),
         "split": args.split, "limit": args.limit, "n_draws": args.n_draws,
+        "sample": args.sample, "n_items": len(items),
+        "composition": dict(sorted(composition.items())),
         "sampling": {**SAMPLING, "seed": args.seed},
         "max_tokens": args.max_tokens, "max_model_len": MAX_MODEL_LEN,
         "max_pixels": MAX_PIXELS,

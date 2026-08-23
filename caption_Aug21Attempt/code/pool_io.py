@@ -17,6 +17,7 @@ from __future__ import annotations
 import collections
 import io
 import json
+import random
 from pathlib import Path
 from typing import Any
 
@@ -25,11 +26,61 @@ def load_manifest(pool_dir: Path) -> dict:
     return json.loads((Path(pool_dir) / "pool_manifest.json").read_text())
 
 
-def get_split(manifest: dict, split: str, limit: int = 0) -> list[dict]:
+def get_split(manifest: dict, split: str, limit: int = 0, *,
+              sample: str = "stratified", seed: int = 0) -> list[dict]:
+    """Return a split, optionally limited to ``limit`` items.
+
+    ``limit`` USED TO TAKE A HEAD SLICE, and that was a real measurement bug (job
+    3168166). ``build_pool`` writes each split sorted by image path, which groups the
+    categories together, so ``items[:50]`` on the 300-row dev split returned 50 of the 52
+    Chart rows and nothing else. The compliance numbers it produced were Chart-only while
+    every log line said "50 items from split 'dev'".
+
+    So the default is now ``stratified``: draw proportionally from each category, largest
+    remainder, deterministic under ``seed``. A head slice is still available but must be
+    asked for by name, because it is almost never what a measurement wants and it should
+    never again be what a caller gets by default.
+
+    The manifest itself is deliberately NOT reordered -- ``manifest_sha256`` is computed
+    over the splits in stored order, so shuffling there would break a provenance chain that
+    has reproduced exactly four times. The bug is in the sampler; the fix belongs here.
+    """
     if split not in manifest["splits"]:
         raise KeyError(f"no split {split!r}; have {sorted(manifest['splits'])}")
     items = manifest["splits"][split]
-    return items[:limit] if limit else items
+    if not limit or limit >= len(items):
+        return items
+
+    if sample == "head":
+        return items[:limit]
+    if sample != "stratified":
+        raise ValueError(f"sample must be 'stratified' or 'head', got {sample!r}")
+
+    by_cat: dict[str, list[dict]] = collections.defaultdict(list)
+    for it in items:
+        by_cat[it["category"]].append(it)
+
+    # Largest remainder, so the quotas sum to exactly `limit` -- the same apportionment
+    # build_pool uses. Naive rounding drifts and silently returns limit-1 or limit+1.
+    cats = sorted(by_cat)
+    exact = {c: len(by_cat[c]) * limit / len(items) for c in cats}
+    quota = {c: int(exact[c]) for c in cats}
+    for c in sorted(cats, key=lambda c: (-(exact[c] - int(exact[c])), c))[
+            : limit - sum(quota.values())]:
+        quota[c] += 1
+    assert sum(quota.values()) == limit, (quota, limit)
+
+    rng = random.Random(seed)
+    drawn: list[dict] = []
+    for c in cats:
+        pool = sorted(by_cat[c], key=lambda r: r["problem_id"])
+        drawn.extend(rng.sample(pool, quota[c]))
+
+    # Restore manifest order so downstream shard reads stay sequential.
+    order = {id(it): i for i, it in enumerate(items)}
+    drawn.sort(key=lambda it: order[id(it)])
+    assert len(drawn) == limit
+    return drawn
 
 
 def extract_image_bytes(cell: Any) -> bytes:

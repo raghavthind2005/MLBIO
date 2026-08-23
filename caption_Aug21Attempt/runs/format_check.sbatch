@@ -47,7 +47,7 @@ srun --environment="$CA21_TOML" \
         --provenance "$CA21_POOL/dataset_provenance.json" \
         --out "$CA21_POOL/format_check.json" \
         --split dev \
-        --limit "${CA21_FMT_LIMIT:-50}" \
+        --limit "${CA21_FMT_LIMIT:-0}" \
         --n-draws "${CA21_FMT_DRAWS:-1}" \
         --max-tokens "${CA21_FMT_MAXTOK:-8192}"
 
