@@ -32,6 +32,35 @@ def get_split(manifest: dict, split: str, limit: int = 0) -> list[dict]:
     return items[:limit] if limit else items
 
 
+def extract_image_bytes(cell: Any) -> bytes:
+    """Pull the raw bytes out of one `images` cell, whatever shape it has.
+
+    Vision-SR1-47K declares `images` as a **singular** `Image` feature, so a cell
+    is the struct itself -- ``{'bytes': ..., 'path': ...}``. ViRL39K declares a
+    *list* of images, where a cell is ``[{...}]``. Assuming the list shape against
+    this dataset raises ``KeyError: 0``, because indexing a dict with 0 looks for
+    a key named 0 (job 3167490).
+
+    Both shapes are handled, and a cell holding MORE than one image is a hard
+    error rather than a silent first-element pick: R8 requires one image per item,
+    and a second image would mean `c` has an undefined referent.
+    """
+    if isinstance(cell, (list, tuple)):
+        if len(cell) != 1:
+            raise AssertionError(
+                f"R8 violated: expected exactly 1 image per row, found {len(cell)}")
+        cell = cell[0]
+    if isinstance(cell, dict):
+        raw = cell.get("bytes")
+        if raw is None:
+            raise AssertionError(
+                f"image struct carries no bytes; keys were {sorted(cell)}")
+        return raw
+    if isinstance(cell, (bytes, bytearray)):
+        return bytes(cell)
+    raise AssertionError(f"unrecognised image cell type: {type(cell).__name__}")
+
+
 def load_images(snapshot: Path, items: list[dict]) -> dict[int, Any]:
     """Decode exactly the images for ``items``, keyed by ``problem_id``.
 
@@ -52,8 +81,7 @@ def load_images(snapshot: Path, items: list[dict]) -> dict[int, Any]:
         for batch in pf.iter_batches(batch_size=256, columns=["images"]):
             for cell in batch.column("images").to_pylist():
                 if row_in_shard in rows:
-                    payload = cell[0]
-                    raw = payload["bytes"] if isinstance(payload, dict) else payload
+                    raw = extract_image_bytes(cell)
                     images[rows[row_in_shard]] = Image.open(io.BytesIO(raw)).convert("RGB")
                 row_in_shard += 1
 
