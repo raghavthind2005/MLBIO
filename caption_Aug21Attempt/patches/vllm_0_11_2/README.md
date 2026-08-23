@@ -122,6 +122,14 @@ stale patched file would mask the new one invisibly. Three controls prevent that
 2. **`ORIGINAL.sha256` pins the file this was patched against.** `verify_container_original`
    in `code/container_gate.py` extracts that single file from the `.sqsh` and refuses to run
    if it no longer matches. Costs seconds.
+   Run it as (the login node's default `python3` is 3.6.15 and cannot parse
+   `from __future__ import annotations`; verified against the live image 2026-08-23):
+
+   ```
+   ssh clariden
+   cd $CA21/code && python3.11 -c "import container_gate as G; print(G.verify_container_original())"
+   ```
+
 3. **Gate G-VITATTN asserts the outcome rather than trusting it** — see
    `assert_vit_attn_patch`. It checks that the imported `layer.py` is the patched one *and*
    that the function actually returns `TORCH_SDPA` under an override. It runs before the
