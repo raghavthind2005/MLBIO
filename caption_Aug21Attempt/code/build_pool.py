@@ -103,6 +103,7 @@ def load_rows(snapshot: Path) -> list[dict]:
             for i in range(len(d["problem_id"])):
                 rows.append({
                     "problem_id": d["problem_id"][i],
+                    "problem": d["problem"][i],
                     "problem_type": d["problem_type"][i],
                     "path": d["path"][i],
                     "data_source": d["data_source"][i],
@@ -314,10 +315,15 @@ def main() -> int:
         "splits": {k: [
             {"problem_id": r["problem_id"], "path": r["path"],
              "category": category_of(r["path"]), "data_source": r["data_source"],
-             "problem_type": r["problem_type"], "answer": r["answer"],
+             "problem_type": r["problem_type"], "problem": r["problem"],
+             "answer": r["answer"],
              "shard": r["shard"], "row_in_shard": r["row_in_shard"]}
             for r in sorted(v, key=lambda r: r["path"])] for k, v in splits.items()},
     }
+    # The hash identifies the ROW SELECTION -- split, problem_id, path -- and
+    # deliberately not the row contents, which the pinned dataset revision
+    # already guarantees. So adding descriptive fields to the manifest does not
+    # invalidate a provenance chain already built on it.
     payload = json.dumps(
         [[k, i["problem_id"], i["path"]] for k in sorted(manifest["splits"])
          for i in manifest["splits"][k]], sort_keys=True)
