@@ -264,10 +264,17 @@ for Qwen3-VL. It happens to be **true for this backbone** — §4.5 measures mea
 
 ### S10 — Container: vLLM's ViT attention override is patched, and the patch is gated **[CC, 2026-08-23]**
 
-`easyr1_vllm0112.sqsh` cannot run Qwen2.5-VL at all without this. Qwen2.5-VL's vision tower has
-`head_dim = 1280/16 = 80`; the bundled `flash_attn` 2.8.3 was compiled for a reduced head-dim set and rejects
-anything not a multiple of 32. Qwen3-VL's ViT has different head geometry, which is why the container never
-exposed this before.
+`easyr1_vllm0112.sqsh` cannot run Qwen2.5-VL **through vLLM** without this. Qwen2.5-VL's vision tower has
+`head_dim = 1280/16 = 80`, and the FlashAttention kernel vLLM reaches for the ViT rejects anything not a
+multiple of 32. Qwen3-VL's ViT has different head geometry, which is why the container never exposed this
+before.
+
+> ⚠️ **CORRECTED 2026-08-24 [CC].** This entry originally blamed "the bundled `flash_attn` 2.8.3 … compiled
+> for a reduced head-dim set." **Wrong, and disproved by §4.9:** HF dispatches into that *same* standalone
+> package at `head_dim=80` and passes. vLLM has **two** entry points (`attention/layer.py:131-142`) —
+> `use_upstream_fa=True` imports the standalone package, `False` imports **vLLM's own bundled build** via
+> `vllm/attention/utils/fa_utils.py`. The restriction is in the **bundled** kernel. The patch is unaffected
+> (it selects SDPA and reaches neither), but the cause was misattributed.
 
 **Setting `mm_encoder_attn_backend="TORCH_SDPA"` is not sufficient, and this is the part worth remembering.**
 vLLM accepts the value, echoes it in its own non-default-args log line, and reverts it internally: the CUDA
@@ -289,18 +296,29 @@ the file it was derived from so an image rebuild fails loudly · **gate G-VITATT
 behaviour before the engine is built · a separate `ca21_vllm.toml` keeps the mount away from the PAPO and
 DeepEyes lines. Full write-up: `patches/vllm_0_11_2/README.md`.
 
-**[V] The HF training path needs the same treatment, and it is cheaper.** `Qwen2_5_VLVisionAttention` computes
-`head_dim = 80` (`modeling_qwen2_5_vl.py:187`) and dispatches on `config._attn_implementation` with an explicit
-`flash_attention_2` branch (`:216-219`) into the same package — so verl's global
-`attn_implementation="flash_attention_2"` (`fsdp_workers.py:215`) will hit this identically. But transformers
-4.57 accepts a **per-subconfig dict** (`modeling_utils.py:2802-2838`), so the training fix is a config change,
-not a patch:
+**The HF training path: `per_subconfig`, for CONSISTENCY — not because anything breaks.** **[V] §4.9** shows
+all three arms load, step and produce gradients; verl's default `global_fa2` works fine. My prediction that
+training would "hit this identically" was **wrong**.
+
+We use the dict anyway (transformers 4.57 accepts a per-subconfig form, `modeling_utils.py:2802-2838`):
 
 ```python
 attn_implementation={"": "flash_attention_2", "vision_config": "sdpa"}
 ```
 
-This keeps FA2 on the language model (`head_dim = 128`, works and is faster) and drops to SDPA only in the ViT.
+*Because vLLM generates rollouts with FA2 on the language model and SDPA on the ViT (the latter forced by this
+very patch).* In GRPO the rollout log-probs and the training-time recomputed log-probs must describe the **same
+policy**, and verl already contends with a known rollout/training numerical gap. `per_subconfig` is the **only**
+arm matching rollout on both components: `global_fa2` mismatches the ViT, `global_sdpa` mismatches the LM.
+
+*Honest limit:* this minimises rather than eliminates the mismatch — vLLM's `FLASH_ATTN` is its bundled
+`_vllm_fa2_C`, HF's is upstream. Same family, different builds; exact agreement is unavailable.
+
+⬜ **Open against this entry's kernel-neutrality claim.** §4.9 measured grad norms spanning **295 → 525 (+78%)**
+across kernels on identical weights and identical seeded input, while losses agreed to four significant
+figures. Probably bf16 accumulation on a random-noise image (near worst case for cancellation), but this entry
+asserts neutrality and a 78% spread should not sit unexplained beneath it. **To re-check on a real pool image**,
+folded into the next job rather than given a dedicated one.
 
 ### S11 — Estimator: **exact per-position KL** **[U, 2026-08-23]** *(resolves O3)* ⚠️ deviates from spec line 86
 
@@ -440,7 +458,8 @@ Ordered by dependency, not by importance. Each entry says what it blocks and why
 |---|---|
 | **H1** | `_env.sh` documents `HF_HOME` as `.../hf_cache`, but the cluster environment already sets it and the snapshot landed in `.../huggingface/`. **[V]** job 3163760. The comment is now inaccurate; correct the file rather than leave a doc that lies. No re-download needed. |
 | **H2** | `format_check` persists only the first 20 of *n* records, so 3 of the 32 `\boxed{}` failures were characterised rather than all 32 (§4.6). One-line change; land it with the next run rather than spending a job on it. Full responses are needed for **L1** regardless. |
-| **H3** | Apply the training-path attention fix from **S10** — `attn_implementation={"": "flash_attention_2", "vision_config": "sdpa"}` at verl's load site. Config change, no patch. Blocks the first training smoke, so it is only "non-blocking" until then. |
+| **H3** | ✅ **RESOLVED — §4.9**, job 3168489. The training path was **never broken**: verl's default global FA2 runs the ViT at `head_dim=80` fine, falsifying the prediction. `attn_implementation={"": "flash_attention_2", "vision_config": "sdpa"}` is adopted anyway, to match rollout's kernels rather than to avoid a crash. Still to be applied at verl's load site when the trainer is written. |
+| **H4** | ⬜ Re-check the §4.9 grad-norm spread (295 → 525 across kernels, identical inputs) on a **real pool image** instead of random noise. Fold into the next job; it is an open question against S10's kernel-neutrality claim, not a blocker. |
 
 ### Stage 1 — ~~the one hard blocker~~ **RESOLVED: see S6**
 
@@ -706,6 +725,73 @@ polarised, which reads like chart-reading: either a value is legible to the mode
   which grows with `n` by construction. p99 is the honest figure and moved only 770 → 925. **`max_response_length:
   4096` stands, justified on p99, not on max.**
 
+### 4.9 Measured — H3, the HF training path **[V] job 3168489, 2026-08-24, ~5 min**
+
+**Run because the alternative was to assume.** S10 predicted from source that verl's global
+`attn_implementation="flash_attention_2"` would hit `head_dim=80` exactly as vLLM did. That prediction was
+correct as far as the source reading went and **still wrong about the outcome** — which is precisely what
+happened twice already (§4.6.2, §4.6.3). Real forward + backward at the largest resolution the dev pool
+contains (5,220 visual tokens), non-zero grad norm asserted, resolved implementation recorded per component.
+
+| arm | LM | ViT | loss | grad-norm | |
+|---|---|---|---|---|---|
+| `global_fa2` — **verl's default** | FA2 | **FA2** | 18.1687 | 295.35 | ✅ PASS |
+| `per_subconfig` — **adopted** | FA2 | SDPA | 18.1538 | 472.47 | ✅ PASS |
+| `global_sdpa` — control | SDPA | SDPA | 18.1523 | 525.15 | ✅ PASS |
+
+**Finding 1 — the training path was never broken.** `global_fa2` runs the ViT at `head_dim=80` without
+complaint. **Prediction falsified.**
+
+**Finding 2 — this disproves S10's stated cause.** HF dispatches into the *standalone* `flash_attn` package, so
+that package handles `head_dim=80` fine. The restriction must therefore be in **vLLM's own bundled kernel**
+(`vllm/attention/utils/fa_utils.py`), the `use_upstream_fa=False` branch of `attention/layer.py:131-142`. S10
+corrected accordingly.
+
+*Consistent with both traces.* Job 3167519 passed no override, so the backend was already `FLASH_ATTN`, the
+CUDA branch condition was false, `use_upstream_fa` stayed `False`, and the **bundled** kernel was imported. Job
+3167568 flipped to upstream inside `maybe_get_vit_flash_attn_backend` — but that function **does not return**
+the updated `use_upstream_fa`, so `Qwen2_5_VisionTransformer`'s local stayed `False` and was handed to every
+block (`qwen2_5_vl.py:709`), which re-derived the bundled kernel. **A second propagation bug in the same
+function family, and the reason job 3167568 failed identically to 3167519.**
+
+**Finding 3 — the deciding argument was one the probe surfaced, not one it was built to test.** The
+pre-registered reading rule said *all three pass → the dict is unnecessary*. That answered "needed to avoid a
+crash": no. But vLLM rolls out with **FA2 language + SDPA vision**, so `per_subconfig` is the unique arm that
+matches training to rollout on both components. Adopted on consistency grounds. Recorded as a departure from
+the pre-registered rule rather than as an application of it, because it is one.
+
+⬜ **Unexplained: the grad-norm spread.** Identical weights, identical seeded input, kernels the only variable —
+grad norms **295 → 525 (+78%)** while losses agree to four significant figures. Both the ViT kernel (295 → 472)
+and the LM kernel (472 → 525) contribute. Likely bf16 accumulation on a **random-noise** image, which drives
+attention toward uniform and is near worst case for cancellation; that is a stress input, not a representative
+one. But S10 asserts kernel-neutrality, so this is logged as open and to be re-checked on a real pool image.
+
+### 4.10 Measured — verl training data materialised **[V] job 3168488, 2026-08-23, ~2 min**
+
+| split | rows | size | file |
+|---|---|---|---|
+| trial | 5,000 | 431.6 MB | `data/ca21_trial.parquet` |
+| eval | 1,000 | 87.1 MB | `data/ca21_eval.parquet` |
+| dev | 300 | 25.6 MB | `data/ca21_dev.parquet` |
+
+Rows sliced out of the source shards and written back untouched, so the schema — including the exact `images`
+feature type — is **inherited, never reconstructed**. The adapter therefore never encodes an assumption about
+`images`, which is the assumption that killed job 3167490.
+
+**Gates passed on the written artifacts, not on the source they came from:**
+
+- **Alignment.** `problem` and `answer` re-read from the parquet and compared to the manifest
+  **string-for-string across all 6,300 rows.** This is the gate that matters most: an off-by-one in
+  `shard`/`row_in_shard` would pair image A with question B, and that is **indistinguishable from a perception
+  failure in every metric we log** — the one phenomenon this project exists to measure.
+- **R8** — exactly one decodable image per row.
+- **S5.3** — cross-split image disjointness re-verified on the files the trainer actually reads.
+- Provenance carries pool hash `63164939…`, its **sixth** independent reproduction.
+
+*Usage — path form matters.* Referenced by **full path with no `@`**, so `data_split` defaults to `"train"`
+and verl takes the `isfile` branch (`verl/utils/dataset.py:129-143`). The `isdir` branch is deliberately
+avoided: it infers file type from `os.listdir(path)[0]`, an arbitrary entry, which is a stray-file hazard.
+
 ## 5. Predicted failure modes, to instrument from day one
 
 Named in advance so a healthy-looking run cannot be mistaken for a correct one — the PAPO lesson, where every
@@ -779,4 +865,6 @@ logged metric looked fine while the perception loss received no gradient at all.
 | 2026-08-23 | **P1 reversed: forward KL adopted (S8)** on leak-asymmetry + estimand-fit grounds; head-to-head scheduled. **P2 settled (S9).** PROVISIONAL tier now empty. |
 | 2026-08-23 | Spec re-read line by line. **[V] Line 65 explicitly sanctions forward KL** — S8's "departure" was overstated and is corrected. **[V] Line 127 confirms `D̂` is stop-gradient**, which invalidated my cost analysis of the exact estimator (I had costed it as if it needed backprop). **[V] Line 113 has no baseline**, so S8's cancellation argument presumed an unstated implementation choice — now made valid by S12. |
 | 2026-08-23 | Estimand finalised: **S11** exact per-position KL · **S12** group-normalised advantage · **S13** shared trajectories (CRN), `m` = correct subset. Four spec deviations, each recorded against its line. |
+| 2026-08-24 | **H3 resolved (job 3168489) — prediction falsified.** verl's default global FA2 runs the ViT at `head_dim=80` fine; the training path was never broken. This **disproved S10's stated cause**: the restriction is in vLLM's *bundled* kernel, not the standalone `flash_attn` package, and a second propagation bug (`use_upstream_fa` never returned) explains why job 3167568 failed identically to 3167519. `per_subconfig` adopted for **rollout/training kernel consistency**, a reason the pre-registered rule did not cover. Grad-norm spread of +78% across kernels logged as **open (H4)**. |
+| 2026-08-23 | **verl training data materialised (job 3168488):** trial/eval/dev parquet, 6,300 rows, with `problem` and `answer` verified string-for-string against the manifest — so no image↔question misalignment is hiding in the training set. |
 | 2026-08-23 | **R2 re-measured at the group level (job 3168363).** My "R2 satisfied" claim from a *marginal* rate was invalid; the group instrument confirms **71.7% live**, so the answer holds while the reasoning did not. Heterogeneity gap **+23.4%** proves the marginal was genuinely misleading. Length-tail claim corrected: max 5,144, 0.042% exceed 4,096. |

@@ -5,9 +5,8 @@
 
 ## The failure
 
-Qwen2.5-VL's vision tower has `head_dim = hidden_size / num_heads = 1280 / 16 = 80`. The
-`flash_attn` build in this container was compiled with a reduced head-dim set and refuses
-anything that is not a multiple of 32:
+Qwen2.5-VL's vision tower has `head_dim = hidden_size / num_heads = 1280 / 16 = 80`, and the
+FlashAttention kernel vLLM reaches for the ViT refuses anything not a multiple of 32:
 
 ```
 RuntimeError: This flash attention build does not support headdim not being a multiple of 32.
@@ -16,6 +15,35 @@ RuntimeError: This flash attention build does not support headdim not being a mu
 
 Observed in jobs **3167519** and **3167568**. The container was built for the Qwen3-VL/EasyR1
 line, whose ViT has different head geometry, which is why this never surfaced before.
+
+### ⚠️ Corrected 2026-08-24: which kernel is actually at fault
+
+This section originally read *"the `flash_attn` build in this container was compiled with a
+reduced head-dim set."* **That attribution was wrong**, disproved by job 3168489 (H3):
+
+- HF's `Qwen2_5_VLVisionAttention` with `attn_implementation="flash_attention_2"` dispatches
+  into the **standalone `flash_attn` package** at the same `head_dim=80` — and it **passes**,
+  forward and backward, at 5,220 visual tokens.
+- So the standalone package handles `head_dim=80` perfectly well.
+
+vLLM has **two** entry points (`attention/layer.py:131-142`): `use_upstream_fa=True` imports
+`from flash_attn import flash_attn_varlen_func` (the standalone package), and `False` imports
+`from vllm.attention.utils.fa_utils import flash_attn_varlen_func` — **vLLM's own bundled
+build**. Since the standalone package is demonstrably fine, the restriction lives in the
+bundled one.
+
+Consistent with the traces. In job 3167519 no override was passed, so
+`get_vit_attn_backend` returned `FLASH_ATTN`, the CUDA branch condition
+(`attn_backend != FLASH_ATTN`) was already false, `use_upstream_fa` stayed `False`, and the
+**bundled** kernel was imported. In 3167568 the transformer flipped to upstream — but
+`maybe_get_vit_flash_attn_backend` **does not return** the updated `use_upstream_fa`, so
+`Qwen2_5_VisionTransformer`'s local stayed `False` and was passed down to every block
+(`qwen2_5_vl.py:709`), which re-derived the bundled kernel again. A second propagation bug in
+the same function family, and the reason the second job failed identically to the first.
+
+*The patch is unaffected* — it selects SDPA and never reaches either kernel. Only the
+explanation needed fixing, and a patch note that misidentifies its own cause is how someone
+later repairs the wrong thing.
 
 ## Why the documented fix does not work
 
@@ -145,12 +173,46 @@ stale patched file would mask the new one invisibly. Three controls prevent that
 | patched sha256 | see `PATCHED.sha256` |
 | authored | 2026-08-23, after jobs 3167519 and 3167568 |
 
-## Not yet resolved: the training path
+## The training path — RESOLVED, and not the way I predicted **[V] job 3168489**
 
-verl loads the policy through HF, not vLLM, with `attn_implementation="flash_attention_2"`
-applied globally (`fsdp_workers.py:215`), which reaches the vision tower. vLLM's
-`use_upstream_fa` path imports from *the same* `flash_attn` package that just rejected
-`head_dim=80`, so training is expected to hit this identically.
+This section previously predicted that verl's HF training path would "hit this identically."
+**It does not.** All three probed arms load, forward, backward and produce non-zero gradients
+at 5,220 visual tokens:
 
-**Expected, NOT verified.** If it holds, the fix there is a config change (`sdpa`), not a
-patch — this patch is specific to vLLM's rollout path.
+| arm | LM kernel | ViT kernel | loss | grad-norm |
+|---|---|---|---|---|
+| `global_fa2` (verl's default) | FA2 | **FA2** | 18.1687 | 295.35 |
+| `per_subconfig` | FA2 | SDPA | 18.1538 | 472.47 |
+| `global_sdpa` | SDPA | SDPA | 18.1523 | 525.15 |
+
+`global_fa2` passing **is** the disproof above: HF at `head_dim=80` through the standalone
+package is fine.
+
+**We nevertheless use `per_subconfig`**, for a reason that has nothing to do with crashes:
+
+```python
+attn_implementation={"": "flash_attention_2", "vision_config": "sdpa"}
+```
+
+vLLM generates rollouts with **FA2 on the language model** (logged: `Using FLASH_ATTN
+backend`, `head_dim=128`) and **SDPA on the ViT** (forced by this patch). In GRPO the rollout
+log-probs and the training-time recomputed log-probs are meant to describe the *same policy*,
+and verl already contends with a known rollout/training numerical gap. `per_subconfig` is the
+**only** arm that matches rollout on both components — `global_fa2` mismatches the ViT,
+`global_sdpa` mismatches the language model.
+
+*Honest limit:* this minimises the mismatch rather than eliminating it. vLLM's `FLASH_ATTN`
+is its own bundled `_vllm_fa2_C`; HF's is the upstream package. Same algorithm family,
+different builds. Exact agreement is not available.
+
+## ⬜ Open: the grad-norm spread is not explained
+
+Identical weights, identical seeded input, **only the kernels differ** — yet grad norms span
+**295 → 525 (+78%)** while losses agree to four significant figures. Both the ViT kernel
+(295 → 472) and the language-model kernel (472 → 525) move it.
+
+The likely explanation is bf16 accumulation on a **random-noise image**, which drives ViT
+attention toward uniform and is close to a worst case for cancellation — a stress input, not
+a representative one. But this document asserts kernel-neutrality above, and a 78% spread
+should not sit unexplained beneath that claim. **To check on a real pool image**, folded into
+the next job rather than given a dedicated one.
