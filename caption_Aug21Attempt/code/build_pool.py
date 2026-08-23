@@ -261,8 +261,15 @@ def derive_trial_smoke(trial: list[dict], n: int, seed: int) -> list[dict]:
     if n > len(trial):
         raise AssertionError(
             f"trial_smoke of {n:,} exceeds trial ({len(trial):,})")
+
+    # `build` rows carry `path` but NOT `category` -- that is derived only when the
+    # manifest is written. get_split stratifies on `category`, so annotate first.
+    # (Job 3169068 died here with KeyError: 'category'. The unit test passed because its
+    # fixture supplied rows that already had the field, i.e. it tested a shape this
+    # pipeline never produces at this point. Fixture corrected alongside.)
     from pool_io import get_split
-    return get_split({"splits": {"trial": trial}}, "trial", n, seed=seed)
+    annotated = [{**r, "category": category_of(r["path"])} for r in trial]
+    return get_split({"splits": {"trial": annotated}}, "trial", n, seed=seed)
 
 
 def assert_invariants(splits: dict[str, list[dict]]) -> None:

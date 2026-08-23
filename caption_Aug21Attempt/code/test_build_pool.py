@@ -246,8 +246,12 @@ class TestTrialSmoke(unittest.TestCase):
         pid = 0
         for c in ("Chart", "General", "Knowledge", "Math", "Spatial"):
             for _ in range(n_per_cat):
+                # NO "category" key -- build() rows do not have one at this point;
+                # it is derived from `path` only when the manifest is written. The
+                # original fixture supplied it and so tested a shape production never
+                # produces, which is why job 3169068 died on KeyError: 'category'.
                 rows.append({"problem_id": pid, "path": f"./{c}/{pid}.png",
-                             "category": c, "answer": "x", "problem": "q",
+                             "answer": "x", "problem": "q",
                              "data_source": "s", "problem_type": "multiple choice",
                              "shard": "s0.parquet", "row_in_shard": pid})
                 pid += 1
@@ -264,9 +268,10 @@ class TestTrialSmoke(unittest.TestCase):
         """A head slice would be one category -- the job 3168166 failure."""
         trial = self._trial()
         smoke = derive_trial_smoke(trial, 50, seed=0)
-        cats = {r["category"] for r in smoke}
+        from build_pool import category_of
+        cats = {category_of(r["path"]) for r in smoke}
         self.assertEqual(len(cats), 5, f"only {cats} represented")
-        head = {r["category"] for r in trial[:50]}
+        head = {category_of(r["path"]) for r in trial[:50]}
         self.assertEqual(len(head), 1, "fixture should reproduce the head-slice hazard")
 
     def test_deterministic_under_seed(self):
