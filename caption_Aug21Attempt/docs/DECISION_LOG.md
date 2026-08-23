@@ -101,6 +101,45 @@ established criterion from this literature to the training side.
 4. Stratified proportional draw across the five `path` categories, targeting the **eligible** population.
 5. Sizes: trial 5,000 · eval 1,000 · dev 300. Seed 0. Manifest hashed.
 
+### S6 — Backbone: **Qwen2.5-VL-3B-Instruct**, pinned at `66285546` **[U, 2026-08-23]** *(resolves O1)*
+
+**[V] Qwen2.5-VL has no Thinking variant.** `Qwen2.5-VL-3B` and `Qwen2.5-VL-3B-Thinking` do not exist on
+HuggingFace; `-Instruct` is the only release. So "Instruct vs Thinking" was never a live choice for this
+family.
+
+**[V] The whole direction is Instruct.** Vision-SR1 (Qwen2.5-VL-3B/7B, `train.sh` defaults to
+`Qwen/Qwen2.5-VL-7B-Instruct`) · PAPO paper primaries (Qwen2.5-VL-3B/7B) · DeepEyes (Qwen2.5-VL-7B-Instruct) ·
+VLM-CapCurriculum (Qwen3-VL-8B-Instruct primary). The **single** Thinking exception anywhere is PAPO's
+`main_qwen3` port (Qwen3-VL-2B-Thinking, asserted at `monkey_patch.py:59`) — **which is the branch we used,
+and exactly where our truncation catastrophe occurred.**
+
+*Truncation was self-inflicted, not inherited.* PAPO ships `max_response_length=2048` for its Qwen2.5-VL
+primaries. **[V]** Running Qwen3-VL-2B-Thinking on that same config gave **82–95% truncation** with
+format = accuracy = 0.047 (the model never finishes); raised to 8192 it still truncated **44%** at a 5,627-token
+mean. **[V]** Qwen3-VL-4B-Instruct reaches **EOS on only 68.3%** of generations, and the long-chain behaviour is
+documented upstream and unfixed (QwenLM/Qwen3-VL#1922, no budget knob in the chat template). Meanwhile
+**[V] Vision-SR1 trains at `max_response_length=4096` for a format containing TWO chains**
+(`<visual_reasoning>` and `<think>`) plus the answer. A two-chain format fits their 4096; our one-chain model
+did not fit 8192. That is a model-family property, not a budget shortfall.
+
+*Why 3B over the already-present 7B:* the 7B costs ~2.3x per step, and the reason for a small backbone is that
+full-CoT KL adds scoring passes per caption per group. The 3B also carries the tighter anchor — Vision-SR1
+Table 2, averaged over 7 benchmarks, **trained on our exact dataset**:
+
+| backbone | zero-shot | answer-reward-only GRPO (**= our Arm A**) | their method |
+|---|---|---|---|
+| Qwen2.5-VL-**3B** | 35.5 | **47.1** | 48.8 (+1.7) |
+| Qwen2.5-VL-7B | 41.5 | 50.7 | 52.2 (+1.5) |
+
+*Costs accepted:* no first-party chain-length measurement yet — and since a non-thinking model must be
+*prompted* into a chain, its length depends on our prompt, so their config is strong evidence and not proof
+for our setting (**M2** measures it, reporting EOS rate first). We also lose continuity with all our own
+mechanistic work, which is Qwen3-VL (Set 2/3, Track T). Qwen2.5-VL is 2025-era, so benchmark contamination
+applies.
+
+*Location:* the durable `/capstor` store, matching where `Qwen2.5-VL-7B-Instruct` already lives. Scratch lost
+this project's data once and the backbone is what every later measurement is defined against.
+
 ---
 
 ## 2. PROVISIONAL — proceeding this way, explicitly not frozen
@@ -159,18 +198,14 @@ Ordered by dependency, not by importance. Each entry says what it blocks and why
 |---|---|
 | **H1** | `_env.sh` documents `HF_HOME` as `.../hf_cache`, but the cluster environment already sets it and the snapshot landed in `.../huggingface/`. **[V]** job 3163760. The comment is now inaccurate; correct the file rather than leave a doc that lies. No re-download needed. |
 
-### Stage 1 — the one hard blocker
-
-| id | item | why it is first |
-|---|---|---|
-| **O1** | **Backbone.** Instruct vs Thinking; size. | Everything downstream is **model-relative**. Vision-necessity (M1) and difficulty (M2) are properties of *a model on this data*, not of the data alone — they cannot even be measured before this is chosen. It also fixes chain length, which sets the estimator's memory bill. Instruct is tractable and still emits a real chain (~1,125 tokens median). Thinking is where the phenomenon the programme documented actually lives (Track T, RH-Bench, HallusionBench length-collapse); choosing Instruct buys tractability at the price of a declared estimand-vs-phenomenon gap. |
+### Stage 1 — ~~the one hard blocker~~ **RESOLVED: see S6**
 
 ### Stage 2 — substrate characterisation (needs O1; cheap; go/no-go)
 
 | id | item | why here |
 |---|---|---|
 | **M1** | **Vision-necessity rate** — question text only, no image, n draws, on the trial pool. **Reported, not used as a filter.** | Decides whether `D` is vacuous and how often. Falsifiable prediction to check the instrument against itself: Knowledge should shed far more than Chart. Needs O1 because it is model-relative. |
-| **M2** | **Sighted pass rate** — image + question, n draws. | Decides whether `J_success` has room to grow (R2). Also yields the **chain-length distribution for free**, which is the input to P2 and P1. |
+| **M2** | **Sighted pass rate + termination**, image + question, n draws, on the dev pool. Run as a **head-to-head against Qwen3-VL-4B-Instruct**, reporting **EOS rate first** — the metric that exposed Qwen3-VL (68.3%) — then truncation rate and chain lengths. | Decides whether `J_success` has room to grow (R2). Also yields the **chain-length distribution for free**, which is the input to P2 and P1. |
 
 These two together answer "does this substrate support the experiment at all" for roughly two generation
 passes. If M1 shows the pool is largely vacuous, the substrate question reopens before any training code
@@ -330,3 +365,4 @@ logged metric looked fine while the perception loss received no gradient at all.
 | 2026-08-23 | Dataset requirements R1–R9 derived; CoSyn/VisOnlyQA surfaced then declined on positioning. |
 | 2026-08-23 | Substrate settled: Vision-SR1-47K @ `2900b038` (S4). Downloaded and verified on disk (job 3163760). |
 | 2026-08-23 | Pool built (job 3163976): trial 5,000 / eval 1,000 / dev 300, manifest `63164939…`. |
+| 2026-08-23 | Backbone settled: Qwen2.5-VL-3B-Instruct @ `66285546` (S6, resolves O1). |

@@ -18,10 +18,22 @@ export CA21_REPO=${CA21_REPO:-/iopsstor/scratch/cscs/raghavthind/MLBIO_ca21}
 export CA21_DATASET=${CA21_DATASET:-LMMs-Lab-Turtle/Vision-SR1-47K}
 export CA21_DATASET_REV=${CA21_DATASET_REV:-2900b038f4aaa72f6b92795c1ee3ab29b7d509b6}
 
-# HF cache lives on scratch. This is a deliberate exception to the "durable
-# store" rule: scratch lost this project's data once (2026-08-11), but the
-# dataset is re-downloadable in minutes from the pinned revision above.
-# Checkpoints and run outputs are NOT reproducible and must never live here.
+# Backbone: Qwen2.5-VL-3B-Instruct (O1), PINNED. This is the small backbone of
+# this research direction -- Vision-SR1's primary 3B, PAPO's paper primary
+# family -- and critically it is a NON-thinking Instruct model. Note Qwen2.5-VL
+# has no Thinking variant at all; "-Instruct" is the only release. The runaway
+# chains that truncated 82-95% at PAPO's own 2048 budget were a Qwen3-VL trait
+# we imported, not a property of this literature.
+export CA21_MODEL_REPO=${CA21_MODEL_REPO:-Qwen/Qwen2.5-VL-3B-Instruct}
+export CA21_MODEL_REV=${CA21_MODEL_REV:-66285546d2b821cf421d4f5eb2576359d3770cd3}
+# The DURABLE store, matching where Qwen2.5-VL-7B-Instruct already lives.
+export CA21_MODEL=${CA21_MODEL:-/capstor/store/cscs/swissai/a0174/models/Qwen2.5-VL-3B-Instruct}
+
+# HF cache. NOTE: the cluster environment already exports HF_HOME, so in practice
+# this default does not apply -- job 3163760 resolved it to
+# /iopsstor/scratch/cscs/raghavthind/huggingface, not the hf_cache named here.
+# Recorded rather than forced, since re-pointing it would re-download 4.35 GB for
+# no gain; every artifact records the real path it used.
 export HF_HOME=${HF_HOME:-/iopsstor/scratch/cscs/raghavthind/hf_cache}
 
 export CA21_POOL=${CA21_POOL:-$CA21/pool}
