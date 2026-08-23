@@ -3,6 +3,11 @@
 **STATUS: WORKING LOG. Nothing is frozen. No pre-registration exists. No training code written, no
 training runs launched.**
 
+*As of 2026-08-23: substrate, backbone, prompts and estimand are settled (S1–S10); the PROVISIONAL tier is
+empty. **S8 departs from `SOURCE_SPEC.md`** — the spec writes reverse KL, we adopt forward. That disagreement
+is recorded here, never patched into the spec (§0). Open before any full run: **O3** (estimator family, next
+up), O4/O2/S3b/L1, then RL config and the frozen success criterion.*
+
 Append-only in spirit. Every entry records who decided, on what evidence, and — where it matters — what was
 argued on the other side, so a decision can be revisited without re-deriving the argument from scratch.
 
@@ -59,9 +64,14 @@ can omit precisely the distinction that separates the options. It also deletes t
 — a real, measured cost (the prior attempt found five undocumented formats, 9.2% unparseable rows, and a
 full-scale gate failure on a histogram legend that was option-*shaped* without being options).
 
-*Cost, accepted knowingly:* leakage is no longer prevented structurally. Combined with reverse KL (P1) — which
-is itself the leak-attractive direction — the two stack. **Leakage moves from prevention to instrumentation,
-and the instruments are not optional.** See §5 and roadmap item **L1**.
+*Cost, accepted knowingly:* leakage is no longer prevented structurally. **Leakage moves from prevention to
+instrumentation, and the instruments are not optional.** See §5 and roadmap item **L1**.
+
+*Partially relieved by S8 [2026-08-23].* This entry originally read "combined with reverse KL (P1) — which is
+itself the leak-attractive direction — the two stack." **That stacking no longer applies.** S8 adopts forward
+KL, which *penalises* a verdict-asserting caption rather than rewarding it, so the objective now works against
+leakage instead of with it. The instruments remain mandatory — forward disfavours leaking, it does not make it
+impossible, and L1 is also how we will adjudicate the S8 head-to-head.
 
 ### S3 — `q_cap` is permissive **[U, 2026-08-23]**
 
@@ -140,23 +150,163 @@ applies.
 *Location:* the durable `/capstor` store, matching where `Qwen2.5-VL-7B-Instruct` already lives. Scratch lost
 this project's data once and the backbone is what every later measurement is defined against.
 
+### S7 — Prompts: `think_answer.jinja` verbatim for **both** scored arms **[U, 2026-08-23]**
+
+Four prompts, in `code/ca21_prompts.py`, with three gates that are unit-tested to fire on planted violations.
+
+The load-bearing constraint is that `π(·|I,x)` plays **three** roles under S1 — the thing `J_success` rewards,
+the KL reference, and what we deploy. So the shared instruction must be **evidence-agnostic**: it has to
+survive the image → caption swap unchanged. That single requirement eliminates Vision-SR1's `see_think.jinja`
+("analyzing an image/video…") and converges on `think_answer.jinja`, which names no modality:
+
+> You FIRST think about the reasoning process as an internal monologue and then provide the final answer. The
+> reasoning process MUST BE enclosed within `<think> </think>` tags. The final answer MUST BE put in `\boxed{}`.
+
+**[V] This is byte-identical to the prompt behind our 47.1 Arm A anchor.** Read from source:
+`vision_r1/config.yaml:15` → `think_answer.jinja`, `:91` → `accuracy_reward.py`, whose `compute_score` returns
+`overall = acc`. **The anchor arm carries NO format reward** — which resolves the open "format reward or not"
+question: no. Their *full method* does use one (`self_reward.py`, weight 0.1), which is why the distinction had
+to be checked rather than assumed.
+
+*Gates, all tested to fire:* **G-PARITY** (the two scored prompts differ only by removal of the evidence
+block) · **G-BLIND** (the answerer carries no image part and no textual `<image>` placeholder) ·
+**G-PIXELS** (the configured resolution cap is actually in force).
+
+*Compliance — measured, and one gate FAILED. See §4.5.* `\boxed{}` **89.3%** against a pre-committed ≥90%
+bar. Recorded as a **knowing override**, not as a pass — reasoning in §4.5.
+
+### S8 — KL direction: **FORWARD** `KL(π(·|I,x) ‖ π(·|c,x))` **[U, 2026-08-23]** *(supersedes P1)*
+
+Reverses the spec, and the earlier provisional decision, **on argument** — with an empirical test scheduled
+because argument is not measurement.
+
+*Notation, since the letters are a trap:* below `sighted = π_θold(·|I,x)` and `blind = π_θold(·|c,x)`. The
+spec writes `D(c) = KL(blind ‖ sighted)` — the **reverse** direction. We adopt `D(c) = KL(sighted ‖ blind)`.
+
+**1. Variance — forward gets an exact cancellation reverse cannot.** Draw `y ~ sighted` **once** and share it
+across all `G` captions in the group:
+
+```
+D̂_i = (1/T) Σ_t [ log sighted(y_t) − log blind_i(y_t) ]
+```
+
+`log sighted(y_t)` is identical for every `i`, so under GRPO's group-centred advantage it cancels **exactly**:
+
+```
+A_i ∝ D̂_i − D̄ = −(1/T)Σ_t log blind_i(y_t) + (1/G)Σ_j (1/T)Σ_t log blind_j(y_t)
+```
+
+The advantage reduces to *how well caption i predicts the shared sighted trajectory, relative to its
+group-mates* — teacher-forced scoring with **zero sampling noise** given `y`. Two consequences: the estimate is
+deterministic, and `log sighted` is not needed for the gradient at all, only for logging.
+
+Reverse gives each caption its own `ỹ_i ~ blind_i`. Nothing cancels, every `D̂_i` carries independent sampling
+noise, and it is a one-sample estimate of a heavy-tailed quantity. Worse, early in training captions are poor,
+so `ỹ_i` lands off-distribution and `log sighted(ỹ_i)` swings hardest exactly when the policy is most fragile.
+
+**2. Leakage — the directions have opposite signs, and S2 makes this decisive.** Reverse is zero-forcing: a
+caption asserting *"the answer is B"* collapses `blind` onto B, and if `sighted` favours B too, `D → 0` **with
+zero perceptual content**. Forward is zero-avoiding: the same spike incurs `log blind → −∞` wherever `sighted`
+retained mass, and `D` blows up. Since S2 gives the captioner the full question **including options**, reverse
+would have paired the leak-attractive direction with maximal leak opportunity.
+
+**3. Why this bears on validation accuracy, not just tidiness.** S1's load-bearing bet is that the caption term
+reshapes representations the sighted pathway reuses. Under reverse the cheapest descent direction is
+answer-copying — the caption degenerates into an answer-repeater, no perceptual learning occurs, and Arm B
+collapses toward Arm A. Worst case it *teaches the shortcut*, which is the exact pathology this programme
+exists to remove (Probe A's premature closure; Track T's extraction deficit).
+
+**4. Cost, now secondary.** Forward needs one scoring pass; reverse needs `G` generations plus scoring. With
+chains measured at p99 = 770 (§4.5) reverse is affordable — roughly 2–3× per step, not prohibitive. **Cost is
+no longer what decides this**, which is why the decision was correctly scheduled after §4.5.
+
+*Honest case for reverse, retained:* it is what the spec says; its estimand is closer to Vision-SR1's
+sufficiency notion; and mode-seeking is often more stable early since it never forces coverage of a
+poorly-estimated distribution. Against that: **we deploy `sighted`, not `blind`.** We want fidelity to sighted
+behaviour, not sufficiency-to-answer — which *is* the sharper factorisation S1 claims over Vision-SR1.
+
+*Real risk accepted, and it is not small.* Sharing one `y` trains captions to faithfully support **one
+trajectory, including a wrong one**. At a measured 30.7% sighted accuracy (§4.5), most trajectories *are*
+wrong. Two containments: **O4** (gate the caption term on `1[R(y)>0]`) — this decision makes O4 **more**
+urgent, not less, and sharpens its starvation concern since it would fire on under a third of samples — and
+**resampling `y` each step** so captions optimise against the sighted *distribution* rather than one draw.
+Forward also carries a tail risk where `log blind → −∞` on sighted samples; mitigated by both being the *same
+weights* under different context, but it needs per-token clamping and monitoring, not trust.
+
+*Settled by experiment, not left to argument.* Built as a config switch, then run head-to-head on the trial
+pool — same data, seed and steps — comparing validation accuracy **and** L1's strongest leak instrument
+(answer from `c` with `x` removed). If reverse leaks it will show there before it shows as a flat curve.
+
+### S9 — `y` = full CoT **+** answer **[U, 2026-08-23]** *(supersedes P2)*
+
+*The reason that holds is leak-resistance,* not brevity. If `y` is the answer alone, a caption stating the
+verdict achieves parity with zero perceptual content; reproducing a **chain** requires supplying the facts the
+chain reasons over. Under S8 this compounds: forward KL asks how likely the caption-conditioned model finds the
+sighted model's *actual reasoning*, which is close to a direct measurement of the programme's question.
+
+*The originally stated reason was falsified and is recorded in §6.* "Instruct implies short answers" is false
+for Qwen3-VL. It happens to be **true for this backbone** — §4.5 measures mean 191, p50 133, p99 770, max 1,092
+— but that is a property of Qwen2.5-VL-3B-Instruct measured first-hand, not an inference from "Instruct".
+
+### S10 — Container: vLLM's ViT attention override is patched, and the patch is gated **[CC, 2026-08-23]**
+
+`easyr1_vllm0112.sqsh` cannot run Qwen2.5-VL at all without this. Qwen2.5-VL's vision tower has
+`head_dim = 1280/16 = 80`; the bundled `flash_attn` 2.8.3 was compiled for a reduced head-dim set and rejects
+anything not a multiple of 32. Qwen3-VL's ViT has different head geometry, which is why the container never
+exposed this before.
+
+**Setting `mm_encoder_attn_backend="TORCH_SDPA"` is not sufficient, and this is the part worth remembering.**
+vLLM accepts the value, echoes it in its own non-default-args log line, and reverts it internally: the CUDA
+branch of `maybe_get_vit_flash_attn_backend` never consults `attn_backend_override`, though the ROCm branch ten
+lines above does. Job 3167568 therefore failed **identically** to 3167519 while every log line claimed
+`TORCH_SDPA`. **A silently-ignored setting is indistinguishable from a working one.**
+
+The patch copies the ROCm guard onto CUDA — one logical line, resolving an inconsistency inside a single
+function. No upstream fix exists to adopt (`vllm#27821` lists honouring the flag as a future goal;
+`vllm#38411` is the same bug class, closed as not planned).
+
+*Result-neutral:* SDPA and FlashAttention both compute exact softmax attention, differing only at bf16
+rounding; `TORCH_SDPA` is vLLM's own class default for `Qwen2_5_VisionAttention`. Comparability is unaffected
+because we never test against 47.1 directly — we run our own control arm in this container, so the kernel
+cancels in the contrast. There is no more faithful option: this FA2 build cannot execute this ViT at all.
+
+*Controls, because a bind-mount overrides silently:* the patch is version-controlled · `ORIGINAL.sha256` pins
+the file it was derived from so an image rebuild fails loudly · **gate G-VITATTN** asserts identity *and*
+behaviour before the engine is built · a separate `ca21_vllm.toml` keeps the mount away from the PAPO and
+DeepEyes lines. Full write-up: `patches/vllm_0_11_2/README.md`.
+
+**[V] The HF training path needs the same treatment, and it is cheaper.** `Qwen2_5_VLVisionAttention` computes
+`head_dim = 80` (`modeling_qwen2_5_vl.py:187`) and dispatches on `config._attn_implementation` with an explicit
+`flash_attention_2` branch (`:216-219`) into the same package — so verl's global
+`attn_implementation="flash_attention_2"` (`fsdp_workers.py:215`) will hit this identically. But transformers
+4.57 accepts a **per-subconfig dict** (`modeling_utils.py:2802-2838`), so the training fix is a config change,
+not a patch:
+
+```python
+attn_implementation={"": "flash_attention_2", "vision_config": "sdpa"}
+```
+
+This keeps FA2 on the language model (`head_dim = 128`, works and is faster) and drops to SDPA only in the ViT.
+
 ---
 
 ## 2. PROVISIONAL — proceeding this way, explicitly not frozen
 
-### P1 — KL direction: **start with reverse**, forward under active deliberation **[U, 2026-08-23]**
+**Currently empty.** P1 and P2 were the only entries; both were settled on 2026-08-23 after §4.5 supplied the
+measured chain lengths they were waiting on. P1 → **S8** (forward, reversing the spec). P2 → **S9**.
 
-`D(c) = KL(π(·|c,x) ‖ π(·|I,x))`, as the spec writes. **Not frozen — the user has agreed the forward-KL
-argument is substantive and wants further deliberation before committing.** Scheduled at roadmap **stage 3**;
-§3 explains why it cannot responsibly be settled before stage 2.
+### P1 — *superseded by S8 on 2026-08-23.* Retained: the comparison that drove it
 
 The distinction is *not* mainly cost. Both directions evaluate both contexts; they differ in which must be
 **sampled** from versus merely **scored** under. Reverse needs `ỹ ~ π(·|c,x)` — an autoregressive generation
 per caption. Forward needs `y ~ π(·|I,x)` — which S1 already generates for `J_success` — then only a
 teacher-forced scoring pass per caption. Reverse buys back blind-answer accuracy for free; under forward that
-becomes a separate instrumentation pass.
+becomes a separate instrumentation pass (roadmap **L1**).
 
-| | **Reverse** `KL(p‖q)` | **Forward** `KL(q‖p)` |
+*In this table `p = π(·|c,x)` (blind) and `q = π(·|I,x)` (sighted)* — the opposite lettering to S8, which
+spells both out to avoid exactly this trap.
+
+| | **Reverse** `KL(p‖q)` *(spec; rejected)* | **Forward** `KL(q‖p)` *(adopted, S8)* |
 |---|---|---|
 | character | mode-seeking / zero-forcing | mode-covering / zero-avoiding |
 | optimum | caption makes the blind model collapse confidently onto **one** high-probability region of sighted behaviour | caption must make the blind model assign mass to **everything** the sighted model does |
@@ -167,24 +317,11 @@ becomes a separate instrumentation pass.
 
 *Honest case for reverse, and it is real:* at deployment one samples **from** the blind model, so matching in
 the direction one samples is operationally relevant; and mode-seeking is typically more stable early, since it
-never forces coverage of a poorly-estimated `q`.
+never forces coverage of a poorly-estimated `q`. **Answered in S8:** we deploy the *sighted* model, not the
+blind one — the blind pathway is an instrument, never a deliverable — so the first half does not apply here.
+The second half stands and is the reason S8 schedules a head-to-head rather than declaring victory.
 
-*Decision rule going in:* run reverse with under-dispersion and leak rate instrumented **as predicted failure
-modes from day one**, so that if reverse misbehaves we switch on evidence rather than on argument.
-
-### P2 — `y` = full CoT **+** answer *(leaning; not settled)*
-
-*User's position:* full CoT + answer is the better estimand. **I agree, but not for the stated reason.**
-
-*The stated reason does not survive our own measurements.* "Use an Instruct model to reduce the load" assumes
-Instruct answers are short. **[V]** Qwen3-VL-4B-Instruct measured **median 1,125 tokens** (job 3105710); at 2B,
-median 3,072 with 75% truncation. Documented, unfixed upstream behaviour (QwenLM/Qwen3-VL#1922 — their median
-1,899 vs our 1,959), and `chat_template.json` exposes no thinking/budget knob. Instruct here is *relatively*
-shorter than Thinking, not short.
-
-*The reason that does hold:* full CoT is **leakage-resistant**. If `y` is the answer alone, a caption stating
-the verdict achieves parity with zero perceptual content. Reproducing a *chain* requires supplying the facts
-the chain reasons over.
+### P2 — *superseded by S9 on 2026-08-23.*
 
 ---
 
@@ -197,36 +334,34 @@ Ordered by dependency, not by importance. Each entry says what it blocks and why
 | id | item |
 |---|---|
 | **H1** | `_env.sh` documents `HF_HOME` as `.../hf_cache`, but the cluster environment already sets it and the snapshot landed in `.../huggingface/`. **[V]** job 3163760. The comment is now inaccurate; correct the file rather than leave a doc that lies. No re-download needed. |
+| **H2** | `format_check` persists only the first 20 of *n* records, so 3 of the 32 `\boxed{}` failures were characterised rather than all 32 (§4.6). One-line change; land it with the next run rather than spending a job on it. Full responses are needed for **L1** regardless. |
+| **H3** | Apply the training-path attention fix from **S10** — `attn_implementation={"": "flash_attention_2", "vision_config": "sdpa"}` at verl's load site. Config change, no patch. Blocks the first training smoke, so it is only "non-blocking" until then. |
 
 ### Stage 1 — ~~the one hard blocker~~ **RESOLVED: see S6**
 
-### Stage 2 — substrate characterisation (needs O1; cheap; go/no-go)
+### Stage 2 — substrate characterisation ~~(go/no-go)~~ **M2 DONE, M1 still open**
 
-| id | item | why here |
+| id | item | status |
 |---|---|---|
-| **M1** | **Vision-necessity rate** — question text only, no image, n draws, on the trial pool. **Reported, not used as a filter.** | Decides whether `D` is vacuous and how often. Falsifiable prediction to check the instrument against itself: Knowledge should shed far more than Chart. Needs O1 because it is model-relative. |
-| **M2** | **Sighted pass rate + termination**, image + question, n draws, on the dev pool. Run as a **head-to-head against Qwen3-VL-4B-Instruct**, reporting **EOS rate first** — the metric that exposed Qwen3-VL (68.3%) — then truncation rate and chain lengths. | Decides whether `J_success` has room to grow (R2). Also yields the **chain-length distribution for free**, which is the input to P2 and P1. |
+| **M2** | **Sighted pass rate + termination.** | ✅ **DONE — §4.5**, job 3168210, full dev split. EOS 100%, truncation 0%, max 1,092, accuracy 30.7%. The Qwen3-VL head-to-head was dropped as moot once S6 settled. R2 satisfied with room to spare. |
+| **M1** | **Vision-necessity rate** — question text only, no image, n draws, on the trial pool. **Reported, not used as a filter.** | ⬜ **OPEN, off the critical path.** Decides whether `D` is vacuous and how often. Falsifiable self-check: Knowledge should shed far more than Chart. `build_no_evidence_messages` + `assert_no_evidence` already exist and are tested, so this is a runner away. Worth doing in parallel — a largely vacuous pool would reopen the substrate question, and R1 is constitutive (§4.1). |
 
-These two together answer "does this substrate support the experiment at all" for roughly two generation
-passes. If M1 shows the pool is largely vacuous, the substrate question reopens before any training code
-exists — which is the point of running them here rather than later.
+### Stage 3 — the estimand ~~(needs M2)~~ **P1/P2 DONE, O3 open**
 
-### Stage 3 — the estimand (needs O1 and M2's measured chain lengths)
-
-| id | item | why it must wait |
+| id | item | status |
 |---|---|---|
-| **P2** | Finalise `y` scope: full CoT + answer, answer-span only, or full chain with the divergence restricted to the answer span. | The cost and variance arguments are all functions of `T`. Deciding before M2 measures the actual chain-length distribution would be guessing at the one number that drives the choice. |
-| **P1** | **Forward vs reverse KL.** | Depends on P2. With short `T` the extra blind generation reverse requires is cheap and the choice is nearly free; with `T ≈ 1,100` it is a large recurring cost, and forward's common-mode cancellation across a shared trajectory becomes a serious variance advantage. The leakage asymmetry argues for forward, S2 sharpens that, and reverse is what the spec says — this is the most consequential open decision in the document and it is deliberately scheduled after the evidence that bears on it. |
-| **O3** | Estimator family: the spec's one-sample signed `Σ log(p/q)` vs a Rao-Blackwellised per-position exact KL. | Determined jointly by P1 and P2. Memory is `vocab × T × batch` across two contexts for the exact form — chunkable, but only worth the complexity if the variance reduction is needed. The exact form gives a free correctness oracle: per-position KL is ≥ 0 by construction, so a negative value proves a bug. |
+| **P2** | `y` scope. | ✅ **S9** — full CoT + answer. |
+| **P1** | Forward vs reverse KL. | ✅ **S8** — forward, reversing the spec. Settled on variance (exact common-mode cancellation), leak asymmetry, and estimand fit; a head-to-head on the trial pool is scheduled to convert argument into result. |
+| **O3** | Estimator family: the spec's one-sample signed `Σ log(p/q)` vs a Rao-Blackwellised per-position exact KL. | ⬜ **OPEN — now the first thing to settle.** S8 changes its character: under forward with a shared `y`, the one-sample form is already low-variance because `log sighted` cancels in the centred advantage, which weakens the case for the exact form. But the exact form still buys a **free correctness oracle** — per-position KL is ≥ 0 by construction, so a negative value proves a bug — and that is worth a great deal in a project where three of four instrumentation failures printed healthy output right up to the point of failure (§4.6). Memory is `vocab × T × batch` across two contexts; at the measured `T` (p99 = 770) this is far cheaper than the earlier `T ≈ 1,100` assumption implied. |
 
 ### Stage 4 — reward shape (needs stage 3, and M2)
 
 | id | item | why here |
 |---|---|---|
-| **O4** | **Conditional caption reward:** gate the caption term on the sighted rollout being correct, `1[R(y)>0]·(−D̂)`. | Removes "train captions to faithfully reproduce a wrong chain" at the root. Precedent: DeepEyes' conditional tool bonus, whose Table 5 ablation shows conditionality is what makes the behaviour emerge at all. **Needs M2** — if the sighted pass rate is very low the gate rarely fires and starves the caption term. |
-| **O2** | Reward composition: a single `λ` vs two separately group-normalised advantages. | The terms live on incompatible scales — `R(y)` is bounded in [0,1], a sequence-level KL is unbounded and length-dependent. Vision-SR1 uses separate z-scored advantages at λ=0.5 each; likely ours, but it needs O3 first since the scale of `D̂` depends on the estimator. |
-| **S3b** | Exact `q_cap` wording. | Cheap, but it is a result-affecting string and belongs under sign-off, not improvisation. |
-| **L1** | **Leak instrumentation spec.** Three instruments: gold-string containment in `c`; verdict-assertion phrasing; and the strong one — **answer from `c` with `x` removed** (a caption carrying evidence cannot answer a question it cannot see; one carrying a verdict can). | Made load-bearing by S2 + P1. Must exist before the first training run, not after a suspicious result. |
+| **O4** | **Conditional caption reward:** gate the caption term on the sighted rollout being correct, `1[R(y)>0]·(−D̂)`. | ⬆️ **PRIORITY RAISED by S8.** Removes "train captions to faithfully reproduce a wrong chain" at the root — and S8's shared-`y` forward estimator makes that failure mode *direct* rather than diffuse. **M2 has now quantified the tension:** at 30.7% sighted accuracy the gate would fire on under a third of samples, so the starvation concern is real and measured, not hypothetical. Decide alongside **resampling `y` per step**, which attacks the same problem without discarding two thirds of the batch. Precedent: DeepEyes' conditional tool bonus, whose Table 5 ablation shows conditionality is what makes the behaviour emerge at all. |
+| **O2** | Reward composition: a single `λ` vs two separately group-normalised advantages. | The terms live on incompatible scales — `R(y)` is bounded in [0,1], a sequence-level KL is unbounded and length-dependent. **[V] Corrected 2026-08-23 — see §4.7.** Vision-SR1 *does* use separately z-scored per-component advantages, but at weights `accuracy 1.0 / format 0.1 / description_accuracy 1.0 / description_format 0.1` — **not** λ=0.5 each, as this log previously claimed. Their description term carries the same weight as the sighted accuracy term. Still needs O3 first, since the scale of `D̂` depends on the estimator. |
+| **S3b** | Exact `q_cap` wording. | Cheap, but it is a result-affecting string and belongs under sign-off, not improvisation. Current draft is in `code/ca21_prompts.py` and unit-tested for its load-bearing clauses; it needs freezing, not writing. |
+| **L1** | **Leak instrumentation spec.** Three instruments: gold-string containment in `c`; verdict-assertion phrasing; and the strong one — **answer from `c` with `x` removed** (a caption carrying evidence cannot answer a question it cannot see; one carrying a verdict can). | Made load-bearing by S2. **S8 changes its job but not its necessity:** forward KL penalises leaking rather than rewarding it, so L1 is no longer guarding against an objective that actively pulls the wrong way — but it is now also the **adjudicator of the S8 head-to-head**, since "does reverse leak more than forward" is the question that decision defers to evidence. Must exist before the first training run, not after a suspicious result. **[V] Add a fourth instrument from §4.7:** Vision-SR1's `extract_description` falls back to the whole response when tags are missing, making their `description_accuracy` trivially satisfiable exactly when format compliance fails — our two-context design makes that impossible, and saying so requires having measured it. |
 
 ### Stage 5 — RL configuration (needs stage 4)
 
@@ -313,6 +448,102 @@ Every characterisation before this came from the HF datasets-server API. This re
   MMStar 1,500 · NaturalBench 1,900 · CV-Bench 2,638 · BLINK ~3.8K. Hallucination-specific sets (POPE,
   HallusionBench, AMBER, MMHal-Bench, RH-Bench) are all eval-sized.
 
+### 4.5 Measured — sighted prompt compliance **[V] job 3168210, 2026-08-23, full 300-item dev split**
+
+Qwen2.5-VL-3B-Instruct, `think_answer.jinja`, one draw, temperature 1.0 / top_p 0.99 (Vision-SR1's rollout
+setting, **not** the model card's 1e-6, which is effectively greedy and would make every rollout in a GRPO
+group identical — zero variance, zero advantage, no gradient). Measured at an 8,192 budget deliberately: a
+censored sample cannot report its own tail, so measuring at 4,096 and concluding "4,096 suffices" is circular.
+
+| metric | result | pre-committed bar | |
+|---|---|---|---|
+| `\boxed{}` present | **89.3%** (268/300) | ≥ 90% | ❌ **FAILED** |
+| EOS reached | **100.0%** | ≥ 95% | ✅ |
+| truncated | **0.0%** | — | ✅ |
+| `<think>` present | 81.3% | ≥ 90% | ❌ (convention only) |
+| `</think>` present | 50.3% | — | benign |
+| length | mean 191.1 · p50 133 · p90 444 · p99 770 · **max 1,092** | — | |
+| exceeds a 4,096 budget | **0.0%** | — | ✅ |
+| accuracy | 30.7% (16.7% Spatial → 50.0% General) | never a criterion | |
+
+**The truncation problem is solved, and this is the measurement that proves it.** Against Qwen3-VL's 68.3% EOS
+and 44% truncation at 8,192, this backbone reaches EOS on **every one** of 300 generations across five
+categories, longest chain 1,092 tokens. `max_response_length: 4096` (Vision-SR1 parity) gives ~4× headroom over
+the observed maximum and 5× over p99. **No increase is needed or warranted.** Budget check: largest dev image
+5,220 visual tokens + a caption at the 4,096 ceiling + question still fits `max_prompt_length: 12800`.
+
+**`\boxed{}` failed its bar and is recorded as a knowing override, not as a pass.** The evidence either way:
+
+- Wilson 95% CI **[0.853, 0.923]** contains 0.90 — *n* = 300 cannot resolve this bar, and the failure is
+  uniform across categories (87.5%–90.6%), so it is a property of the model, not of any data slice.
+- The failures are **real, not a detector artifact**: one invents `<end-think>` then gives a bare `1.84`; one
+  writes `< think >` with spaces and answers `Correct Answer: B. Yes`; one closes `</think>` and stops without
+  answering. All `finish_reason=stop`. Vision-SR1's own `re.sub(r"\s*(<|>|/)\s*", ...)` normalisation cannot
+  rescue any of these — it touches angle brackets, and `\boxed{` has none.
+- **Unboxed rollouts are self-correcting under GRPO** in a way low accuracy is not: they score 0 against
+  group-mates scoring 1, so the group-relative advantage pushes directly toward boxing. At `G=8` that is ~0.86
+  format-zeros per group — added variance, not a broken signal, and a signal the model can climb.
+- **[V] Vision-SR1 started from exactly here** — same model, same prompt, same accuracy-only reward (S7) — and
+  went 35.5 → 47.1. Whatever their init compliance was, this configuration produced it and training worked.
+
+*Consequence, binding:* **boxed-rate becomes a tracked training metric.** If it does not rise in the first
+steps that is a finding about the backbone surfaced early, not a surprise at step 40. The override is thereby
+falsifiable rather than an excuse. More sampling was explicitly declined: it would tighten a CI around a number
+we have already decided how to act on.
+
+*Also observed:* the model emits `<ref>` and `<code>` grounding tags mid-chain — in-distribution Qwen2.5-VL
+behaviour, worth knowing before computing a token-level KL over these sequences. `</think>` at 50.3% is why the
+two requirements were reported **separately**; merged into one "format rate" it would have read ~50% and looked
+like failure, when nothing in the design reads `</think>` at all.
+
+### 4.6 Instrumentation failures found and fixed (recorded, not hidden)
+
+| # | failure | how it surfaced | fix |
+|---|---|---|---|
+| 1 | `images` treated as a list of structs; Vision-SR1-47K declares a **singular** `Image` feature, so `cell[0]` raised `KeyError: 0` | job 3167490, 55 s of GPU | `extract_image_bytes` handles both shapes; multi-image is a hard **R8** error, never a silent `[0]` pick |
+| 2 | ViT `head_dim=80` vs a restricted FA2 build | job 3167519 | → **S10** |
+| 3 | the S10 fix was *accepted, logged, and silently reverted* by vLLM | job 3167568, failed **identically** to 3167519 | patched `layer.py` + gate **G-VITATTN**, which asserts the outcome instead of trusting the log line |
+| 4 | **`get_split` took a head slice.** `build_pool` writes each split sorted by image path, which groups categories, so `items[:50]` on the 300-row dev split returned **50 of the 52 Chart rows** while logging "50 items from split 'dev'" | job 3168166 — the skew appeared only in the by-category table *after* the GPU time was spent | `get_split` defaults to **stratified**, largest-remainder, seeded; `head` must be named explicitly. `format_check` prints composition against the full split **before** generating and refuses a sample missing a category. `--limit` defaults to 0 = whole split |
+
+**Common thread, and the reason all four are logged here:** every one produced *correct-looking output* right up
+to the point of failure. #3 and #4 are the same disease — a claim believed because it was printed. That is the
+PAPO lesson (§5 preamble) recurring inside our own instrumentation, and it is why gates in this project must be
+shown to **fire on a planted violation** rather than merely to pass.
+
+*Not fixed, deliberately:* only 20 of 300 records are persisted, so 3 of the 32 `\boxed{}` failures were
+characterised rather than all 32. The one-line change lands with the next run; a dedicated re-run to inspect
+formatting errors we have already decided not to act on was declined as cost without information.
+
+### 4.7 Facts established from Vision-SR1 source **[V] read 2026-08-23, commit `85b7c6a`**
+
+Read because three roadmap items rested on claims about their code that had never been checked.
+
+- **The 47.1 anchor arm carries no format reward.** `vision_r1/config.yaml:15` → `think_answer.jinja`, `:91` →
+  `accuracy_reward.py`, `compute_score` returns `overall = acc`. Their full method does use one
+  (`self_reward.py`, `format_weight=0.1`). → **S7**.
+- **Anchor hyperparameters:** `max_response_length` 4096 · `max_prompt_length` 12800 · `rollout_batch_size` 512
+  · `n` 8 · temperature 1.0 / top_p 0.99 · `adv_estimator` grpo · `use_kl_loss` true · `kl_penalty` low_var_kl
+  · `kl_coef` 1e-2 · `total_epochs` 1 · val on `zli12321/mmstar@test`. Our sampling already matches exactly.
+  Note `train.sh` defaults to **7B**; the 3B numbers come from passing the argument.
+- **CORRECTION to O2 [CC].** The log claimed *"Vision-SR1 uses separate z-scored advantages at λ=0.5 each."*
+  The **structure** is right — `ray_trainer.py:120-134` z-scores each component independently per group, then
+  weighted-sums. The **weights are not**:
+  `{"accuracy": 1.0, "format": 0.1, "description_accuracy": 1.0, "description_format": 0.1}`.
+  `description_accuracy` carries **1.0**, equal to the sighted accuracy term, not half of it. Note also that
+  `self_reward.py` computes an `overall` scalar that the trainer then **does not use** for advantages.
+- **They make no attempt at prompt parity.** Their second-hop wrapper (`ray_trainer.py:39`) is an entirely
+  different prompt — *"You are provided a text description of a problem and a question…"* — with no
+  relationship to the first-hop prompt. **G-PARITY is now a source-verified differentiation, not an asserted
+  one.** (This also corrects `TALK/VISION_SR1_DIFFERENTIATION.md`, which describes our leak prevention via the
+  abandoned spec's D18 — superseded by S2 and not authoritative for this project.)
+- **A leak channel in their reward.** `extract_description` (`ray_trainer.py:56`) falls back to returning the
+  **entire response** when `<description>` tags are absent. So a format-noncompliant rollout feeds its own
+  `<think>` and `\boxed{}` into the second hop as the "description", making `description_accuracy` trivially
+  satisfiable *exactly when format compliance fails*. Structurally impossible in our two-context design. → **L1**.
+- **Trainer structure:** `SelfRewardTrainer(RayPPOTrainer)` overrides six methods, and `fit()` is a **verbatim
+  copy of the base loop with one section swapped** — verl exposes no plug-point for custom advantage
+  computation. Our estimator extends by the same pattern; their code is precedent, not a dependency.
+
 ---
 
 ## 5. Predicted failure modes, to instrument from day one
@@ -320,14 +551,27 @@ Every characterisation before this came from the HF datasets-server API. This re
 Named in advance so a healthy-looking run cannot be mistaken for a correct one — the PAPO lesson, where every
 logged metric looked fine while the perception loss received no gradient at all.
 
-1. **Answer leakage into the caption.** Structural, given S2 + P1. Instruments in roadmap **L1**.
-2. **Under-dispersion** of `π(·|c,x)` relative to `π(·|I,x)` — the predicted signature of reverse KL.
-   Distinguish from leak-induced sharpening; they are not the same thing.
+1. **Answer leakage into the caption.** Structural, given S2 — the captioner sees the options. **S8 makes the
+   objective push against it** rather than with it, but "disfavoured" is not "impossible". Instruments in **L1**.
+2. ~~**Under-dispersion** of `π(·|c,x)`~~ — *this was the predicted signature of **reverse** KL and no longer
+   applies under S8.* **Replaced by its mirror image: over-dispersion.** Forward KL is zero-avoiding, so the
+   pathological caption is now one that makes the blind model *diffuse* — hedging across possibilities to avoid
+   the `log → −∞` penalty — rather than one that collapses. A caption reading "the chart shows several values,
+   any of which could be highest" is bland, contentless, and scores well. **Instrument the entropy of
+   `π(·|c,x)` against `π(·|I,x)` in both directions**, and treat a rising gap as the forward-specific failure.
 3. **Length hacking.** A KL summed over `T` tokens rewards shorter continuations mechanically. **[V]** Probe A
    documented exactly this on this model family: injected text drove premature `</think>` closure in 55% / 84%
-   of generations, and short-circuited generations were 11–13 accuracy points worse.
+   of generations, and short-circuited generations were 11–13 accuracy points worse. **Note the interaction with
+   §4.5:** 50.3% of sighted generations already omit `</think>`, so premature-closure metrics need a clean
+   baseline from *this* backbone before they can be read as a training effect.
 4. **Dead groups** from vacuous items — measurable as the fraction of groups with ~zero `D̂` variance.
-5. **Fidelity-to-a-wrong-chain** on items the sighted model gets wrong (mitigation: **O4**).
+   Quantified in advance by **M1**, which is why M1 stays on the list even though it is off the critical path.
+5. **Fidelity-to-a-wrong-chain** on items the sighted model gets wrong. **Elevated by S8** — a shared `y` makes
+   this direct, and §4.5 measured sighted accuracy at 30.7%, so most trajectories are wrong. Mitigations:
+   **O4**, and resampling `y` per step.
+6. **Format collapse.** `\boxed{}` at 89.3% (§4.5) is below the bar we set and was overridden knowingly. If
+   boxed-rate does not rise under training, `J_success` is partly scoring formatting rather than perception.
+   **Tracked as a training metric from step 1** — this is the override's falsification condition.
 
 ---
 
@@ -366,3 +610,10 @@ logged metric looked fine while the perception loss received no gradient at all.
 | 2026-08-23 | Substrate settled: Vision-SR1-47K @ `2900b038` (S4). Downloaded and verified on disk (job 3163760). |
 | 2026-08-23 | Pool built (job 3163976): trial 5,000 / eval 1,000 / dev 300, manifest `63164939…`. |
 | 2026-08-23 | Backbone settled: Qwen2.5-VL-3B-Instruct @ `66285546` (S6, resolves O1). |
+| 2026-08-23 | Prompts reviewed and frozen (S7). `think_answer.jinja` chosen because S1 forces the shared instruction to be **evidence-agnostic**, which rules out `see_think.jinja`. |
+| 2026-08-23 | Vision-SR1 source read (`85b7c6a`). Anchor arm confirmed **accuracy-only, no format reward** → resolves the open format-reward question. O2's weights **corrected**; two leak facts added to L1 (§4.7). |
+| 2026-08-23 | Container defect found and patched (S10). vLLM 0.11.2 accepts `mm_encoder_attn_backend` and silently reverts it; job 3167568 failed *identically* to 3167519 while logging success. Gate **G-VITATTN** added to assert the outcome. |
+| 2026-08-23 | `get_split` head-slice bug: job 3168166's compliance numbers were **Chart-only**. Sampler fixed to stratified-by-default; composition now asserted before generation (§4.6). |
+| 2026-08-23 | **M2 done** (job 3168210, full dev split): EOS **100%**, truncation **0%**, max 1,092, accuracy 30.7%. The truncation problem that shaped this whole programme is **resolved by the backbone switch**, and `max_response_length: 4096` needs no increase. |
+| 2026-08-23 | `\boxed{}` **89.3%** vs a pre-committed ≥90% bar → **FAILED, overridden knowingly**, with boxed-rate made a tracked training metric as the falsification condition (§4.5). |
+| 2026-08-23 | **P1 reversed: forward KL adopted (S8)**, against the spec, on variance + leak-asymmetry + estimand-fit grounds; head-to-head scheduled. **P2 settled (S9).** PROVISIONAL tier now empty. |
