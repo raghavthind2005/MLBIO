@@ -23,9 +23,9 @@ source "$CA21_ROOT/runs/_env.sh"
 
 echo "[job] $SLURM_JOB_ID on $(hostname) at $(date -Is)"
 
-echo "=== S11 estimator ==="
+echo "=== S11 estimator + packed-layout extraction (torch-only tests) ==="
 srun --environment="$HOME/toml/verl_easyr1.toml" \
-    python3 -m unittest discover -s "$CA21/code" -p "test_ca21_estimator.py" -v
+    python3 -m unittest discover -s "$CA21/code" -p "test_ca21_*.py" -v
 
 echo
 echo "=== the rest of the suite, in the container this time ==="
