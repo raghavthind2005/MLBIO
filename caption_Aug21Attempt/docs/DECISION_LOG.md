@@ -3,10 +3,24 @@
 **STATUS: WORKING LOG. Nothing is frozen. No pre-registration exists. No training code written, no
 training runs launched.**
 
-*As of 2026-08-23: substrate, backbone, prompts and estimand are settled (S1–S10); the PROVISIONAL tier is
-empty. **S8 departs from `SOURCE_SPEC.md`** — the spec writes reverse KL, we adopt forward. That disagreement
-is recorded here, never patched into the spec (§0). Open before any full run: **O3** (estimator family, next
-up), O4/O2/S3b/L1, then RL config and the frozen success criterion.*
+*As of 2026-08-23: substrate, backbone, prompts and estimand are settled (**S1–S13**); the PROVISIONAL tier is
+empty.*
+
+***Deviations from `SOURCE_SPEC.md`, all recorded here and never patched into the spec (§0):***
+
+| # | spec says | we do | where |
+|---|---|---|---|
+| 1 | reverse KL (line 54) | **forward** | **S8** — and line 65 *explicitly sanctions* this: *"forward KL or JS-divergence can be explored"*. **Not a contradiction; latitude the spec grants.** |
+| 2 | one-sample signed sum (line 86) | **exact per-position KL** | **S11** |
+| 3 | raw `D̂` coefficient, no baseline (line 113) | **group-normalised advantage** | **S12** |
+| 4 | `ỹ` per caption (line 78); `D(c)` unconditional (line 54) | **shared trajectories**, `m` = correct subset ⇒ estimand becomes `E[D(c)\|R(y)=1]` | **S13** |
+
+*Gradient flow follows the spec unchanged: `sg[D̂]`, frozen `θ_old`, gradient only through
+`∇log π_θ(c\|I,x,q_cap)` (lines 100–127).*
+
+*Open before any full run: rest of **O2** (how the two advantages combine, and λ) · **O4** (settled empirically,
+S13) · **S3b** · **L1** · **O5**/**O6** · **O7**/**O8** — the frozen evaluation set and success criterion,
+**the rule the previous attempt broke.** **M1** remains open but off the critical path.*
 
 Append-only in spirit. Every entry records who decided, on what evidence, and — where it matters — what was
 argued on the other side, so a decision can be revisited without re-deriving the argument from scratch.
@@ -288,12 +302,103 @@ attn_implementation={"": "flash_attention_2", "vision_config": "sdpa"}
 
 This keeps FA2 on the language model (`head_dim = 128`, works and is faster) and drops to SDPA only in the ViT.
 
+### S11 — Estimator: **exact per-position KL** **[U, 2026-08-23]** *(resolves O3)* ⚠️ deviates from spec line 86
+
+```
+D̂_i = (1/m) Σ_k Σ_t  KL( sighted(·|y_k,<t) ‖ blind_i(·|y_k,<t) )
+```
+
+instead of the spec's one-sample signed sum `Σ_j [log π(y_j|c,x) − log π(y_j|I,x)]`.
+
+*Three reasons.* **Rao-Blackwell** — same estimand, `Var(exact) ≤ Var(one-sample)`, unconditionally. **It
+measures what S8 selected for** — forward KL was adopted for mass-covering, and the one-sample form assesses
+coverage through a single realisation (if sighted is torn between two continuations, it penalises a caption
+supporting whichever was *not* drawn), while the exact form compares against the full sighted distribution at
+every position. **A free correctness oracle** — per-position KL is `≥ 0` by construction, so a negative value
+*proves* a bug. The one-sample form has **no** such check: its per-position terms are legitimately negative and
+only the expectation is non-negative. Against §4.6, where three of four instrumentation failures printed
+healthy output right up to the moment they failed, that oracle is worth more than the compute it costs.
+
+*It costs almost nothing, and my first analysis of this was wrong.* I originally costed it as if it lived in
+the gradient path. **It does not** — spec line 127: *"The policy evaluations used to compute D̂(c) are treated
+as fixed."* `D̂` is stop-gradient under frozen `θ_old`, so the whole computation is `no_grad`. Both forms
+require the **same** forward passes; the difference is only whether we gather one entry from the logits or
+reduce over vocab. Peak memory is one `[T, vocab]` tensor — 925 × 151,936 in bf16 ≈ 280 MB at p99, chunkable
+over `T`.
+
+*Bonus, not incidental:* the exact form yields `H(sighted)` and `H(blind_i)` en route, which is exactly the
+instrument §5.2 needs for the forward-specific over-dispersion failure mode. The estimator that is better on
+variance and carries the correctness oracle also supplies the leading failure-mode instrument.
+
+*Also computed:* the one-sample form alongside, as a near-free cross-check. They must agree in expectation;
+divergence beyond Monte-Carlo error is a bug signal.
+
+*Residual risks:* `log blind_i(v)` on near-zero `v` needs clamping and a max-per-position monitor (bounded in
+practice — same weights, different context, so supports are similar). verl's `compute_log_probs` returns
+gathered log-probs, so full logits need a custom worker method: real engineering, not compute. Fallback if
+memory ever bites is exact-over-top-k plus a tail bound.
+
+### S12 — Caption-term baseline: **group-normalised advantage** **[U, 2026-08-23]** ⚠️ deviates from spec line 113
+
+The spec's gradient is `∇J_cap = −E[ sg[D̂(c)] · ∇log π_θ(c|I,x,q_cap) ]` — **raw `D̂` as the coefficient, no
+baseline, no centring.** We z-score `D̂` within the caption group, as GRPO does for `R(y)`.
+
+*Why deviate.* Plain REINFORCE with a large non-zero-mean coefficient is the textbook variance failure that
+baselines exist to fix, and `D̂` is a sum of `T` log-ratios — exactly such a coefficient. verl's GRPO
+z-scores within group as a matter of course, so **the real choice is whether we make this deviation
+consciously or inherit it silently from the framework** — which is precisely how a spec stops describing the
+code. Vision-SR1 does per-component group normalisation (§4.7).
+
+*Correction recorded [CC].* S8's headline argument — that `log sighted` cancels **exactly** in the centred
+advantage — presumes this baseline, which the spec does not specify. I asserted a property of an
+implementation choice as though it were established. **S8 stands on three legs that do not depend on it**
+(leak asymmetry, estimand fit, and shared trajectories being possible only under forward); the cancellation is
+a fourth leg, now made valid by S12 rather than assumed.
+
+### S13 — Shared trajectories: **common random numbers**, `m` = the correct subset **[U, 2026-08-23]** ⚠️ deviates from spec line 78, and changes the estimand
+
+All captions in a group are scored against the **same** set of sighted trajectories, drawn fresh each step.
+
+*This is not a free-standing knob — S8 created it.* Forward samples `y ~ sighted`, which does **not** depend on
+`c_i`, so one draw serves the whole group. Reverse samples `ỹ_i ~ blind_i`, which is caption-conditioned, so
+sharing is **structurally impossible**. (This also explains Vision-SR1: their second hop generates *from* the
+description, so they are not declining CRN — the option does not exist in their formulation.)
+
+*Theory.* CRN is the simulation-literature technique for comparing alternatives:
+`Var(θ̂₁−θ̂₂) = Var(θ̂₁)+Var(θ̂₂)−2Cov(θ̂₁,θ̂₂)`, so a shared stream shrinks the variance of the **difference** —
+which is all GRPO ever uses. It helps only when the induced covariance is positive; here the `−H(sighted(·|y_<t))`
+term is not merely correlated across captions but **numerically identical**, the ideal case. And this is not
+exotic in RL: **GRPO is itself a CRN construction** (G responses to a shared prompt), as are RLHF preference
+pairs and DPO. S13 applies the same principle one level deeper — CRN over the evaluation trajectory as well as
+the prompt.
+
+*Nearest theoretical analogue, and why it does not transfer.* On-policy knowledge distillation studies exactly
+this pairing of forward-vs-reverse KL with the choice of sampling distribution. The usual argument there favours
+sampling from the **student**, because the student is deployed and its train/test distributions should match.
+**That argument is void here:** under S1 the caption-conditioned model is *never deployed* — it is an
+instrument for scoring captions — while the mass-covering and CRN benefits of teacher-sampling remain. Recorded
+as reasoning by analogy, not as a cited result.
+
+*Choice of `m`.* Trajectories are **free** — `J_success` generates `n` per item regardless — so only scoring
+passes cost, and trajectory noise falls as `1/m`. **[V] §4.8 sets `m` from the data:** averaging over the
+*correct* subset gives mean **2.51 of 8**, so the natural design costs ~2.5× scoring rather than 8×, spent on
+exactly the trajectories we want. Viable because 74.0% of items have at least one correct trajectory.
+
+*Cost accepted, and it is a real one.* **Gating on correctness changes the estimand** to `E[D(c) | R(y)=1]` —
+fidelity to sighted behaviour *on the occasions sighted is right* — not `D(c)` as spec line 54 defines it. That
+is what O4 is *for* (do not reinforce misperception, §5.5), but it partially softens the factorisation S1 claims
+as our advantage over Vision-SR1: the caption still earns nothing for being correct, yet correctness re-enters
+through trajectory **selection**. Flagged now rather than discovered in review.
+
+*Built as switches.* `m`, the correctness gate, and forward/reverse are all config, so O4 is settled empirically
+alongside the S8 head-to-head rather than blocking the build.
+
 ---
 
 ## 2. PROVISIONAL — proceeding this way, explicitly not frozen
 
 **Currently empty.** P1 and P2 were the only entries; both were settled on 2026-08-23 after §4.5 supplied the
-measured chain lengths they were waiting on. P1 → **S8** (forward, reversing the spec). P2 → **S9**.
+measured chain lengths they were waiting on. P1 → **S8** (forward). P2 → **S9**.
 
 ### P1 — *superseded by S8 on 2026-08-23.* Retained: the comparison that drove it
 
@@ -343,16 +448,18 @@ Ordered by dependency, not by importance. Each entry says what it blocks and why
 
 | id | item | status |
 |---|---|---|
-| **M2** | **Sighted pass rate + termination.** | ✅ **DONE — §4.5**, job 3168210, full dev split. EOS 100%, truncation 0%, max 1,092, accuracy 30.7%. The Qwen3-VL head-to-head was dropped as moot once S6 settled. R2 satisfied with room to spare. |
+| **M2** | **Sighted pass rate + termination.** | ✅ **DONE — §4.5 (n=1) and §4.8 (n=8)**, jobs 3168210 + 3168363. EOS 100%, truncation ~0%, marginal accuracy 31.4%. The Qwen3-VL head-to-head was dropped as moot once S6 settled. **R2 is satisfied — but on §4.8's group-level numbers (71.7% live), NOT on the marginal rate.** An earlier version of this row read "R2 satisfied with room to spare" on the strength of the marginal alone; that inference was invalid and is corrected in §4.8. |
 | **M1** | **Vision-necessity rate** — question text only, no image, n draws, on the trial pool. **Reported, not used as a filter.** | ⬜ **OPEN, off the critical path.** Decides whether `D` is vacuous and how often. Falsifiable self-check: Knowledge should shed far more than Chart. `build_no_evidence_messages` + `assert_no_evidence` already exist and are tested, so this is a runner away. Worth doing in parallel — a largely vacuous pool would reopen the substrate question, and R1 is constitutive (§4.1). |
 
-### Stage 3 — the estimand ~~(needs M2)~~ **P1/P2 DONE, O3 open**
+### Stage 3 — the estimand ~~(needs M2)~~ ✅ **COMPLETE — S8, S9, S11, S12, S13**
 
 | id | item | status |
 |---|---|---|
 | **P2** | `y` scope. | ✅ **S9** — full CoT + answer. |
-| **P1** | Forward vs reverse KL. | ✅ **S8** — forward, reversing the spec. Settled on variance (exact common-mode cancellation), leak asymmetry, and estimand fit; a head-to-head on the trial pool is scheduled to convert argument into result. |
-| **O3** | Estimator family: the spec's one-sample signed `Σ log(p/q)` vs a Rao-Blackwellised per-position exact KL. | ⬜ **OPEN — now the first thing to settle.** S8 changes its character: under forward with a shared `y`, the one-sample form is already low-variance because `log sighted` cancels in the centred advantage, which weakens the case for the exact form. But the exact form still buys a **free correctness oracle** — per-position KL is ≥ 0 by construction, so a negative value proves a bug — and that is worth a great deal in a project where three of four instrumentation failures printed healthy output right up to the point of failure (§4.6). Memory is `vocab × T × batch` across two contexts; at the measured `T` (p99 = 770) this is far cheaper than the earlier `T ≈ 1,100` assumption implied. |
+| **P1** | Forward vs reverse KL. | ✅ **S8** — forward. Settled on leak asymmetry, estimand fit, and the fact that **sharing trajectories is only structurally possible under forward**; the variance/cancellation argument is real but conditional on O2a. Head-to-head scheduled. |
+| **O3** | Estimator family. | ✅ **S11** — exact per-position KL. |
+| **O2a** | Baseline for the caption term. | ✅ **S12** — group-normalised advantage, deviating from spec line 113. |
+| **S13** | Shared trajectories (common random numbers). | ✅ **S13** — shared `y`, `m` = correct subset. |
 
 ### Stage 4 — reward shape (needs stage 3, and M2)
 
@@ -468,9 +575,13 @@ censored sample cannot report its own tail, so measuring at 4,096 and concluding
 
 **The truncation problem is solved, and this is the measurement that proves it.** Against Qwen3-VL's 68.3% EOS
 and 44% truncation at 8,192, this backbone reaches EOS on **every one** of 300 generations across five
-categories, longest chain 1,092 tokens. `max_response_length: 4096` (Vision-SR1 parity) gives ~4× headroom over
-the observed maximum and 5× over p99. **No increase is needed or warranted.** Budget check: largest dev image
+categories. `max_response_length: 4096` (Vision-SR1 parity) is retained. Budget check: largest dev image
 5,220 visual tokens + a caption at the 4,096 ceiling + question still fits `max_prompt_length: 12800`.
+
+> ⚠️ **This subsection's length figures are superseded by §4.8.** It originally read "longest chain 1,092
+> tokens … ~4× headroom over the observed maximum … 0% exceed 4096." At 8× the samples the tail reaches
+> **5,144** and **0.042% do exceed 4,096**. The conclusion survives; the justification moves from *max* (a
+> sample maximum, which grows with `n` by construction) to **p99**, which moved only 770 → 925.
 
 **`\boxed{}` failed its bar and is recorded as a knowing override, not as a pass.** The evidence either way:
 
@@ -546,6 +657,55 @@ Read because three roadmap items rested on claims about their code that had neve
 
 ---
 
+### 4.8 Measured — R2 at the group level **[V] job 3168363, 2026-08-23, 8 draws × 300 dev items = 2,400 generations**
+
+**Run because §4.5's conclusion about R2 was invalid.** §4.5 measured a *marginal* accuracy at one draw and it
+was recorded as "R2 satisfied with room to spare". GRPO's advantage is **group-relative**: a group whose
+rollouts all agree contributes exactly nothing. A 31% marginal is equally consistent with *every item at
+p≈0.31* (almost no dead groups) and with *31% of items at p≈1, the rest at 0* (**every** group dead, no
+gradient at all). One draw cannot separate those. Same disease as the head-slice bug (§4.6.4): a number that
+looked like it answered the question.
+
+*Bars pre-committed before the numbers were seen.*
+
+| quantity | measured | pre-committed bar | |
+|---|---|---|---|
+| **live groups** (`0 < correct < 8`) | **71.7%** | ≥ 50% → proceed | ✅ **R2 SATISFIED** |
+| ≥1 correct trajectory | **74.0%** | ≥ 60% → `m`-trajectory O4 viable | ✅ |
+| dead — all 8 **wrong** | 26.0% | — | |
+| dead — all 8 **correct** | **2.3%** | — | |
+| mean correct / item | **2.51 / 8** | — | sets `m` in S13 |
+| heterogeneity gap | **+23.4%** | diagnostic | see below |
+
+**The marginal really was misleading, and by a lot.** An i.i.d. population at 31.4% would show **4.9%** dead
+groups; the true figure is **28.3%**, nearly 6×. The population is strongly polarised. The earlier inference
+was invalid *and* happened to land on the right answer — a lucky guess is still a guess, and the instrument is
+what turned it into a fact.
+
+**The dead groups fail in the favourable direction.** 26.0% all-wrong against only 2.3% all-correct. Inverted,
+that would be a ceiling — no headroom for `J_success`. Only 7 of 300 items are always solved.
+Histogram: `{0:78, 1:39, 2:57, 3:31, 4:34, 5:24, 6:15, 7:15, 8:7}`.
+
+**Every category clears the floor:** General 90.6% · Spatial 87.5% · Knowledge 70.1% · Math 67.0% ·
+**Chart 55.8%** (weakest). Chart is simultaneously the *most accurate* (40.6%) and *least live* — i.e.
+polarised, which reads like chart-reading: either a value is legible to the model or it is not.
+
+**Compliance at 8× the sample, and a correction.**
+
+- `\boxed{}` **89.5%**, Wilson95 **[0.8825, 0.9070]** — the bar is *still* inside the interval at n=2,400, but
+  the point estimate is stable across both runs (89.3%, 89.5%), so the true rate is almost certainly just under
+  90%. The §4.5 override stands, now properly characterised rather than excused as small-sample noise.
+- **[V] The shortfall is one category.** Chart 93.5% · Knowledge 91.6% · Math 90.7% · General 89.5% ·
+  **Spatial 79.9%**. Four of five sit at or above the bar; Spatial alone drags the aggregate under. **Read any
+  training-time rise in boxed-rate against this** — it could be Spatial catching up rather than a global effect.
+- EOS **100.0%** across 2,400 generations, and `<think>` rose to 86.0%.
+- ⚠️ **CORRECTION to §4.5 [CC].** §4.5 reported `max 1,092` and concluded "0% exceed 4096 · ~4× headroom". At
+  8× the samples the tail reaches **max 5,144**, and **1 of 2,400 generations (0.042%) exceeds 4,096.** The
+  *conclusion* survives — 0.04% truncation is immaterial and a truncated rollout simply scores `R=0` — but the
+  supporting claim does not. The error was quoting a **sample maximum**, the least stable statistic there is,
+  which grows with `n` by construction. p99 is the honest figure and moved only 770 → 925. **`max_response_length:
+  4096` stands, justified on p99, not on max.**
+
 ## 5. Predicted failure modes, to instrument from day one
 
 Named in advance so a healthy-looking run cannot be mistaken for a correct one — the PAPO lesson, where every
@@ -616,4 +776,7 @@ logged metric looked fine while the perception loss received no gradient at all.
 | 2026-08-23 | `get_split` head-slice bug: job 3168166's compliance numbers were **Chart-only**. Sampler fixed to stratified-by-default; composition now asserted before generation (§4.6). |
 | 2026-08-23 | **M2 done** (job 3168210, full dev split): EOS **100%**, truncation **0%**, max 1,092, accuracy 30.7%. The truncation problem that shaped this whole programme is **resolved by the backbone switch**, and `max_response_length: 4096` needs no increase. |
 | 2026-08-23 | `\boxed{}` **89.3%** vs a pre-committed ≥90% bar → **FAILED, overridden knowingly**, with boxed-rate made a tracked training metric as the falsification condition (§4.5). |
-| 2026-08-23 | **P1 reversed: forward KL adopted (S8)**, against the spec, on variance + leak-asymmetry + estimand-fit grounds; head-to-head scheduled. **P2 settled (S9).** PROVISIONAL tier now empty. |
+| 2026-08-23 | **P1 reversed: forward KL adopted (S8)** on leak-asymmetry + estimand-fit grounds; head-to-head scheduled. **P2 settled (S9).** PROVISIONAL tier now empty. |
+| 2026-08-23 | Spec re-read line by line. **[V] Line 65 explicitly sanctions forward KL** — S8's "departure" was overstated and is corrected. **[V] Line 127 confirms `D̂` is stop-gradient**, which invalidated my cost analysis of the exact estimator (I had costed it as if it needed backprop). **[V] Line 113 has no baseline**, so S8's cancellation argument presumed an unstated implementation choice — now made valid by S12. |
+| 2026-08-23 | Estimand finalised: **S11** exact per-position KL · **S12** group-normalised advantage · **S13** shared trajectories (CRN), `m` = correct subset. Four spec deviations, each recorded against its line. |
+| 2026-08-23 | **R2 re-measured at the group level (job 3168363).** My "R2 satisfied" claim from a *marginal* rate was invalid; the group instrument confirms **71.7% live**, so the answer holds while the reasoning did not. Heterogeneity gap **+23.4%** proves the marginal was genuinely misleading. Length-tail claim corrected: max 5,144, 0.042% exceed 4,096. |
