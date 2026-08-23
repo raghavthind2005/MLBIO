@@ -47,6 +47,21 @@ REQUIRED_COLUMNS = {
 }
 
 
+def report_environment() -> None:
+    """Print the interpreter and library versions before doing any work.
+
+    The container is an assumption until it identifies itself. Printing this
+    first means a wrong image fails in seconds with an obvious message, rather
+    than after a 4.35 GB download.
+    """
+    import pyarrow
+    import huggingface_hub
+
+    print(f"[env] python {sys.version.split()[0]} | "
+          f"huggingface_hub {huggingface_hub.__version__} | "
+          f"pyarrow {pyarrow.__version__}", flush=True)
+
+
 def download(repo: str, revision: str) -> Path:
     from huggingface_hub import snapshot_download
 
@@ -163,6 +178,7 @@ def main() -> int:
     if not args.repo or not args.revision:
         raise SystemExit("--repo and --revision required (normally from _env.sh)")
 
+    report_environment()
     snapshot = download(args.repo, args.revision)
     stats = verify(snapshot)
 

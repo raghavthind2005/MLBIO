@@ -20,18 +20,26 @@
 
 set -euo pipefail
 
-source "$(dirname "$0")/_env.sh"
+# Slurm COPIES this script to /var/spool/slurmd/job<id>/slurm_script before
+# executing it, so `$(dirname "$0")` points at the spool directory, not at the
+# runs/ directory this file lives in. Sourcing relatively fails with
+# "No such file or directory" (job 3163721, died in 8s). The root is therefore
+# hardcoded -- as it already must be in the #SBATCH output lines above, since
+# Slurm does not expand variables there either.
+CA21_ROOT=/iopsstor/scratch/cscs/raghavthind/caption_aug21
+source "$CA21_ROOT/runs/_env.sh"
 
 echo "[job] $SLURM_JOB_ID on $(hostname) at $(date -Is)"
 
-srun --environment="$HOME/toml/verl_easyr1.toml" bash -lc '
-  set -euo pipefail
-  echo "[container] python $(python3 -V 2>&1)"
-  python3 -c "import huggingface_hub, pyarrow; print(\"[container] hub\", huggingface_hub.__version__, \"| pyarrow\", pyarrow.__version__)"
-  python3 "'"$CA21"'/code/fetch_dataset.py" \
-      --repo "'"$CA21_DATASET"'" \
-      --revision "'"$CA21_DATASET_REV"'" \
-      --out "'"$CA21_POOL"'/dataset_provenance.json"
-'
+# The variables below are exported by _env.sh and propagate into the container,
+# so srun invokes python3 directly with no intermediate shell. An earlier
+# version nested single quotes inside a `bash -lc '...'` payload to interpolate
+# them, which is unreadable and one stray quote away from silently passing the
+# wrong path.
+srun --environment="$HOME/toml/verl_easyr1.toml" \
+    python3 "$CA21/code/fetch_dataset.py" \
+        --repo "$CA21_DATASET" \
+        --revision "$CA21_DATASET_REV" \
+        --out "$CA21_POOL/dataset_provenance.json"
 
 echo "[job] done at $(date -Is)"
