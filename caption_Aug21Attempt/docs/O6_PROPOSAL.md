@@ -133,23 +133,49 @@ rollouts at `:513`.
 
 ---
 
-## 5. Proposed staging
+## 5. Staging — **ONE run, then decide** **[U, 2026-08-24]**
 
-The ordering exists so that **the cheapest run answers the question that decides the expensive
-ones.**
+**User decision: no multi-seed, no paired arms, on the first pass.** One run at one setting,
+analysed to completion, and the next run chosen from what it shows — same setting with a new
+seed, or a different setting.
 
-| stage | data | steps | arms × seeds | purpose |
+| stage | data | steps | what | status |
 |---|---|---|---|---|
-| **T0 smoke** | `trial_smoke` 2,000 | ~5 | A + B, 1 seed | machinery runs; gates fire on planted violations; `assert_forward_matches_verl` passes |
-| **T1 mechanism** | `trial` 22,000 | 40 (0.47 epoch, all fresh) | A + B, 1 seed | Tier-1 health: `D̂` trend, reward trend, V-2…V-5 |
-| **T1b σ_seed** | `trial` 22,000 | 40 | **A only, 3 seeds** (reuses T1's A as seed 1 → 2 extra runs) | **measures σ_seed and closes O11** |
-| **T2 confirmatory** | `trial` 22,000 | TBD | A + B, `k` seeds set by T1b | the frozen pre-registration |
+| **T0 smoke** | `trial_smoke` 2,000 | ~5 | correctness only — gates fire on planted violations, `assert_forward_matches_verl` passes, `uid` grouping survives a planted reorder | **not a training run**; see below |
+| **R1** | `trial` 22,000 | 40 (0.47 epoch, **all fresh**) | **Arm B only, one seed** | the one run |
+| — | | | *decide from R1* | |
 
-**T1b is the part I would argue hardest for.** O11 says the run-level MDE is ≈3.0 pp at 3 seeds
-under an *assumed* σ_seed = 1.0 pp, and that no eval size fixes it. Two extra short Arm-A runs
-convert that assumption into a measurement, and it is the difference between choosing `k` and
-guessing it. Spending six confirmatory runs against a guessed σ_seed is the expensive mistake
-available here.
+**T0 is a correctness check, not a run, and I am counting it as outside "once."** It executes 5
+steps on the throwaway subset purely to prove the machinery does what the unit tests claim.
+Flagging it explicitly rather than assuming: `ca21_estimator.py`, `ca21_packing.py`, and
+`ca21_worker.py` have **never executed against a real model** — they are tested only against
+fixtures, and §4.6 records five separate occasions in this project where a fixture-passing
+component failed on the real artifact shape. If you want T0 folded into R1 instead, say so.
+
+### Why the one run is Arm B, not Arm A
+
+| | Arm A (λ=0) | **Arm B (λ=1)** |
+|---|---|---|
+| exercises the caption pass, blind pass, S11/S12/S13 | **no** | **yes** |
+| produces a `D̂` trajectory (the Tier-1 mechanism evidence) | no | **yes** |
+| if it succeeds, what we learn | published work reproduces | substrate **and** our machinery both work |
+
+Arm A alone would consume the run reproducing someone else's result while testing none of our
+code. Arm B strictly dominates on information per GPU-hour.
+
+⚠️ **The honest cost, stated rather than discovered later:** without a paired Arm A, a *flat or
+unstable* R1 is ambiguous — substrate, or the caption term? Two things mitigate it, and neither
+is an afterthought: §6 logs the **two advantage components separately**, so the accuracy term can
+be read as if it were Arm A; and `val_before_train: true` gives a step-0 validation baseline, so
+"did anything improve at all" is answerable within the single run. That is weaker than a real
+control and is not claimed to be otherwise.
+
+### What deferring the seeds costs
+
+**O11 stays open and T2 stays unsized.** σ_seed remains assumed, not measured, so the number of
+confirmatory seeds cannot be chosen yet. That is a deferral, not a resolution — it must be
+settled before T2, and R1 cannot settle it, because one run has no run-to-run variance to
+observe. Recorded here so it is not quietly forgotten at freezing time.
 
 ---
 
@@ -171,8 +197,9 @@ Non-negotiable, because the run is otherwise unreadable afterwards:
 ## 7. Open — needs the user
 
 1. **D1 (256 vs 512)** — the only deviation with a real V-1 cost.
-2. **T1b** — 2 extra Arm-A runs to measure σ_seed before committing to T2. Recommended.
-3. **λ = 1.0** — confirmed as the run-1 constant, tuned only after run 1.
+2. **λ = 1.0** — confirmed as the run-1 constant, tuned only after R1.
+3. **Is T0 outside "once"?** — 5 steps on `trial_smoke`, correctness only. I am treating it as a
+   check rather than a run; say if you want it folded into R1.
 4. **Hardware shape** (`n_gpus_per_node`, `tensor_parallel_size`, `gpu_memory_utilization`) —
    deliberately unproposed. Vision-SR1's values are for 7B on 8×A100; ours is 3B on GH200. These
    should be settled **by the T0 smoke**, not guessed in a document.
@@ -180,3 +207,24 @@ Non-negotiable, because the run is otherwise unreadable afterwards:
    inference-only generation on one GH200 (job 3169217). Training adds a caption generation pass,
    two scored forward passes, and backward — extrapolating from that number would be the kind of
    guess this project keeps getting caught by. T0 measures it.
+
+**Closed by the user, 2026-08-24:** ~~T1b / multi-seed~~ — deferred, one run first (§5).
+
+---
+
+## 8. R1's exit conditions — written before the run, not after
+
+R1 has no control arm, so what counts as "worth continuing" must be fixed now or it will be
+decided by whatever the curves happen to look like. Tier 1 rules (O7/O8 §7) apply: **an accuracy
+number from R1 is not evidence of the effect and will not be reported as one.**
+
+| | condition | reading |
+|---|---|---|
+| **Machinery sound** | V-3 (KL oracle never fired), V-4 (G-PARITY/G-BLIND held every step), `uid` grouping intact | if any fails, R1 measured nothing regardless of its curves |
+| **Mechanism alive** | `D̂` decreases over 40 steps | the caption term is doing what it is for |
+| **Not degenerate** | caption length stable, no collapse; boxed-rate ≥ 89.1% aggregate; dead-group fraction in the 25–28% band | rules out reward hacking through formatting or caption collapse |
+| **Not destructive** | accuracy advantage component behaves like ordinary GRPO; step-0 → step-40 validation not *falling* | λ = 1.0 has not overwhelmed `J_success` |
+
+**A flat `D̂` with everything else healthy is an informative negative**, and is the outcome that
+would send us to λ before anything else. **A rising `D̂` is a bug hypothesis first**, not a
+finding — forward KL should not increase under a term that minimises it.
