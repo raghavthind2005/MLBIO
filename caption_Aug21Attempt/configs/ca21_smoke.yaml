@@ -36,6 +36,14 @@ data:
   min_pixels: 262144
   max_pixels: 1048576
   filter_overlong_prompts: true
+  # SINGLE PROCESS, deliberately. Job 3175605 hung here for 80 minutes: the default 16
+  # workers fork (dataset.py:154), each decoding and image-processing every row, inside a
+  # Ray actor that already has threads -- the "Setting TOKENIZERS_PARALLELISM=false for
+  # forked processes" warning fires immediately before it stalls at 0/2000 and never moves.
+  # PAPO ran this filter fine on these nodes, but from a HF hub dataset; ours is a local
+  # parquet with embedded image bytes, and rather than guess which difference matters, this
+  # removes forking altogether. Costs wall time (measured at this smoke) and nothing else.
+  filter_overlong_prompts_workers: 1
 
 algorithm:
   adv_estimator: grpo
