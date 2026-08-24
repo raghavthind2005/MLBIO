@@ -123,7 +123,29 @@ established criterion from this literature to the training side.
 3. **Exactly one row per image, globally** — not merely disjoint across splits. Rows sharing an image are not
    independent *within* a split either, so group statistics and paired tests would be quietly clustered.
 4. Stratified proportional draw across the five `path` categories, targeting the **eligible** population.
-5. Sizes: trial 5,000 · eval 1,000 · dev 300. Seed 0. Manifest hashed.
+5. Sizes: ~~trial 5,000 · eval 1,000 · dev 300~~ → **see S5 v2**. Seed 0. Manifest hashed.
+
+#### S5 v2 — sizes revised **[CC, 2026-08-24]**, rules 1–4 unchanged
+
+Rules 1–4 are untouched; only rule 5 moves. Built by job 3169109, materialised as parquet by 3169110,
+and the rebuild reproduced independently in job 3169217.
+
+| split | v1 | **v2** | why it moved |
+|---|---|---|---|
+| trial | 5,000 | **22,000** | 5,000 at `rollout_batch_size` 128 is ~39 fresh steps after the 28.3% dead-group rate (§4.8), against Vision-SR1's ~93. Pool size does **not** set run length — `trainer.max_steps` does (`verl/trainer/config.py:101`) — so a larger pool costs iteration speed nothing. |
+| eval (→ `eval_monitor`) | 1,000 | **1,000** | renamed only. Never a confirmatory measure (O7/O8 §2). |
+| `eval_final` | — | **8,000** | new, confirmatory, touched once per run. |
+| dev | 300 | **300** | size unchanged, **items entirely different** — 0 of 300 overlap with the v1 dev, measured against the archived v1 `format_check.samples.jsonl`. |
+| `trial_smoke` | — | **2,000** | stratified **subset of trial**, not a disjoint split. Iteration only; never reported. |
+
+- **Manifest SHA-256 `9a109667b1065bed6440dd0489ef83ce9a76d3774c29870b9a2f9d963f055465`.** This supersedes
+  `63164939…`, which reproduced six times under v1 and is now dead. Both hashes are recorded so no artifact
+  built under either is ambiguous; `data/verl_data_provenance.json` pins the v2 hash, and
+  `runs/format_check.sbatch` now asserts it rather than asserting it in prose.
+- **The eligible pool is now essentially exhausted: 31,300 of 31,798 distinct images allocated, 498 left.**
+  §4.3's "~20% utilisation, ample headroom" was true of v1 and is **false of v2**. Consequence: any future
+  split, and any enlargement of `eval_final`, must now come *out of* `trial` — they are in direct competition.
+  This is what makes O7/O8 §3's power target an open decision rather than a free choice (**O9**).
 
 ### S6 — Backbone: **Qwen2.5-VL-3B-Instruct**, pinned at `66285546` **[U, 2026-08-23]** *(resolves O1)*
 
@@ -502,6 +524,7 @@ Ordered by dependency, not by importance. Each entry says what it blocks and why
 |---|---|
 | **O7** | **Evaluation set and success criterion.** **This is the rule the previous attempt broke** — five GPU jobs ran before anyone had written down what winning looked like. Must be frozen with a hash before a single training step. |
 | **O8** | Control-arm specification. S1 already determines its shape: accuracy-only GRPO vs accuracy + caption-KL, identical data/steps/seed — the same axis Vision-SR1 reports. Needs O6 to be written precisely. |
+| **O9** | **`trial` vs `eval_final` split of a now-exhausted pool [CC, 2026-08-24].** S5 v2 spends 31,300 of 31,798 eligible images, so training data and statistical power are in direct competition. At `eval_final` = 8,000 the minimum detectable effect is **1.98 pp** at discordance 0.40 — **larger than Vision-SR1's own +1.7 pp effect**, i.e. underpowered for the effect actually being chased. 12,000 would give 1.62 pp but costs 4,000 trial images. **User decision; must be closed before O7/O8 can be frozen.** |
 
 ---
 
@@ -549,8 +572,11 @@ Every characterisation before this came from the HF datasets-server API. This re
   **no-op on this dataset**. It is a *necessary-condition* check that eliminates one specific failure mode and
   found no instances — **not** evidence the answers are otherwise well-formed. Unlike a vacuous assertion it
   demonstrably *can* fire (unit-tested); it simply found nothing.
-- Eligible: 42,288 rows → **31,798 distinct images**. Drew 6,300 = ~20% utilisation, leaving ample headroom to
-  enlarge the trial or draw a second disjoint pool without touching eval.
+- Eligible: 42,288 rows → **31,798 distinct images**. ~~Drew 6,300 = ~20% utilisation, leaving ample headroom to
+  enlarge the trial or draw a second disjoint pool without touching eval.~~
+  > ⚠️ **Superseded by S5 v2.** That headroom was spent: v2 allocates 31,300 of 31,798, leaving **498**.
+  > Enlarging any split now requires shrinking another. Stated here because the original sentence would
+  > otherwise keep licensing a choice that is no longer available.
 - **Unpredicted finding:** the one-row-per-image collapse shifts shares too, because reuse is very uneven.
   Rows-per-image by category: Spatial **1.00** (no reuse at all) · Math 0.82 · General 0.79 · Knowledge 0.68 ·
   **Chart 0.61**. So the collapse costs Chart most and Math least, which is why Math *rises* 24.8 → 30.3%.
@@ -565,6 +591,9 @@ Every characterisation before this came from the HF datasets-server API. This re
 
 - Splits exact: **trial 5,000 · eval 1,000 · dev 300**; 6,300 images, each in exactly one split, each once.
 - **Manifest SHA-256** `63164939e6ca0ef58026fac8bc690e7fc217dabb06ad52570a1e510acfcbfe57`.
+  > ⚠️ **This is the v1 pool, superseded by S5 v2** (`9a109667…`). The §4.3 category shares above are
+  > properties of the *eligible population* and carry over unchanged; only the split sizes and the
+  > drawn items differ. Retained because §4.5/§4.8 were measured on v1's dev split.
 
 ### 4.4 Prior measured evidence carried forward (facts only, not decisions)
 

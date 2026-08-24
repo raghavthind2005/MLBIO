@@ -41,15 +41,21 @@ cost and least safe to cut.
 
 ## 2. Evaluation sets (O7)
 
-Three sets, disjoint by **image** (S5.3), all drawn from the untouched remainder of the
-eligible pool — 25,498 images remain after the current 6,300 (§4.3), so no existing split
-moves and the trial pool is undisturbed.
+Three sets, disjoint by **image** (S5.3), drawn in the same stratified pass as `trial`
+(DECISION_LOG S5 v2, manifest `9a109667…`).
 
 | set | size | role | may be looked at during training? |
 |---|---|---|---|
-| `dev` | 300 (existing) | debugging, gates, sanity | yes, freely |
-| `eval_monitor` | 1,000 (existing `eval`) | training curves | yes — **never a confirmatory measure** |
-| `eval_final` | **12,000 (new)** | the confirmatory comparison | **NO. Once, at the end, per run.** |
+| `dev` | 300 | debugging, gates, sanity | yes, freely |
+| `eval_monitor` | 1,000 | training curves | yes — **never a confirmatory measure** |
+| `eval_final` | **8,000 as built — see §3 and O9** | the confirmatory comparison | **NO. Once, at the end, per run.** |
+
+> **Correction to an earlier draft of this section.** It said these sets came "from the
+> untouched remainder of the eligible pool — 25,498 images remain … so no existing split
+> moves and the trial pool is undisturbed." **That is no longer true and this document must
+> not be frozen while it says so.** S5 v2 allocates 31,300 of 31,798 eligible images; 498
+> remain. `eval_final` and `trial` now come out of the same fixed budget, so every image
+> given to one is taken from the other. That is O9, and §3 is where it bites.
 
 `eval_final` is disjoint from `eval_monitor` so that monitoring cannot contaminate the
 confirmatory set — the usual justification ("we only looked at the curve") does not survive
@@ -62,27 +68,46 @@ labelled as such.
 
 ---
 
-## 3. Power — why `eval_final` is 12,000 and not 1,000
+## 3. Power — and the one number in this document that does not yet clear its own bar
 
 The comparison is paired (same items, two models), so McNemar applies:
 `x = z·√(d/n)` for minimum detectable difference `x` at discordant rate `d`,
 `z = 2.8` (80% power, α = 0.05 two-sided).
 
-| n | `d = 0.25` | `d = 0.40` |
-|---|---|---|
-| 1,000 | 4.4 pp | 5.6 pp |
-| 4,000 | 2.2 pp | 2.8 pp |
-| 8,000 | 1.6 pp | 2.0 pp |
-| **12,000** | **1.3 pp** | **1.6 pp** |
+| n | `d = 0.25` | `d = 0.40` | trial images left over |
+|---|---|---|---|
+| 1,000 | 4.4 pp | 5.6 pp | 29,000 |
+| 4,000 | 2.2 pp | 2.8 pp | 26,000 |
+| **8,000 (as built)** | **1.57 pp** | **1.98 pp** | **22,000** |
+| 10,000 | 1.40 pp | 1.77 pp | 20,000 |
+| 12,000 | 1.28 pp | 1.62 pp | 18,000 |
 
-**Vision-SR1's effect is +1.7 pp** (47.1 → 48.8, 3B). At n = 1,000 we could not have
-detected it — a +2 pp result would have looked like a win and been indistinguishable from
-noise. §4.8's 71.7% live-group rate implies high within-item variance, so `d = 0.40` is the
-prudent column.
+**Vision-SR1's effect is +1.7 pp** (47.1 → 48.8, 3B). §4.8's 71.7% live-group rate implies
+high within-item variance, so `d = 0.40` is the prudent column — and **in that column the
+built `eval_final` of 8,000 has an MDE of 1.98 pp, which is larger than the effect we are
+chasing.** At `d = 0.25` it clears (1.57 pp), so the honest statement is: *8,000 is powered
+for a Vision-SR1-sized effect only under the optimistic discordance assumption.*
+
+This is stated plainly rather than resolved quietly, because resolving it quietly is exactly
+how a pre-registration stops meaning anything. **The trade is now zero-sum** (§2): 12,000
+buys 1.62 pp but costs 4,000 trial images.
+
+**What the trial side of that trade actually costs.** At `rollout_batch_size` 128, absorbing
+the 28.3% dead-group rate (≈ 1.39× prompts per live step):
+
+| trial | fresh steps |
+|---|---|
+| 22,000 | ≈ 124 |
+| 20,000 | ≈ 112 |
+| 18,000 | ≈ 101 |
+
+**All three exceed Vision-SR1's ~93 steps**, and `data.shuffle` + multiple epochs mean fresh
+data is not even a hard requirement. So the trial side is not binding at 18,000 while the
+eval side *is* binding at 8,000 — which is an argument, not a decision. **O9, for the user.**
 
 **Evaluation is cheap; training is not.** 12,000 items × 2 arms × 3 seeds ≈ 72,000
-generations at ~200 tokens ≈ **under 20 minutes total** on one GH200. There is no good
-reason to be underpowered on the axis that costs almost nothing.
+generations at ~200 tokens ≈ **under 20 minutes total** on one GH200. The cost of more power
+is trial images, not GPU time.
 
 ---
 
@@ -217,10 +242,15 @@ programme has published nulls before (Set 2 closed on validated nulls; Set 3's H
 
 This document cannot be frozen until:
 
+- **O9 — the `trial` / `eval_final` split (§3).** Blocks §5.1's primary endpoint from being
+  meaningful: at 8,000 the study is underpowered for a Vision-SR1-sized effect under the
+  prudent discordance assumption. Freezing this document at 8,000 means pre-committing to a
+  design that can return "Inconclusive" for a real +1.7 pp effect.
 - **O6** — steps, batch shapes, LR, seeds. §4's "3 seeds" and §7's tier split assume a step
-  budget that does not exist yet. **A 5,000-item trial pool at `rollout_batch_size` 512 is
-  ~10 steps per epoch, which is almost certainly too few** — either the trial pool grows or
-  we run multiple epochs, and that choice belongs to O6.
+  budget that does not exist yet. (The earlier note here — "a 5,000-item trial pool at
+  `rollout_batch_size` 512 is ~10 steps per epoch" — is superseded: the pool is 22,000 and
+  the batch is 128, giving ≈ 124 fresh steps. The point that the *step budget itself* is
+  still unwritten stands.)
 - **O2 / λ** — §8.1 needs the selection procedure named.
 - **L1** — V-2 needs its instruments specified before it can be a gate.
 - **V-1's band** — the acceptable distance from Vision-SR1's anchor must be a number, and it
