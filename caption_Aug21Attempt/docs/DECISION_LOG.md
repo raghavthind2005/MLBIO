@@ -821,6 +821,53 @@ feature type — is **inherited, never reconstructed**. The adapter therefore ne
 and verl takes the `isfile` branch (`verl/utils/dataset.py:129-143`). The `isdir` branch is deliberately
 avoided: it infers file type from `os.listdir(path)[0]`, an arbitrary entry, which is a stray-file hazard.
 
+### 4.11 Measured — §4.5/§4.8 **replicated on a disjoint dev split** **[V] job 3169217, 2026-08-24, 8 draws × 300 items = 2,400 generations**
+
+**Why this is a replication and not a re-measurement.** §4.5 and §4.8 were measured on the v1 dev split. S5 v2
+redrew the pool, and the v2 dev shares **0 of 300 items** with v1 — verified against the archived v1
+`format_check.samples.jsonl`, not assumed from the construction. So these are two independent 300-item samples
+from the same eligible population, and every number below was already committed to before this run.
+
+| quantity | v1 dev (3168363) | **v2 dev (3169217)** | verdict |
+|---|---|---|---|
+| **live groups** | 71.7% | **75.0%** | ✅ R2 satisfied, both, bar 50% |
+| dead groups | 28.3% | **25.0%** | replicates |
+| dead — all wrong | 26.0% | 20.3% | favourable direction, both |
+| dead — all correct | 2.3% | 4.7% | still tiny; no ceiling |
+| ≥1 correct trajectory | 74.0% | **79.7%** | ✅ O4 viable, both, bar 60% |
+| mean correct / item | 2.51 / 8 | 2.62 / 8 | sets `m` in S13 |
+| heterogeneity gap | +23.4% | **+20.8%** | the polarisation is real and reproducible |
+| marginal accuracy | 31.4% | 32.7% | reported only, never a criterion |
+| `\boxed{}` | 89.5% | **88.8%** | ❌ under the 90% bar, **both times** |
+| EOS | 100.0% | **99.96%** (2,399/2,400) | ✅ bar 95% |
+| `<think>` | 86.0% | 84.7% | convention only |
+| length p99 | 925 | **924** | |
+| exceeds 4,096 | 0.042% (1/2,400) | **0.042% (1/2,400)** | |
+
+**The three decisions these numbers carry are now confirmed on data they were not fitted to.** R2 (there is a
+GRPO gradient), O4 (`m`-trajectory viability), and `max_response_length: 4096`. The p99 agreeing to one token
+(925 vs 924) across disjoint samples is a stronger statement about the length distribution than either run
+alone.
+
+**`\boxed{}` is genuinely just under 90%, and that is now settled rather than argued.** Wilson95 on v2 is
+**[0.8747, 0.8999]** — the bar sits *outside* it, where in v1 (89.5%) it was still inside. Pooled over both
+disjoint samples (4,800 generations, 600 items): **89.1%, Wilson95 [0.8823, 0.8999]**. The §4.5 override
+stands, and its justification is no longer "small-sample noise" but a measured, replicated ~89%.
+
+- ⚠️ **A §4.8 sub-claim did NOT replicate.** §4.8 said "four of five categories sit at or above the bar;
+  Spatial alone drags the aggregate under." In v2 only **Knowledge 91.1%** and **Math 92.2%** clear 90% —
+  Chart fell 93.5% → **86.3%** and General 89.5% → **86.7%**. What *does* replicate is Spatial being weakest
+  (79.9% → **82.8%**). So the aggregate is stable while the per-category decomposition is not, at n≈50–90 per
+  category per run. **Consequence: the §4.8 instruction to "read any training-time rise in boxed-rate against
+  Spatial" is too specific to trust.** Per-category boxed rates at this sample size are noise; only the
+  aggregate is a usable instrument.
+- ⚠️ **A reporting defect, not a measurement defect [CC].** The printed summary showed `truncated 0.0%`,
+  `EOS 100.0%`, and `would exceed a 4096 budget: 0.0%` while `finish_reasons` records `{stop: 2399, length: 1}`.
+  One generation *did* run to the full 8,192 cap; 1/2,400 = 0.042% rounds to "0.0%" at one decimal place. The
+  JSON keeps raw counts so **the artifact is correct and the printed line is what is lossy** — but this is
+  §4.6's pattern exactly (output that looks clean over a real event), and percentages alone cannot show a
+  single-event tail. **Proposed fix (not applied): print `n/N` beside every rate in `format_check.py`.**
+
 ## 5. Predicted failure modes, to instrument from day one
 
 Named in advance so a healthy-looking run cannot be mistaken for a correct one — the PAPO lesson, where every

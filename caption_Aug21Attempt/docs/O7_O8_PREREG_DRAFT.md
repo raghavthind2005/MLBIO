@@ -93,15 +93,16 @@ how a pre-registration stops meaning anything. **The trade is now zero-sum** (§
 buys 1.62 pp but costs 4,000 trial images.
 
 **What the trial side of that trade actually costs.** At `rollout_batch_size` 128, absorbing
-the 28.3% dead-group rate (≈ 1.39× prompts per live step):
+the dead-group rate — measured twice on disjoint dev splits at **25.0%** and **28.3%**
+(DECISION_LOG §4.11), i.e. 1.33–1.39× prompts per live step:
 
-| trial | fresh steps |
-|---|---|
-| 22,000 | ≈ 124 |
-| 20,000 | ≈ 112 |
-| 18,000 | ≈ 101 |
+| trial | fresh steps (25.0% dead) | fresh steps (28.3% dead) |
+|---|---|---|
+| 22,000 | ≈ 129 | ≈ 123 |
+| 20,000 | ≈ 117 | ≈ 112 |
+| 18,000 | ≈ 105 | ≈ 101 |
 
-**All three exceed Vision-SR1's ~93 steps**, and `data.shuffle` + multiple epochs mean fresh
+**Every cell exceeds Vision-SR1's ~93 steps**, and `data.shuffle` + multiple epochs mean fresh
 data is not even a hard requirement. So the trial side is not binding at 18,000 while the
 eval side *is* binding at 8,000 — which is an argument, not a decision. **O9, for the user.**
 
@@ -174,7 +175,7 @@ If any fails, the primary comparison is **not interpreted** until it is understo
 | V-2 | **No leak (L1).** Gold-string containment, verdict-assertion phrasing, and the strong one — **answer from `c` with `x` removed**. Arm B's leak rate must not exceed Arm A's beyond a pre-set margin. | A caption that states the answer improves accuracy through a mechanism we are not claiming. **This is the single most likely way to get a real-looking positive for the wrong reason.** |
 | V-3 | **KL oracle never fired**, and exact vs one-sample agreed in expectation. | A silently wrong estimator makes every number meaningless. |
 | V-4 | **G-PARITY / G-BLIND held** for every scored pair, all steps. | If the blind pass ever saw the image, `D ≈ 0` and the caption term measured nothing while looking excellent. |
-| V-5 | **Boxed-rate did not fall** below its §4.5 baseline of 89.5%. | `J_success` would be partly scoring formatting rather than perception. |
+| V-5 | **Boxed-rate did not fall** below its baseline of **89.1%** — pooled over two disjoint 300-item dev samples, 4,800 generations, Wilson95 [88.2, 90.0] (§4.11). Judged on the **aggregate only**: per-category boxed rates did not replicate across those samples and are not a usable instrument at this n. | `J_success` would be partly scoring formatting rather than perception. |
 
 **V-2 is the one to be most suspicious of, and it is why L1 must exist before the first
 training run rather than after a surprising result.**
@@ -190,8 +191,8 @@ had. Its questions are: does the machinery work, and is there anything alive her
 
 - `D̂` decreases over steps
 - V-2 … V-5 hold
-- dead-group fraction stays near the measured 28.3% (§4.8)
-- boxed-rate rises from 89.5%
+- dead-group fraction stays inside the measured 25.0–28.3% band (§4.11, two disjoint samples)
+- boxed-rate rises from 89.1% (pooled baseline, §4.11)
 - captions stay on-task (length, on-topic, no degenerate collapse)
 
 **A Tier-1 accuracy number is not evidence of the effect and will not be reported as one.**
