@@ -114,18 +114,20 @@ def main() -> int:
 
     T = args.resp_len
 
+    # The probe response, built ONCE and shared by every row. Tiled to exactly T: a fixed
+    # string tokenised to 16 ids against T=24 and killed job 3174476. Content is irrelevant
+    # to row-independence; identical length across rows is not, since
+    # gather_response_logits must read the same window for each.
+    _base = tokenizer("the answer is four apples on the table today",
+                      add_special_tokens=False, return_tensors="pt")["input_ids"][0]
+    if _base.numel() == 0:
+        raise AssertionError("tokeniser produced no ids for the probe response")
+    probe_resp = _base.repeat((T + _base.numel() - 1) // _base.numel())[:T]   # [T]
+
     def build(messages, images):
         row = build_prompt_row(processor, tokenizer, messages, images,
                                args.max_prompt_length, args.min_pixels, args.max_pixels)
-        # Tile to EXACTLY T. The previous version assumed a fixed string tokenised to at
-        # least T ids; it produced 16 for T=24 and died. The content is irrelevant to
-        # row-independence -- only that every row carries a response of identical length,
-        # so gather_response_logits reads the same window for each.
-        base = tokenizer("the answer is four apples on the table today",
-                         add_special_tokens=False, return_tensors="pt")["input_ids"][0]
-        if base.numel() == 0:
-            raise AssertionError("tokeniser produced no ids for the probe response")
-        resp = base.repeat((T + base.numel() - 1) // base.numel())[:T].unsqueeze(0)
+        resp = probe_resp.unsqueeze(0)
         ids, am, pos = append_responses(
             row["input_ids"].unsqueeze(0), row["attention_mask"].unsqueeze(0),
             row["position_ids"].unsqueeze(0), resp, torch.ones_like(resp))
@@ -156,46 +158,84 @@ def main() -> int:
             full = {k: torch.cat(v, dim=0).to(dev) for k, v in coll.items()}
             return full
 
+        # Compare LOG-PROBS of the realized next token, not raw logits.
+        #
+        # Job 3174586 compared raw logits against a 1e-2 threshold and reported 4.375e-01,
+        # 3.750e-01, 4.141e-01 -- exact binary fractions, and bf16's ulp at logit magnitude
+        # 16-32 is 0.0625, so those are 6-7 ulps. A 1e-2 threshold on bf16 logits is two
+        # orders of magnitude below what the dtype can represent: that test could never pass
+        # however correct the forward was. T0d got this right and t0e regressed. [CC]
+        #
+        # Log-probs are the right quantity anyway: log_softmax is shift-invariant, so a
+        # uniform logit offset cancels, and it is what the distortion actually consumes.
         def run(lo, hi, mm):
             lg, idx, B, S = forward_packed_logits(
                 model, ids[lo:hi], am[lo:hi], pos[lo:hi],
                 multi_modal_inputs=mm, padding_free=True)
             g, _ = gather_response_logits(lg, idx, B, S, T)
-            return g.float()                                        # [hi-lo, T, V]
+            lp = g.float().log_softmax(-1)                          # [hi-lo, T, V]
+            tgt = probe_resp[1:].view(1, T - 1, 1).expand(lp.shape[0], -1, -1).to(lp.device)
+            return (lp[:, :-1].gather(-1, tgt).squeeze(-1),         # [hi-lo, T-1] log-probs
+                    g.float())                                      # [hi-lo, T, V] logits
 
         # reference: each row entirely alone
-        alone = torch.cat([run(i, i + 1, mm_for(i, i + 1)) for i in range(n)], dim=0)
+        ref = [run(i, i + 1, mm_for(i, i + 1)) for i in range(n)]
+        lp_alone = torch.cat([r[0] for r in ref], dim=0)
+        lg_alone = torch.cat([r[1] for r in ref], dim=0)
 
         # (a) all rows packed together
-        together = run(0, n, mm_for(0, n))
-        d_batch = float((together - alone).abs().max())
+        lp_tog, lg_tog = run(0, n, mm_for(0, n))
 
         # (b) chunked, using the SAME slicer the worker uses -- exercises patch offsets
         mm_all = mm_for(0, n)
-        halves = []
-        for lo in range(0, n, 2):
-            hi = min(lo + 2, n)
-            halves.append(run(lo, hi, slice_multi_modal_inputs(mm_all, lo, hi, n)))
-        chunked = torch.cat(halves, dim=0)
-        d_chunk = float((chunked - alone).abs().max())
+        parts = [run(lo, min(lo + 2, n),
+                     slice_multi_modal_inputs(mm_all, lo, min(lo + 2, n), n))
+                 for lo in range(0, n, 2)]
+        lp_chunk = torch.cat([p[0] for p in parts], dim=0)
+
+        def stats(a, b):
+            d = (a - b).abs()
+            return {"max": float(d.max()), "median": float(d.median()),
+                    "frac_over_1e-2": float((d > 1e-2).float().mean())}
+
+        # Context for reading the logit numbers: bf16's ulp at the observed magnitude.
+        mag = float(lg_alone.abs().max())
+        ulp = 2.0 ** (torch.tensor(max(mag, 1e-6)).log2().floor().item() - 8)
 
         case = {"case": label, "rows": n,
-                "batched_vs_alone_max": d_batch, "chunked_vs_alone_max": d_chunk}
+                "logprob_batched_vs_alone": stats(lp_tog, lp_alone),
+                "logprob_chunked_vs_alone": stats(lp_chunk, lp_alone),
+                "logit_batched_vs_alone_max": float((lg_tog - lg_alone).abs().max()),
+                "logit_max_magnitude": mag, "bf16_ulp_at_that_magnitude": ulp,
+                "top1_agreement": float(
+                    (lg_tog.argmax(-1) == lg_alone.argmax(-1)).float().mean())}
         out["cases"].append(case)
+        b, c = case["logprob_batched_vs_alone"], case["logprob_chunked_vs_alone"]
         print(f"[t0e] {label}\n"
-              f"        B={n} packed  vs each row alone : {d_batch:.3e}\n"
-              f"        chunked(2)   vs each row alone : {d_chunk:.3e}", flush=True)
+              f"        LOGPROB  B={n} vs alone : max {b['max']:.3e}  "
+              f"median {b['median']:.3e}  frac>1e-2 {b['frac_over_1e-2']:.3f}\n"
+              f"        LOGPROB  chunked vs alone : max {c['max']:.3e}  "
+              f"median {c['median']:.3e}\n"
+              f"        top-1 agreement           : {case['top1_agreement']:.4f}\n"
+              f"        (logit max diff {case['logit_batched_vs_alone_max']:.3e}; "
+              f"bf16 ulp at |logit|<={mag:.1f} is {ulp:.3e})", flush=True)
         Path(args.out).write_text(json.dumps(out, indent=2))
 
-    worst = max(max(c["batched_vs_alone_max"], c["chunked_vs_alone_max"])
-                for c in out["cases"])
-    out["verdict_max"] = worst
-    out["row_independent"] = worst < 1e-2
+    worst = max(max(c["logprob_batched_vs_alone"]["max"],
+                    c["logprob_chunked_vs_alone"]["max"]) for c in out["cases"])
+    worst_top1 = min(c["top1_agreement"] for c in out["cases"])
+    out["verdict_logprob_max"] = worst
+    out["verdict_min_top1_agreement"] = worst_top1
+    # Leakage means row j attends to row j-1: that reorganises the attention distribution
+    # and shows up as WHOLE NATS plus top-1 disagreement, not as a few bf16 ulps.
+    ok = worst < 1e-2 and worst_top1 > 0.999
+    out["row_independent"] = ok
     Path(args.out).write_text(json.dumps(out, indent=2))
 
     print("\n=== T0e VERDICT ===")
-    print(f"  worst deviation from row-alone : {worst:.3e}")
-    if worst < 1e-2:
+    print(f"  worst |delta log-prob| vs row-alone : {worst:.3e}")
+    print(f"  min top-1 agreement                 : {worst_top1:.4f}")
+    if ok:
         print("  -> ROW-INDEPENDENT. B>1 packing does not leak across sequence")
         print("     boundaries, and chunk-invariance follows, so the row-chunking in")
         print("     compute_caption_distortion cannot change the answer.")
@@ -203,7 +243,7 @@ def main() -> int:
         print("  -> NOT row-independent. Sequences are bleeding into each other under")
         print("     packing: every distortion computed at B>1 is wrong. R1 must not run.")
     print(f"\n[t0e] -> {args.out}")
-    return 0 if worst < 1e-2 else 1
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
