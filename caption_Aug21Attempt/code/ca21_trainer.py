@@ -315,7 +315,31 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             # rollout_batch_size happens to divide evenly. _validate does exactly this
             # (ray_trainer.py:412-414), including scaling pad_size by the repeat factor.
             gen, pad = pad_dataproto_to_divisor(gen, self.actor_rollout_ref_wg.world_size)
-            out = self.actor_rollout_ref_wg.generate_sequences(gen)
+
+            # THE ENGINE IS OFFLOADED BY THE TIME WE GET HERE, and that is not obvious from
+            # this function. fit() brackets the answer rollout with
+            # prepare_rollout_engine() / release_rollout_engine(), and release calls
+            # offload_vllm() (fsdp_workers.py:622-623). The caption block runs AFTER the
+            # advantage computation -- it must, because S13's gate needs token_level_scores
+            # -- so vLLM's weights are already gone. Job 3178127 died exactly here, with the
+            # worker killed by a connection error rather than an exception, because
+            # generating against an offloaded engine is not a Python-level failure.
+            #
+            # Re-preparing also SYNCS WEIGHTS, which is what the method requires anyway:
+            # captions must be samples from the policy that produced the trajectories they
+            # are scored against, and no update has happened yet this step, so this is the
+            # same policy. Correct rather than merely working.
+            #
+            # COST: a second vLLM load/offload cycle per step, on top of the answer
+            # rollout's. Real overhead -- measured at the smoke and worth revisiting for R1
+            # if it dominates, most likely by computing the reward synchronously inside the
+            # gen block so the gate can run before release. Not done now because it would
+            # move fit() further from upstream for a saving we have not yet measured.
+            self.actor_rollout_ref_wg.prepare_rollout_engine()
+            try:
+                out = self.actor_rollout_ref_wg.generate_sequences(gen)
+            finally:
+                self.actor_rollout_ref_wg.release_rollout_engine()
             out = unpad_dataproto(out, pad_size=pad * g_c)
 
             want = len(kept_uids) * g_c
