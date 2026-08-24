@@ -66,6 +66,9 @@ export PYTHONUNBUFFERED=1
 # within seconds of being produced.
 export WANDB_MODE=${WANDB_MODE:-online}
 export WANDB_PROJECT=${WANDB_PROJECT:-caption_aug21}
+# Pinned rather than left to the account default, so a later default change cannot scatter
+# runs across entities and make them hard to find. [V] resolved from the API, 2026-08-24.
+export WANDB_ENTITY=${WANDB_ENTITY:-rthind-university-of-maryland}
 export WANDB_DIR=${WANDB_DIR:-$CA21/wandb}
 # Keep the local mirror too: two copies in different failure domains, not one.
 export CA21_RECORDS=${CA21_RECORDS:-$CA21/records}
