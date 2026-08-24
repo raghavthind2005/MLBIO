@@ -83,9 +83,9 @@ class Runner:
         from verl.workers.fsdp_workers import FSDPWorker
         from verl.workers.reward import AutoRewardManager
 
+        import ca21_worker_hook
         from ca21_dataset import make_ca21_dataset
         from ca21_trainer import make_ca21_trainer
-        from ca21_worker import make_ca21_worker
 
         print(json.dumps(config.to_dict(), indent=2))
 
@@ -113,9 +113,14 @@ class Runner:
         # (base.py:474-476), and FSDPWorker's own __init__ requires config and role, so a
         # subclass cannot be constructed at all (job 3177347). Both roles below therefore
         # reference one class, which is also what base.py:464-467 asserts.
-        CA21Worker = make_ca21_worker(FSDPWorker, register, Dispatch.DP_COMPUTE_PROTO)
+        # Through the SAME idempotent hook the workers use, not a second call path. The
+        # Runner is itself a Ray actor, so worker_process_setup_hook has already attached
+        # here; calling make_ca21_worker directly would hit its "already defined" guard.
+        ca21_worker_hook.setup()
+        CA21Worker = FSDPWorker
         print(f"[ca21] worker  -> {CA21Worker.__name__} "
-              f"+compute_caption_distortion "
+              f"+compute_caption_distortion="
+              f"{hasattr(CA21Worker, 'compute_caption_distortion')} "
               f"(base {CA21Worker.__base__.__name__})", flush=True)
 
         ray_worker_group_cls = RayWorkerGroup
@@ -218,6 +223,8 @@ def main():
                 "CUDA_DEVICE_MAX_CONNECTIONS": "1",
                 "VLLM_ALLREDUCE_USE_SYMM_MEM": "0",
                 # code/ is a plain cp target, not on the image's path -- but this must
+                # ALSO be visible to the worker_process_setup_hook below, which Ray
+                # resolves by import inside each worker.
                 # EXTEND the inherited PYTHONPATH, not replace it. _env.sh puts
                 # EasyR1_ca21 there, and a Ray actor started with only code/ on its path
                 # dies with "No module named 'verl'" (job 3175577) -- inside the actor, so
@@ -226,7 +233,13 @@ def main():
                 "PYTHONPATH": os.pathsep.join(
                     p for p in (str(Path(__file__).resolve().parent),
                                 os.environ.get("PYTHONPATH", "")) if p),
-            }
+            },
+            # Runs in EVERY worker process before any task. Attaching the caption method
+            # in the driver is not enough: Ray serialises a class reference, so each
+            # WorkerDict re-imports verl and gets a pristine FSDPWorker. Job 3178190 got
+            # all the way through caption GENERATION and then failed on
+            # "'FSDPWorker' object has no attribute 'compute_caption_distortion'".
+            "worker_process_setup_hook": "ca21_worker_hook.setup",
         }
         ray.init(runtime_env=runtime_env)
 
