@@ -384,16 +384,36 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             # j of prompt p on a DIFFERENT RANK from its own sighted row, scoring it against
             # someone else's `p`. With the caption axis inside the row, a row and all its
             # captions move together by construction.
+            # BLIND PROMPT BUDGET. Deliberately larger than the sighted one, and this is a
+            # correctness matter rather than a tuning choice.
+            #
+            # max_prompt_length is sized for the SIGHTED context, which is dominated by
+            # ~1,338 image tokens. The blind context carries NO image; what it carries is
+            # the caption. Building it against the sighted budget means a long caption
+            # overflows and truncation="error" KILLS THE RUN mid-training -- one outlier out
+            # of the ~3,000 captions drawn per step is enough.
+            #
+            # A caption cannot exceed max_response_length by construction, and the problem
+            # plus instruction is a few hundred tokens, so this budget makes overflow
+            # STRUCTURALLY impossible. No cap on caption length, so the KL signal that
+            # already penalises unhelpful tails (T0b: matched_60 <= matched_100 in 5/6) is
+            # left to do its work unshaped, and no prompt is ever dropped for being verbose.
+            # truncation stays "error": if this budget is somehow exceeded we want to hear
+            # about it, not silently score a truncated caption.
+            blind_max = dcfg.max_prompt_length + dcfg.max_response_length
             b_stack = {"input_ids": [], "attention_mask": [], "position_ids": []}
+            blind_prompt_lens = []
             for j in range(g_c):
                 prompt_rows = []
                 for pi, u in enumerate(kept_uids):
                     cap = cap_txt[pi * g_c + j]
-                    prompt_rows.append(build_prompt_row(
+                    r = build_prompt_row(
                         self.processor, self.tokenizer,
                         P.build_answerer_messages(cap, str(problems[first_row[u]])),
-                        None, dcfg.max_prompt_length,          # G-BLIND, structurally
-                        dcfg.min_pixels, dcfg.max_pixels))
+                        None, blind_max,                       # G-BLIND, structurally
+                        dcfg.min_pixels, dcfg.max_pixels)
+                    blind_prompt_lens.append(int(r["attention_mask"].sum()))
+                    prompt_rows.append(r)
                 for k, (pi, _ri) in enumerate(flat):
                     r = prompt_rows[pi]
                     ids, am, pos = append_responses(
@@ -474,8 +494,30 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             m_all["ca21/entropy_sighted_spread_max"] = float(
                 scored.batch["entropy_sighted_spread"].max())
             m_all["ca21/kl_min_position"] = scored.meta_info.get("ca21_kl_min_position")
-            m_all["ca21/caption_chars_mean"] = float(
-                np.mean([len(c) for c in cap_txt]))
+            # CAPTION LENGTH, as a distribution rather than a mean.
+            #
+            # The open question is whether `J_cap` regulates caption length on its own.
+            # It has a reason to: T0b found matched_60 <= matched_100 in 5/6 items, i.e.
+            # trimming a caption to 60% of its words LOWERED distortion, so unhelpful tails
+            # are already penalised. If that signal is strong enough, these numbers fall
+            # over training and no cap is ever needed. If they climb, we will see it coming
+            # instead of discovering it as a crash.
+            #
+            # The mean alone cannot answer that: what threatens a run is the MAX over the
+            # ~3,000 captions drawn each step, which lives far out in the tail.
+            cap_tok = np.array([len(self.tokenizer(c, add_special_tokens=False)["input_ids"])
+                                for c in cap_txt], dtype=np.float64)
+            bl = np.array(blind_prompt_lens, dtype=np.float64)
+            m_all.update({
+                "ca21/caption_chars_mean": float(np.mean([len(c) for c in cap_txt])),
+                "ca21/caption_tokens_mean": float(cap_tok.mean()),
+                "ca21/caption_tokens_p99": float(np.percentile(cap_tok, 99)),
+                "ca21/caption_tokens_max": float(cap_tok.max()),
+                # Headroom against the budget. Must stay < 1.0; approaching it is the
+                # early warning that the length signal is losing.
+                "ca21/blind_prompt_tokens_max": float(bl.max()),
+                "ca21/blind_prompt_budget_used_max": float(bl.max() / max(blind_max, 1)),
+            })
             self._ca21_records = recs
 
             # ---- caption rows become training rows ----
