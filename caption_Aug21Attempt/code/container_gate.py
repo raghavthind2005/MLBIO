@@ -172,6 +172,49 @@ def assert_vit_attn_patch(expect_sha256: str | None = None, verbose: bool = True
             "backend": str(backend), "identity_checked": bool(expect_sha256)}
 
 
+def assert_wandb_credentials(verbose: bool = True) -> str:
+    """G-WANDB, checked from INSIDE the container -- the only place it matters.
+
+    ``runs/_env.sh`` already gates on credentials, but it runs on the SUBMIT side, where
+    ``$HOME/.netrc`` is plainly visible. The container is a different mount namespace: the
+    toml mounts /capstor and /iopsstor, and until job 3177966 it did not mount /users. So
+    the submit-side gate passed, the run loaded the model, brought up the entire vLLM
+    engine including CUDA graph capture, and only THEN died in Tracker with "No API key
+    configured".
+
+    That is the same defect as G-VITATTN had: a gate that exercises a path production never
+    takes. The check has to happen where the failure happens.
+
+    Resolution order deliberately mirrors wandb's own: WANDB_API_KEY, then netrc.
+    Returns the source, and NEVER the key -- this string is printed into a log.
+    """
+    import os
+    from pathlib import Path
+
+    if os.environ.get("WANDB_API_KEY"):
+        if verbose:
+            print("  [G-WANDB] credentials: WANDB_API_KEY (env)", flush=True)
+        return "env"
+
+    netrc = os.environ.get("NETRC") or str(Path.home() / ".netrc")
+    if Path(netrc).is_file() and "api.wandb.ai" in Path(netrc).read_text():
+        if verbose:
+            print(f"  [G-WANDB] credentials: {netrc}", flush=True)
+        return "netrc"
+
+    raise AssertionError(
+        f"G-WANDB FAILED (in container): no wandb credentials visible.\n"
+        f"  HOME={Path.home()}  netrc checked: {netrc} "
+        f"(exists={Path(netrc).is_file()})\n"
+        f"The submit-side check in _env.sh can pass while this fails -- the container is a "
+        f"different mount namespace. Confirm the toml mounts the filesystem holding "
+        f"~/.netrc, or export WANDB_API_KEY into the job.\n"
+        f"Without this the run reaches Tracker only AFTER the model load and the full vLLM "
+        f"bring-up, then dies -- and logs nowhere durable, which is the failure the online "
+        f"logging exists to prevent."
+    )
+
+
 if __name__ == "__main__":
     # CLI so a job script can run this BEFORE the expensive step.
     #
@@ -186,12 +229,23 @@ if __name__ == "__main__":
     # Needs CUDA: the branch under test is current_platform.is_cuda().
     import sys
 
+    import os
+
     expected = sys.argv[1] if len(sys.argv) > 1 else None
     try:
         info = assert_vit_attn_patch(expected)
+        print(f"[gate] G-VITATTN OK  backend={info['backend']}  "
+              f"identity_checked={info['identity_checked']}", flush=True)
+
+        # Only meaningful when the run intends to log online; skipping otherwise keeps
+        # CA21_REQUIRE_WANDB=0 usable for throwaway debugging, exactly as _env.sh does.
+        if os.environ.get("CA21_REQUIRE_WANDB", "1") == "1" and \
+                os.environ.get("WANDB_MODE", "online") == "online":
+            src = assert_wandb_credentials()
+            print(f"[gate] G-WANDB OK  credentials from {src}", flush=True)
+        else:
+            print("[gate] G-WANDB skipped (wandb not online)", flush=True)
     except AssertionError as exc:
         print(f"\n{exc}", flush=True)
         sys.exit(1)
-    print(f"[gate] G-VITATTN OK  backend={info['backend']}  "
-          f"identity_checked={info['identity_checked']}", flush=True)
     sys.exit(0)

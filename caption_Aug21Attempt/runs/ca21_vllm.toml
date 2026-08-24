@@ -23,6 +23,11 @@ mounts = [
     "/usr/lib64/libpciaccess.so.0:/usr/lib/libpciaccess.so.0",
     "/usr/lib64/libxml2.so.2:/usr/lib/libxml2.so.2",
     "/usr/lib64/libnuma.so.1:/usr/lib/libnuma.so.1",
+    # HOME, so wandb can find ~/.netrc. Without it the container sees no credentials and
+    # Tracker dies with "No API key configured" AFTER init_workers -- i.e. after the model
+    # load and the full vLLM engine bring-up (job 3177966). PAPO never needed this because
+    # it logged offline; we log online precisely so a scratch wipe cannot take the results.
+    "/users",
     # --- CA21 patch: see patches/vllm_0_11_2/README.md ---
     "/iopsstor/scratch/cscs/raghavthind/caption_aug21/patches/vllm_0_11_2/layer.py:/usr/local/lib/python3.12/dist-packages/vllm/attention/layer.py",
 ]
