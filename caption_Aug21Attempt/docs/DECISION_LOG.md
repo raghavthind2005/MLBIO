@@ -957,6 +957,84 @@ stands, and its justification is no longer "small-sample noise" but a measured, 
   §4.6's pattern exactly (output that looks clean over a real event), and percentages alone cannot show a
   single-event tail. **Proposed fix (not applied): print `n/N` beside every rate in `format_check.py`.**
 
+### 4.12 Measured — T0a, and the first result that threatens the method **[V] job 3172988, 2026-08-24, n=4**
+
+First execution of the caption-distortion stack against a real model. Two of four checks failed.
+
+| item | C1 packed vs padded | D matched | D vague | D mismatched | H(sighted) |
+|---|---|---|---|---|---|
+| 510 | **0.0000** | 0.0660 | **0.0214** | 0.0426 | 0.39 |
+| 3301 | 0.1250 | 0.2051 | **0.1593** | 0.1652 | 0.74 |
+| 3978 | 0.2188 | **0.1370** | 0.4709 | 0.4774 | 1.05 |
+| 5784 | 0.1250 | 0.4003 | **0.2651** | 0.3783 | 1.39 |
+
+**C4 (discrimination) = 1/4 — below chance.** In 3 of 4 the ordering is
+**vague < mismatched < matched**: the *contentless* caption scores best and the *correct* one
+worst. C1 also failed (max 0.219), and is a **precondition** — if the forward is wrong, none
+of the above means anything.
+
+**The structural hypothesis, written out because it is not a code bug.** Let `p = π(·|I,x)`,
+`q_c = π(·|c,x)`, `q₀ = π(·|x)`. If the trajectory is driven by the *question* rather than the
+image, then `p ≈ q₀`, so `D(c) = KL(p‖q_c) ≈ KL(q₀‖q_c)` — **minimised by the caption that
+changes the model least, i.e. one that says nothing.** This also explains the part that first
+looked strange: mismatched beating matched, because an irrelevant caption is *ignored* (model
+falls back to the text prior ≈ p) while a relevant one is *used* and pulls the model away from
+it. On this hypothesis `D` measures "how little the caption perturbs the text prior", not
+"how well the caption substitutes for the image".
+
+⚠️ **[CC] A repair that looks right and does nothing.** The natural fix is to normalise by
+item: `E(c) = 1 − KL(p‖q_c)/KL(p‖q₀)`, the fraction of the image's effect the caption
+recovers. **It changes the gradient not at all.** `KL(p‖q₀)` is constant *within* an item and
+S12 group-normalises within exactly that group, so `z(E) = −z(D)` identically. Item-level
+normalisation is invisible. Only **position-level** restriction — weighting by
+`w_t = KL(p_t‖q₀,t)`, how much the image mattered at position `t` — can change the ordering.
+Recorded because the null repair is the tempting one.
+
+**Why `J_success` does not save us.** S1 rewards the **sighted** answer, so it exerts *no*
+force on caption content. `J_cap` is the only term shaping captions. If its ordering is
+inverted, captions degenerate toward vacuity with nothing opposing it.
+
+**Confounds, none of which are resolved at n=4.** Caption 510 was a solution attempt, not a
+description (`"To solve the problem, we will analyze the sequence of points \(P_n\)…"`);
+caption 3978 was in Chinese. Of the three genuinely descriptive captions, one won and two
+lost. **[U] And captions are supposed to be bad at step 0 — training exists to fix them, so
+"are the captions good" is the wrong question.** The answerable one is *which way `D` moves as
+a caption is degraded*: quality-independent, and it is the gradient direction itself.
+
+- ⚠️ **[CC] Two reporting defects of mine.** T0a recorded only the **max** C1 difference, which
+  is why it is ambiguous between bf16 noise and a bug; and it recorded `H(sighted)` but **not
+  `H(blind)`**, which is precisely the failure-mode-2 instrument needed to test the
+  over-dispersion hypothesis. Both fixed in T0b.
+- **Timings [V]:** caption gen 11.9 s each, trajectory gen 9.3 s each, **scoring 0.27 s per
+  scored pair.** Scoring is nearly free; generation dominates. This is what makes a large
+  diagnostic affordable and is the first real input to sizing R1.
+
+### 4.13 T0b decision rules — **pre-committed before the numbers [CC, 2026-08-24]**
+
+Written and committed while job 3173186 was still running, so the reading cannot be shaped by
+the result. Same discipline as O7/O8 §7, applied to a diagnostic.
+
+**Phase 0 — precondition. Nothing below is interpretable until this passes.**
+
+| fp32 C1 | reading |
+|---|---|
+| collapses to ≲1e-4 | T0a's C1 was bf16 accumulation between varlen and masked flash kernels. Proceed. |
+| stays ≳1e-2 on a non-trivial fraction | **`forward_packed_logits` is wrong.** Every distortion computed to date is void. Fix before anything else; no design conclusion may be drawn from T0a or T0b. |
+
+**Phase 1 — the ladder.** `no_evidence → matched_100 → matched_60 → matched_30 → vague`.
+
+| outcome | reading | consequence |
+|---|---|---|
+| ladder monotonic, matched < no_evidence | the instrument ranks captions correctly | estimand sound; proceed to `fit()` and T0c |
+| ladder **inverted** (D falls as content is stripped) | the objective rewards uninformative captions | **R1 must not run.** S11 needs changing — a design decision, not a patch |
+| ladder flat, `D(no_evidence)` small | the image barely moves the trajectory | substrate problem (M1), not estimand. Pool filtering / position weighting — design decision |
+| mixed, resolved by `corr(D(no_evidence), D(vague) − D(matched))` > 0 | matched wins where the image mattered | estimand sound, substrate weak — filter by vision-necessity |
+
+**The one interpretation ruled out in advance:** a good C4 obtained by revising `q_cap` and
+re-running is not evidence. Two of T0a's four captions were off-task and that does need
+fixing, but fixing it *now*, mixed with everything else, would let a prompt change take credit
+for a structural result. `q_cap` is S3 and changing it is a **user** decision.
+
 ## 5. Predicted failure modes, to instrument from day one
 
 Named in advance so a healthy-looking run cannot be mistaken for a correct one — the PAPO lesson, where every
