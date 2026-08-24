@@ -21,6 +21,15 @@ data:
   max_prompt_length: 2048
   max_response_length: 2048
   # Smoke-sized. R1 uses 512 (O6 D1, withdrawn in favour of Vision-SR1 parity).
+  #
+  # verl checks these at ray_trainer.py:210-219, and shrinking one without the other is
+  # what failed job 3177277:
+  #   rollout_batch_size % actor.global_batch_size == 0        -> 32 % 32
+  #   (rollout_batch_size * rollout.n) % micro_for_experience  -> 256 % 4
+  # and ours, checked in main_ca21 before any GPU is held:
+  #   g_c % world_size == 0                                    -> 8 % 4
+  # R1's 512/128 satisfies the same set (512 % 128, 4096 % 4), so this is a smoke-scale
+  # substitution and not a different regime.
   rollout_batch_size: 32
   mini_rollout_batch_size: null
   val_batch_size: 64
@@ -65,7 +74,9 @@ algorithm:
 
 worker:
   actor:
-    global_batch_size: 128
+    # Matches rollout_batch_size for the smoke (R1: 512/128). Per device this is
+    # 32/4 = 8, and dp_actor splits each rank's chunk by that (dp_actor.py:230).
+    global_batch_size: 32
     # PAPO's, on these nodes: update memory is the binding constraint.
     micro_batch_size_per_device_for_update: 1
     micro_batch_size_per_device_for_experience: 4
