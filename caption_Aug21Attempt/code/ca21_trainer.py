@@ -334,6 +334,7 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             import ca21_prompts as P
             from ca21_contexts import append_responses, build_prompt_row
             from ca21_dataset import CA21_PROBLEM_KEY, assert_problems_present
+            from ca21_leak import leak_flags, leak_rates
             from ca21_logging import (advantage_component_metrics, distortion_metrics,
                                       variance_decomposition)
 
@@ -358,6 +359,10 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
                 cap_out.batch["responses"], skip_special_tokens=True)
 
             problems = batch.non_tensor_batch[CA21_PROBLEM_KEY]
+            # The reward manager's own key (reward/function.py:64), reused rather than
+            # re-derived so the leak instruments compare against the same string
+            # J_success is graded on.
+            golds = batch.non_tensor_batch.get("ground_truth")
             dcfg = self.config.data
             T = batch.batch["responses"].shape[-1]
 
@@ -480,11 +485,37 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             adv = caption_advantage(per_caption.reshape(-1), list(cap_uids), lam)
 
             # ---- durable records BEFORE anything can fail downstream ----
+            cap_tok = np.array([len(self.tokenizer(c, add_special_tokens=False)["input_ids"])
+                                for c in cap_txt], dtype=np.float64)
             recs = []
-            for k, (pi, _ri) in enumerate(flat):
+            # Enough to reconstruct the caption term post hoc WITHOUT this cluster.
+            # Scratch here has been wiped without warning before; the PAPO line survived
+            # only because its numbers were also off-cluster. A summary cannot be
+            # un-summarised, so every quantity the advantage was computed FROM is kept per
+            # row, not just the KL: `kl` -> averaged over trajectories -> group-normalised
+            # -> scaled by lambda. Storing only `kl` would leave the last two steps
+            # unverifiable, and storing only the advantage would leave the first unverifiable.
+            ent_p = scored.batch["entropy_sighted"]
+            ent_q = scored.batch["entropy_blind"]
+            npos = scored.batch["distortion_n_positions"]
+            acc_all = batch.non_tensor_batch.get(CA21_ACCURACY_KEY)
+            for k, (pi, ri) in enumerate(flat):
                 for j in range(g_c):
-                    recs.append({"uid": str(kept_uids[pi]), "caption_idx": j,
-                                 "traj_idx": k, "kl": float(D[k, j])})
+                    recs.append({
+                        "uid": str(kept_uids[pi]), "caption_idx": j, "traj_idx": k,
+                        "kl": float(D[k, j]),
+                        # what the advantage was actually derived from
+                        "kl_traj_mean": float(per_caption[pi, j]),
+                        "advantage": float(adv[pi * g_c + j]),
+                        "entropy_sighted": float(ent_p[k, j]),
+                        "entropy_blind": float(ent_q[k, j]),
+                        "n_positions": int(npos[k, j]),
+                        # provenance of the trajectory this caption was scored against
+                        "batch_row": int(ri),
+                        "traj_accuracy": (None if acc_all is None
+                                          else float(acc_all[ri])),
+                        "caption_tokens": int(cap_tok[pi * g_c + j]),
+                    })
             m_all.update({f"ca21/{k}": v for k, v in
                           variance_decomposition(recs).items()})
             m_all.update({f"ca21/{k}": v for k, v in distortion_metrics(
@@ -505,8 +536,6 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             #
             # The mean alone cannot answer that: what threatens a run is the MAX over the
             # ~3,000 captions drawn each step, which lives far out in the tail.
-            cap_tok = np.array([len(self.tokenizer(c, add_special_tokens=False)["input_ids"])
-                                for c in cap_txt], dtype=np.float64)
             bl = np.array(blind_prompt_lens, dtype=np.float64)
             m_all.update({
                 "ca21/caption_chars_mean": float(np.mean([len(c) for c in cap_txt])),
@@ -518,7 +547,48 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
                 "ca21/blind_prompt_tokens_max": float(bl.max()),
                 "ca21/blind_prompt_budget_used_max": float(bl.max() / max(blind_max, 1)),
             })
+
+            # L1 LEAK RATES over EVERY caption, not just the sampled ones -- these are
+            # regexes over strings, so exhaustive costs nothing. O7/O8 V-2 calls leakage
+            # "the single most likely way to get a real-looking positive for the wrong
+            # reason", and the quantity it needs is the rate's TRAJECTORY under training:
+            # a high baseline is a q_cap/S3 question, but a RISING rate is the confound.
+            # Logged per step so that trend exists without a re-run.
+            # NOTE L1a is expected to be non-trivial and largely benign here: on counting
+            # items a faithful caption saying "three apples" contains the gold "3" by
+            # construction (DECISION_LOG 4.16). L1b is the instrument that separates
+            # describing from concluding.
+            if golds is not None:
+                gold_per_caption = [str(golds[first_row[u]])
+                                    for u in kept_uids for _ in range(g_c)]
+                m_all.update({f"ca21/{k}": v for k, v in
+                              leak_rates(cap_txt, gold_per_caption).items()})
             self._ca21_records = recs
+
+            # THE CAPTIONS THEMSELVES. Numbers alone cannot answer the questions we will
+            # actually ask of this run -- are captions degenerating, are they leaking the
+            # answer (V-2/L1), is the m60<=m100 tail effect visible in what they say. None
+            # of that is recoverable from a KL.
+            #
+            # SAMPLED, not exhaustive: a full dump is ~3,264 captions/step, which over 60
+            # steps is hundreds of MB of artifacts. One whole caption GROUP per sampled
+            # prompt (all g_c of them) rather than scattered singles, because the group is
+            # the unit S12 compares -- seeing 8 captions for one prompt with their KLs is
+            # informative, seeing 8 unrelated captions is not.
+            n_show = int(getattr(cfg, "caption_log_prompts", 8))
+            step_no = int(getattr(self, "global_step", 0))
+            for pi in range(min(n_show, len(kept_uids))):
+                for j in range(g_c):
+                    self._ca21_caption_samples.append({
+                        "step": step_no, "uid": str(kept_uids[pi]), "caption_idx": j,
+                        "kl_traj_mean": float(per_caption[pi, j]),
+                        "advantage": float(adv[pi * g_c + j]),
+                        "tokens": int(cap_tok[pi * g_c + j]),
+                        "leak": leak_flags(cap_txt[pi * g_c + j],
+                                           str(golds[first_row[kept_uids[pi]]]))
+                        if golds is not None else None,
+                        "caption": cap_txt[pi * g_c + j],
+                    })
 
             # ---- caption rows become training rows ----
             cap_out.batch["advantages"] = (
@@ -581,6 +651,27 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
                     "caption rows have no critic target. This method is GRPO-only (O6).")
 
             self.logger = Tracker(loggers=self.config.trainer.logger, config=self.config.to_dict())
+
+            # PROVENANCE into the off-cluster record. wandb already stores the full config
+            # (logger.py:143-147), but not WHICH CODE produced it. Without this, a run
+            # recovered after a scratch wipe says what it was configured to do and nothing
+            # about the commit, the verl revision, or the pool it read -- and every one of
+            # those has already changed underneath this project at least once.
+            try:
+                import wandb
+
+                if wandb.run is not None:
+                    wandb.run.config.update({
+                        "ca21_git_sha": os.environ.get("CA21_GIT_SHA", "unknown"),
+                        "ca21_easyr1_rev": os.environ.get("CA21_EASYR1_REV", "unknown"),
+                        "ca21_dataset_rev": os.environ.get("CA21_DATASET_REV", "unknown"),
+                        "ca21_model_rev": os.environ.get("CA21_MODEL_REV", "unknown"),
+                        "ca21_slurm_job": os.environ.get("SLURM_JOB_ID", "unknown"),
+                        "ca21_fit_sha256": expected_fit_sha256 or "unpinned",
+                    }, allow_val_change=True)
+                    print(f"[ca21] provenance -> wandb run {wandb.run.id}", flush=True)
+            except Exception as exc:                              # noqa: BLE001
+                print(f"[ca21] WARNING: provenance not logged: {exc!r}")
             self.global_step = 0
             main_tqdm = tqdm(range(self.training_steps), desc="Running step", position=0)
             val_metrics: dict[str, Any] | None = None
@@ -599,7 +690,9 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             self.data_iterator = iter(self.train_dataloader)
             while self.global_step < self.training_steps:
                 self.global_step += 1
-                self._ca21_records = []   # never dump a previous step's rows
+                # Never dump a previous step's rows under this step's number.
+                self._ca21_records = []
+                self._ca21_caption_samples = []
 
                 metrics, timing_raw = {}, {}
                 with timer("step", timing_raw):
@@ -750,11 +843,24 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
                 # Durable records LAST, and never fatal: scratch has been wiped on this
                 # cluster before, but a logging failure must not kill a training run.
                 if self._ca21_records:
+                    rec_dir = os.environ.get("CA21_RECORDS", "records")
                     try:
                         path = dump_step_records(
-                            os.environ.get("CA21_RECORDS", "records"),
-                            self.global_step, self._ca21_records)
-                        wandb_upload_records(path, self.global_step)
+                            rec_dir, self.global_step, self._ca21_records)
+                        ok = wandb_upload_records(path, self.global_step)
+                        # Two failure domains, and the local one is the wipeable one. If
+                        # the off-cluster copy did not happen, SAY SO rather than leaving
+                        # the run looking durable -- that is the exact way the PAPO line
+                        # nearly lost everything.
+                        if not ok:
+                            print(f"[ca21] WARNING: step {self.global_step} records are "
+                                  f"ONLY on scratch ({path}); wandb upload did not run.")
+                        if self._ca21_caption_samples:
+                            cpath = dump_step_records(
+                                rec_dir, self.global_step, self._ca21_caption_samples,
+                                prefix="captions")
+                            wandb_upload_records(cpath, self.global_step,
+                                                 name="ca21_captions")
                     except Exception as exc:                      # noqa: BLE001
                         print(f"[ca21] WARNING: step {self.global_step} records not "
                               f"persisted: {exc!r}")

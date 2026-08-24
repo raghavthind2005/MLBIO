@@ -49,6 +49,11 @@ class CA21Config:
     #: cannot change the result beyond bf16 noise -- it is purely a memory/throughput dial.
     row_chunk: int = 16
 
+    #: How many prompts' worth of caption TEXT to persist per step (all g_c of each). A
+    #: full dump is ~3,264 captions/step, hundreds of MB of artifacts over a 60-step run.
+    #: Whole groups rather than scattered singles: the group is the unit S12 compares.
+    caption_log_prompts: int = 8
+
     def post_init(self):
         if self.g_c < 2:
             raise ValueError(

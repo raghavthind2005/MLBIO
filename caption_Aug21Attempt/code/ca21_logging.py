@@ -154,7 +154,8 @@ def distortion_metrics(kl, entropy_p, entropy_q, n_positions) -> dict[str, float
     return out
 
 
-def dump_step_records(out_dir: str | Path, step: int, records: list[dict]) -> Path:
+def dump_step_records(out_dir: str | Path, step: int, records: list[dict],
+                      prefix: str = "step") -> Path:
     """Write the raw per-(caption, trajectory) rows for one step.
 
     THIS is the artifact that makes later analysis possible, and the reason it exists is
@@ -164,7 +165,7 @@ def dump_step_records(out_dir: str | Path, step: int, records: list[dict]) -> Pa
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"step_{step:05d}.jsonl"
+    path = out_dir / f"{prefix}_{step:05d}.jsonl"
     with path.open("w") as fh:
         for r in records:
             fh.write(json.dumps(r, default=str) + "\n")
