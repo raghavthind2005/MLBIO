@@ -105,7 +105,7 @@ buys 1.62 pp but costs 4,000 trial images.
 Vision-SR1: 47,628 rows ÷ 512 = **93 steps at `total_epochs: 1`** (`config.yaml:12, 94`), so
 47,628 prompts × `rollout.n: 8` ≈ 381k rollouts. Against that:
 
-| trial | prompts / epoch | epochs to match Vision-SR1's exposure | with online filtering (25–28% dead) |
+| trial | prompts / epoch | epochs to match Vision-SR1's exposure | if online filtering were on (25–28% dead) |
 |---|---|---|---|
 | 22,000 | 22,000 | 2.2 | ≈ 2.9 |
 | 20,000 | 20,000 | 2.4 | ≈ 3.2 |

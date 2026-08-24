@@ -185,8 +185,15 @@ of *that* arithmetic was also wrong, and the correction stands:
 - **[V] The ceiling is structural and set by S5.3, not by O9.** The *entire* eligible pool of
   31,798 images gives only **62** fresh steps at 512 — two-thirds of Vision-SR1's one epoch.
   One-row-per-image collapses 42,288 eligible rows to 31,798 images. Any split inherits this.
-- **[V] Vision-SR1 uses online filtering**: `filter_key: overall, filter_low: 0.01,
-  filter_high: 0.99` (`config.yaml:21-23`) — DAPO-style dead-group dropping. Closes part of O6.
+- ⚠️ **[CC] RETRACTED — I claimed "Vision-SR1 uses online filtering … closes part of O6". It is
+  FALSE.** **[V]** `vision_sr1/config.yaml:29` is **`online_filtering: false`**. The
+  `filter_key/filter_low/filter_high` values on lines 30–32 are present but *inert* — they are
+  only read inside `if self.config.algorithm.online_filtering:` (`ray_trainer.py:518`), and
+  `verl/trainer/config.py:87` defaults the flag to `False`. I read the three filter parameters
+  and inferred the flag instead of reading it, one line above them. **Vision-SR1 keeps its dead
+  groups.** O6 is therefore *not* closed on this point; it is decided in the O6 proposal on its
+  own merits (see `docs/O6_PROPOSAL.md`), where the answer happens to also be `false` — for a
+  reason specific to *our* objective that does not apply to theirs.
 
 ~~**So the trade was 3.5 vs 2.9 epochs of repetition against 1.62 vs 1.98 pp of MDE** — a
 difference of degree on one side, and of capability on the other.~~ **[CC] Withdrawn**: the
