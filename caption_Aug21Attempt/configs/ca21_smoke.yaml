@@ -35,15 +35,19 @@ data:
   # Matches what T0a/T0b/T0d/T0e scored with, so their measurements describe these pixels.
   min_pixels: 262144
   max_pixels: 1048576
-  filter_overlong_prompts: true
-  # SINGLE PROCESS, deliberately. Job 3175605 hung here for 80 minutes: the default 16
-  # workers fork (dataset.py:154), each decoding and image-processing every row, inside a
-  # Ray actor that already has threads -- the "Setting TOKENIZERS_PARALLELISM=false for
-  # forked processes" warning fires immediately before it stalls at 0/2000 and never moves.
-  # PAPO ran this filter fine on these nodes, but from a HF hub dataset; ours is a local
-  # parquet with embedded image bytes, and rather than guess which difference matters, this
-  # removes forking altogether. Costs wall time (measured at this smoke) and nothing else.
-  filter_overlong_prompts_workers: 1
+  # OFF, and replaced by an explicit pre-flight. verl's filter forks
+  # (dataset.py:150-155) and WEDGES on this cluster: jobs 3175605 and 3176724 both froze
+  # with the Runner actor blocked in do_wait -- waiting on a child that never returns -- at
+  # 1.1% CPU. Setting workers to 1 did not help, because verl always passes num_proc= and
+  # never None, so datasets takes the pool path regardless; forking inside a Ray actor
+  # that already holds threads is the hazard.
+  #
+  # Disabling it is only safe if nothing is actually overlong, since RLHFDataset uses
+  # truncation="error" (dataset.py:109) and one long row would raise from __getitem__
+  # mid-training. runs/t0c_smoke.sbatch therefore runs preflight_prompt_lengths.py first,
+  # which calls verl's OWN _filter_overlong_prompts on every row single-process and fails
+  # the job before a GPU is touched if any row would have been dropped.
+  filter_overlong_prompts: false
 
 algorithm:
   adv_estimator: grpo

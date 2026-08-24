@@ -29,6 +29,19 @@ source "$CA21_ROOT/runs/_env.sh"
 echo "[job] $SLURM_JOB_ID on $(hostname) at $(date -Is)"
 echo "[job] config: $CA21/configs/ca21_smoke.yaml"
 
+# PRE-FLIGHT. The config runs with filter_overlong_prompts=false because verl's filter
+# wedges here (see the config comment and preflight_prompt_lengths.py). That is only safe
+# while nothing is overlong, so prove it -- with verl's own predicate, single-process, no
+# pool -- before a GPU is allocated. `set -e` aborts the job if this fails.
+echo "=== pre-flight: prompt lengths ==="
+srun --environment="$CA21_TOML" \
+    python3 "$CA21/code/preflight_prompt_lengths.py" \
+        --model "$CA21_MODEL" \
+        --parquet "$CA21/data/ca21_trial_smoke.parquet" "$CA21/data/ca21_dev.parquet" \
+        --format-prompt "$CA21_EASYR1/examples/format_prompt/math.jinja" \
+        --max-prompt-length 2048 \
+        --out "$CA21_POOL/preflight_prompt_lengths.json"
+
 srun --environment="$CA21_TOML" \
     python3 "$CA21/code/main_ca21.py" \
         config="$CA21/configs/ca21_smoke.yaml" \
