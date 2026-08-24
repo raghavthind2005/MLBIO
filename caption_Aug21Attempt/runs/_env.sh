@@ -54,6 +54,23 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 export PYTHONUNBUFFERED=1
 
+# --- durable logging -----------------------------------------------------
+# Scratch on this cluster has been wiped without warning. The PAPO runs survived only
+# because their numbers were also in wandb -- but PAPO ran WANDB_MODE=offline
+# (PAPO_fixed/runs/papo_2b_8k_papofix_run.sh:25), which writes to the SAME filesystem that
+# gets wiped and only leaves the cluster on a later manual `wandb sync`. A wipe before that
+# sync loses everything.
+#
+# [V] Clariden COMPUTE nodes reach api.wandb.ai directly (job on nid006895, HTTP 404 from
+# the root path = the connection succeeded). So we log ONLINE and the data is off-cluster
+# within seconds of being produced.
+export WANDB_MODE=${WANDB_MODE:-online}
+export WANDB_PROJECT=${WANDB_PROJECT:-caption_aug21}
+export WANDB_DIR=${WANDB_DIR:-$CA21/wandb}
+# Keep the local mirror too: two copies in different failure domains, not one.
+export CA21_RECORDS=${CA21_RECORDS:-$CA21/records}
+mkdir -p "$WANDB_DIR" "$CA21_RECORDS"
+
 # --- provenance ----------------------------------------------------------
 # $CA21/code is a plain cp target, not a git repo, so the SHA must come from
 # the clone the files were copied from. Without this, artifacts record "unknown".
@@ -83,3 +100,22 @@ if [ "$_want" != "$_got" ]; then
     exit 1
 fi
 echo "[_env] patch   = layer.py OK ($(echo "$_got" | cut -c1-16)...)"
+
+# G-WANDB. Checked HERE, before a GPU is allocated, because the failure it prevents is the
+# expensive one: a run that trains for hours and then turns out to have logged nowhere
+# durable. Credentials are absent by default on this cluster (verified 2026-08-24), which
+# is almost certainly why the PAPO line fell back to offline.
+if [ "${CA21_REQUIRE_WANDB:-1}" = "1" ] && [ "$WANDB_MODE" = "online" ]; then
+    if [ -z "${WANDB_API_KEY:-}" ] && ! grep -qs "api.wandb.ai" "${NETRC:-$HOME/.netrc}"; then
+        echo "[_env] FATAL: WANDB_MODE=online but no credentials found." >&2
+        echo "[_env]   Fix ONE of these, then re-submit:" >&2
+        echo "[_env]     wandb login                 # writes ~/.netrc, do this once" >&2
+        echo "[_env]     export WANDB_API_KEY=...    # or supply it per-run" >&2
+        echo "[_env]   To run WITHOUT durable logging (not for R1):" >&2
+        echo "[_env]     export CA21_REQUIRE_WANDB=0" >&2
+        exit 1
+    fi
+    echo "[_env] wandb   = online -> $WANDB_PROJECT (records mirror: $CA21_RECORDS)"
+else
+    echo "[_env] wandb   = ${WANDB_MODE} (durable logging NOT guaranteed)"
+fi
