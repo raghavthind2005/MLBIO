@@ -125,7 +125,41 @@ established criterion from this literature to the training side.
 4. Stratified proportional draw across the five `path` categories, targeting the **eligible** population.
 5. Sizes: ~~trial 5,000 · eval 1,000 · dev 300~~ → **see S5 v2**. Seed 0. Manifest hashed.
 
-#### S5 v2 — sizes revised **[CC, 2026-08-24]**, rules 1–4 unchanged
+#### S5 v3 — `trial` 18,000 / `eval_final` 12,000 **[U, 2026-08-24]** *(resolves O9)*
+
+v2's split was chosen before anyone checked whether the resulting `eval_final` could detect the
+effect being chased. It could not: at 8,000 the McNemar MDE is **1.98 pp** at discordance 0.40,
+against Vision-SR1's own **+1.7 pp**. Since S5 v2 exhausted the pool, buying power costs trial
+images — so this is a real trade and it was put to the user rather than assumed.
+
+**It was settled on measured data exposure, and the first version of that arithmetic was wrong.**
+
+- ⚠️ **[CC] Correction.** I first argued 18,000 was safe because it "buys ~101–105 fresh steps
+  vs Vision-SR1's ~93." That compared our steps at `rollout_batch_size` **128** to theirs at
+  **512**. **[V]** `vision_sr1/config.yaml:12` is `data.rollout_batch_size: 512` (prompts per
+  step); `:36` is `worker.actor.global_batch_size: 128` (the *optimizer* minibatch). I had
+  conflated them. A step over 128 prompts is a quarter of a step over 512, so the comparison
+  was invalid in the direction that flattered the choice.
+- **[V] Corrected, in prompts.** Vision-SR1 sees 47,628 rows in `total_epochs: 1` (`:94`).
+  18,000 needs **2.6 epochs** to match that (≈3.5 with online filtering); 22,000 needs 2.2
+  (≈2.9). **Neither avoids repetition**, so the training side was never the binding constraint.
+- **[V] The ceiling is structural and set by S5.3, not by O9.** The *entire* eligible pool of
+  31,798 images gives only **62** fresh steps at 512 — two-thirds of Vision-SR1's one epoch.
+  One-row-per-image collapses 42,288 eligible rows to 31,798 images. Any split inherits this.
+- **[V] Vision-SR1 uses online filtering**: `filter_key: overall, filter_low: 0.01,
+  filter_high: 0.99` (`config.yaml:21-23`) — DAPO-style dead-group dropping. Closes part of O6.
+
+**So the trade was 3.5 vs 2.9 epochs of repetition against 1.62 vs 1.98 pp of MDE** — a
+difference of degree on one side, and of capability on the other. Repetition risk is carried
+forward as **O10**.
+
+| split | v2 | **v3** |
+|---|---|---|
+| trial | 22,000 | **18,000** |
+| `eval_final` | 8,000 | **12,000** |
+| `eval_monitor` · dev · `trial_smoke` | 1,000 · 300 · 2,000 | unchanged |
+
+#### S5 v2 — sizes revised **[CC, 2026-08-24]**, rules 1–4 unchanged *(superseded by v3 above)*
 
 Rules 1–4 are untouched; only rule 5 moves. Built by job 3169109, materialised as parquet by 3169110,
 and the rebuild reproduced independently in job 3169217.
@@ -524,7 +558,8 @@ Ordered by dependency, not by importance. Each entry says what it blocks and why
 |---|---|
 | **O7** | **Evaluation set and success criterion.** **This is the rule the previous attempt broke** — five GPU jobs ran before anyone had written down what winning looked like. Must be frozen with a hash before a single training step. |
 | **O8** | Control-arm specification. S1 already determines its shape: accuracy-only GRPO vs accuracy + caption-KL, identical data/steps/seed — the same axis Vision-SR1 reports. Needs O6 to be written precisely. |
-| **O9** | **`trial` vs `eval_final` split of a now-exhausted pool [CC, 2026-08-24].** S5 v2 spends 31,300 of 31,798 eligible images, so training data and statistical power are in direct competition. At `eval_final` = 8,000 the minimum detectable effect is **1.98 pp** at discordance 0.40 — **larger than Vision-SR1's own +1.7 pp effect**, i.e. underpowered for the effect actually being chased. 12,000 would give 1.62 pp but costs 4,000 trial images. **User decision; must be closed before O7/O8 can be frozen.** |
+| ~~**O9**~~ | ~~`trial` vs `eval_final` split of a now-exhausted pool.~~ **RESOLVED [U, 2026-08-24]: trial 18,000 / `eval_final` 12,000** → S5 v3. See below. |
+| **O10** | **Epoch count / repetition [CC, 2026-08-24].** Falls out of O9's analysis: our pool cannot reach Vision-SR1's single-epoch exposure at any split, so ~3 epochs of repetition are required to match it. That is a real deviation from the reference run with overfitting risk their schedule does not carry. Belongs to O6; **V-1 is the check most exposed to it.** |
 
 ---
 

@@ -92,19 +92,41 @@ This is stated plainly rather than resolved quietly, because resolving it quietl
 how a pre-registration stops meaning anything. **The trade is now zero-sum** (§2): 12,000
 buys 1.62 pp but costs 4,000 trial images.
 
-**What the trial side of that trade actually costs.** At `rollout_batch_size` 128, absorbing
-the dead-group rate — measured twice on disjoint dev splits at **25.0%** and **28.3%**
-(DECISION_LOG §4.11), i.e. 1.33–1.39× prompts per live step:
+**What the trial side of that trade actually costs.**
 
-| trial | fresh steps (25.0% dead) | fresh steps (28.3% dead) |
-|---|---|---|
-| 22,000 | ≈ 129 | ≈ 123 |
-| 20,000 | ≈ 117 | ≈ 112 |
-| 18,000 | ≈ 105 | ≈ 101 |
+> ⚠️ **CORRECTION [CC, 2026-08-24].** An earlier version of this section compared our step
+> count at `rollout_batch_size` **128** against Vision-SR1's ~93 steps at **512**, and
+> concluded "every cell exceeds Vision-SR1's ~93 steps." **That comparison was invalid** — a
+> step over 128 prompts is a quarter of a step over 512. Read from source,
+> `vision_sr1/config.yaml:12` sets `data.rollout_batch_size: 512` (prompts per step) while
+> `:36` sets `worker.actor.global_batch_size: 128` (the *optimizer* minibatch). I had
+> conflated the two. The comparable unit is **prompts seen**, not steps.
 
-**Every cell exceeds Vision-SR1's ~93 steps**, and `data.shuffle` + multiple epochs mean fresh
-data is not even a hard requirement. So the trial side is not binding at 18,000 while the
-eval side *is* binding at 8,000 — which is an argument, not a decision. **O9, for the user.**
+Vision-SR1: 47,628 rows ÷ 512 = **93 steps at `total_epochs: 1`** (`config.yaml:12, 94`), so
+47,628 prompts × `rollout.n: 8` ≈ 381k rollouts. Against that:
+
+| trial | prompts / epoch | epochs to match Vision-SR1's exposure | with online filtering (25–28% dead) |
+|---|---|---|---|
+| 22,000 | 22,000 | 2.2 | ≈ 2.9 |
+| 20,000 | 20,000 | 2.4 | ≈ 3.2 |
+| **18,000** | 18,000 | **2.6** | **≈ 3.5** |
+
+**Neither split reaches Vision-SR1's single-epoch exposure without repeating data, so the
+trial side is not where the decision lives.** The ceiling is structural: the *entire* eligible
+pool of 31,798 images gives only **62** fresh steps at 512, two-thirds of their one epoch.
+That is a consequence of **S5.3** — one row per image collapses 42,288 eligible rows to 31,798
+images — and it would bind identically at any O9 split.
+
+So the real trade is **3.5 epochs vs 2.9 epochs of repetition** on the training side, against
+**1.62 pp vs 1.98 pp MDE** on the eval side. The first is a difference in degree; the second
+is the difference between a study that can detect its target effect and one that cannot.
+
+**O9 resolved [U, 2026-08-24]: trial 18,000 / `eval_final` 12,000.**
+
+⚠️ **The ~3-epoch repetition is a real deviation from the reference run and belongs to O6.**
+It carries overfitting risk Vision-SR1's 1-epoch schedule does not, and V-1 (the Arm A anchor)
+is the check most exposed to it: if Arm A fails to reproduce their control, this is the first
+thing to suspect.
 
 **Evaluation is cheap; training is not.** 12,000 items × 2 arms × 3 seeds ≈ 72,000
 generations at ~200 tokens ≈ **under 20 minutes total** on one GH200. The cost of more power

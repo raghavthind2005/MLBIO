@@ -301,18 +301,24 @@ def main() -> int:
                     help="dataset_provenance.json written by fetch_dataset.py")
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=0)
-    # Sizes revised 2026-08-24 (see DECISION_LOG S5 v2 and O7/O8).
-    #   trial 22,000  -- ~100 steps of FRESH data at rollout_batch_size 128 once the
-    #                    28.3% dead-group rate (4.8) is absorbed by online filtering.
-    #                    The former 5,000 capped a confirmatory run at ~28 fresh steps
-    #                    against Vision-SR1's ~93. Pool size does NOT set run length --
-    #                    `trainer.max_steps` does (verl config.py:101) -- so a large pool
-    #                    costs iteration speed nothing.
-    #   eval_final 8,000 -- powered to 2.0pp at discordance 0.40, 1.6pp at 0.25. At the
-    #                    former 1,000 the minimum detectable effect was 4.4-5.6pp, which
-    #                    could not have detected Vision-SR1's own +1.7pp.
-    ap.add_argument("--n-trial", type=int, default=22000)
-    ap.add_argument("--n-eval-final", type=int, default=8000)
+    # Sizes revised 2026-08-24 (see DECISION_LOG S5 v3, O9, and O7/O8 3).
+    #
+    # THESE TWO ARE ZERO-SUM. The eligible population is 31,798 distinct images and the
+    # splits below spend 31,300 of them, so every image given to eval_final is taken from
+    # trial. S5 v2 (trial 22,000 / eval_final 8,000) was resolved in favour of statistical
+    # power by O9:
+    #   eval_final 12,000 -- McNemar MDE 1.62pp at discordance 0.40, 1.28pp at 0.25.
+    #                    At 8,000 it was 1.98pp, LARGER than Vision-SR1's own +1.7pp
+    #                    effect -- i.e. the confirmatory run would have been pre-registered
+    #                    as unable to detect the effect it exists to detect.
+    #   trial 18,000  -- still ~101-105 steps of FRESH data at rollout_batch_size 128 once
+    #                    the measured 25.0-28.3% dead-group rate (4.11, two disjoint
+    #                    samples) is absorbed by online filtering, against Vision-SR1's
+    #                    ~93. The training side is not binding here; the eval side was.
+    #                    Pool size does NOT set run length -- `trainer.max_steps` does
+    #                    (verl config.py:101) -- so this costs iteration speed nothing.
+    ap.add_argument("--n-trial", type=int, default=18000)
+    ap.add_argument("--n-eval-final", type=int, default=12000)
     ap.add_argument("--n-eval-monitor", type=int, default=1000)
     ap.add_argument("--n-dev", type=int, default=300)
     # A SUBSET of trial, not a disjoint split: used only for fast iteration, and its
