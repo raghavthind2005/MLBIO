@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+import os
 from typing import Any
 
 CAPTION_UID = "uid"
@@ -411,8 +412,237 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             return cap_out, m_all
 
         def fit(self):
+            """Upstream ``RayPPOTrainer.fit`` with ONE insertion.
+
+            TRANSCRIBED, not overridden by hooks, and the reason is worth stating: verl's
+            fit() is a 143-line straight-line flow with no extension point between
+            ``compute_advantage`` and ``update_actor``, which is exactly where the caption
+            term belongs. Copying it means an upstream change is INVISIBLE to us -- hence
+            ``assert_upstream_fit_unchanged``, which turns that invisibility into a loud
+            failure instead of a silent divergence.
+
+            DEVIATIONS FROM UPSTREAM ray_trainer.py:561-703, exhaustively -- anything not
+            on this list is a transcription bug, so diff it against that range:
+              1. the ``ca21`` block, marked THE INSERTION below, plus ``update_actor``
+                 taking ``train_batch`` instead of ``batch``;
+              2. the per-step ``_ca21_records`` reset and the durable-records dump;
+              3. ``Optional[dict]`` written as ``dict | None`` (avoids one import);
+              4. long lines re-wrapped. No statement reordered, added, or removed.
+            The two ``use_critic`` branches are unreachable here but kept verbatim, so a
+            future re-derivation diffs cleanly.
+
+            Caption rows join the SAME policy-gradient batch carrying their own advantages,
+            so ``update_policy`` needs no knowledge of the caption term.
+            """
+            import ray
+            import torch
+            from ray.experimental.tqdm_ray import tqdm
+            from verl.trainer.metrics import (compute_data_metrics,
+                                              compute_throughout_metrics,
+                                              compute_timing_metrics, reduce_metrics)
+            from verl.trainer.ray_trainer import apply_kl_penalty, compute_advantage
+            from verl.utils.logger import Tracker
+            from verl.utils.py_functional import convert_dict_to_str, timer, unflatten_dict
+
+            from ca21_logging import dump_step_records, wandb_upload_records
+
             assert_upstream_fit_unchanged(ray_ppo_trainer_cls, expected_fit_sha256)
-            raise NotImplementedError(
-                "fit() loop transcription is the last piece; _ca21_step above is complete.")
+
+            # Fail BEFORE the first rollout rather than 20 minutes into it. Both of these
+            # are cheap to check and expensive to discover late.
+            self._ca21_config()
+            if self.use_critic:
+                raise AssertionError(
+                    "use_critic=True with the caption term: compose_batch_advantages "
+                    "narrows to the policy-gradient keys and carries no values/returns, so "
+                    "caption rows have no critic target. This method is GRPO-only (O6).")
+
+            self.logger = Tracker(loggers=self.config.trainer.logger, config=self.config.to_dict())
+            self.global_step = 0
+            main_tqdm = tqdm(range(self.training_steps), desc="Running step", position=0)
+            val_metrics: dict[str, Any] | None = None
+
+            # load checkpoint before doing anything
+            self._load_checkpoint()
+            main_tqdm.update(self.global_step)
+
+            # perform validation before training
+            if self.val_reward_fn is not None and self.config.trainer.val_before_train:
+                val_metrics = self._validate()
+                self.logger.log(data=val_metrics, step=self.global_step)
+                if self.config.trainer.val_only:
+                    return
+
+            self.data_iterator = iter(self.train_dataloader)
+            while self.global_step < self.training_steps:
+                self.global_step += 1
+                self._ca21_records = []   # never dump a previous step's rows
+
+                metrics, timing_raw = {}, {}
+                with timer("step", timing_raw):
+                    # make a batch of data
+                    with timer("gen", timing_raw):
+                        self.actor_rollout_ref_wg.prepare_rollout_engine()
+                        batch = self._make_batch_data(metrics=metrics)
+                        self.actor_rollout_ref_wg.release_rollout_engine()
+
+                    # balance the number of valid tokens on each dp rank.
+                    # NOTE: this breaks the order of data inside the batch.
+                    self._balance_batch(batch, metrics=metrics)
+
+                    # compute global valid tokens
+                    batch.meta_info["global_token_num"] = torch.sum(
+                        batch.batch["attention_mask"], dim=-1).tolist()
+
+                    # compute reward
+                    if "token_level_scores" not in batch.batch:
+                        with timer("reward", timing_raw):
+                            reward_ref = self.reward_fn.compute_reward.remote(batch)
+
+                    # recompute old_log_probs
+                    with timer("old", timing_raw):
+                        old_log_probs = self.actor_rollout_ref_wg.compute_log_probs(batch)
+                        batch = batch.union(old_log_probs)
+
+                    # compute ref_log_probs
+                    if self.use_reference_policy:
+                        with timer("ref", timing_raw):
+                            ref_log_probs = self.actor_rollout_ref_wg.compute_ref_log_probs(batch)
+                            batch = batch.union(ref_log_probs)
+
+                    # UNREACHABLE: the use_critic assertion at the top of fit() rules this
+                    # out. Kept verbatim so re-deriving against a future upstream stays a
+                    # clean diff -- a deleted block is indistinguishable from a missed one.
+                    if self.use_critic:
+                        with timer("values", timing_raw):
+                            values = self.critic_wg.compute_values(batch)
+                            batch = batch.union(values)
+
+                    with timer("adv", timing_raw):
+                        if "token_level_scores" not in batch.batch:
+                            reward_tensor, reward_metrics = ray.get(reward_ref)
+                            batch.batch["token_level_scores"] = reward_tensor
+                            reward_metrics = {f"reward/{k}": v for k, v in
+                                              reduce_metrics(reward_metrics).items()}
+                            metrics.update(reward_metrics)
+
+                        # apply kl penalty if available
+                        if not self.config.algorithm.use_kl_loss and self.use_reference_policy:
+                            batch, kl_metrics = apply_kl_penalty(
+                                batch, self.kl_ctrl, self.config.algorithm.kl_penalty)
+                            metrics.update(kl_metrics)
+                        else:
+                            batch.batch["token_level_rewards"] = batch.batch["token_level_scores"]
+
+                        batch = compute_advantage(
+                            batch,
+                            adv_estimator=self.config.algorithm.adv_estimator,
+                            gamma=self.config.algorithm.gamma,
+                            lam=self.config.algorithm.lam,
+                        )
+
+                    # ---- THE INSERTION: the caption term --------------------
+                    # Placed here because it needs token_level_scores (S13's correctness
+                    # gate) and the answer advantages (for the component metrics), and must
+                    # land before update_actor consumes the batch.
+                    with timer("ca21", timing_raw):
+                        caption_batch, ca21_metrics = self._ca21_step(batch, metrics)
+                    metrics.update(ca21_metrics)
+
+                    if caption_batch is not None:
+                        train_batch = compose_batch_advantages(
+                            batch, caption_batch, self.use_reference_policy)
+                        # DP_COMPUTE_PROTO chunks by world_size and protocol.py:555 asserts
+                        # exact divisibility. The caption half is len(kept_uids) * g_c, and
+                        # kept_uids moves every step with the correctness gate -- so this
+                        # holds only because g_c is a multiple of world_size. Checked, not
+                        # assumed: a g_c that breaks it would fail on whichever step first
+                        # produced an awkward kept count, hours in. Do NOT "fix" a failure
+                        # here by padding -- pad rows are repeats and would double-count
+                        # those captions in the gradient. It is a config question.
+                        ws = self.actor_rollout_ref_wg.world_size
+                        if len(train_batch) % ws != 0:
+                            raise AssertionError(
+                                f"composed batch {len(train_batch)} rows "
+                                f"({len(batch)} answer + {len(caption_batch)} caption) is "
+                                f"not divisible by world_size {ws}. g_c="
+                                f"{int(self._ca21_config().g_c)} must be a multiple of "
+                                f"world_size for this to hold at every step.")
+                    else:
+                        # No prompt survived the correctness gate. Pass the batch through
+                        # UNNARROWED so this degenerate step is byte-for-byte upstream.
+                        train_batch = batch
+                    # ---- end insertion --------------------------------------
+
+                    # UNREACHABLE, as above.
+                    if self.use_critic:
+                        with timer("update_critic", timing_raw):
+                            critic_output = self.critic_wg.update_critic(batch)
+
+                        critic_metrics = reduce_metrics(critic_output.non_tensor_batch)
+                        metrics.update(critic_metrics)
+
+                    # update actor
+                    if self.config.trainer.critic_warmup <= self.global_step:
+                        with timer("update_actor", timing_raw):
+                            actor_output = self.actor_rollout_ref_wg.update_actor(train_batch)
+
+                        actor_metrics = reduce_metrics(actor_output.non_tensor_batch)
+                        metrics.update(actor_metrics)
+
+                    # validate
+                    if (
+                        self.val_reward_fn is not None
+                        and self.config.trainer.val_freq > 0
+                        and self.global_step % self.config.trainer.val_freq == 0
+                    ):
+                        with timer("validation", timing_raw):
+                            val_metrics = self._validate()
+
+                        metrics.update(val_metrics)
+
+                    if self.config.trainer.save_freq > 0 and self.global_step % self.config.trainer.save_freq == 0:
+                        with timer("save_checkpoint", timing_raw):
+                            self._save_checkpoint()
+
+                # collect metrics. `batch`, NOT train_batch: these are answer-side
+                # statistics (response length, reward) and mixing caption rows into them
+                # would make every number here incomparable to Arm A.
+                num_gpus = self.resource_pool_manager.get_num_gpus()
+                metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
+                metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
+                metrics.update(compute_throughout_metrics(
+                    batch=batch, timing_raw=timing_raw, num_gpus=num_gpus))
+
+                self.logger.log(data=metrics, step=self.global_step)
+
+                # Durable records LAST, and never fatal: scratch has been wiped on this
+                # cluster before, but a logging failure must not kill a training run.
+                if self._ca21_records:
+                    try:
+                        path = dump_step_records(
+                            os.environ.get("CA21_RECORDS", "records"),
+                            self.global_step, self._ca21_records)
+                        wandb_upload_records(path, self.global_step)
+                    except Exception as exc:                      # noqa: BLE001
+                        print(f"[ca21] WARNING: step {self.global_step} records not "
+                              f"persisted: {exc!r}")
+
+                main_tqdm.update()
+
+            # perform validation after training
+            if self.val_reward_fn is not None:
+                if (
+                    val_metrics is None
+                    or self.config.trainer.val_freq <= 0
+                    or self.global_step % self.config.trainer.val_freq != 0
+                ):
+                    val_metrics = self._validate()
+                    self.logger.log(data=val_metrics, step=self.global_step)
+
+                print(f"Final validation metrics:\n{convert_dict_to_str(unflatten_dict(val_metrics))}")
+
+            if self.config.trainer.save_freq <= 0 or self.global_step % self.config.trainer.save_freq != 0:
+                self._save_checkpoint()
 
     return CA21Trainer

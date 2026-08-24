@@ -161,7 +161,31 @@ def main() -> int:
     print(f"[t0b] generation {t_gen:.0f}s", flush=True)
 
     dev = model.device
+
+    # WHY THIS LINE EXISTS: job 3173186 OOM'd at item 7 with 91.5 GiB resident for a 3B
+    # model. `model.eval()` above disables dropout, NOT autograd -- so every
+    # forward_packed_logits call below was retaining its graph, and `lg_s.float()` alone is
+    # a [1, T, 152064] fp32 tensor (~600 MB at T=1000) held once per variant.
+    # Scoring is pure measurement; no backward is ever run in this script.
+    # NOTE the production path never had this bug: ca21_worker.py:267 already wraps both
+    # its sighted and blind forwards in torch.no_grad(). This was a defect in the
+    # diagnostic harness only, and it does not touch the VALUES -- gradients do not change
+    # a forward pass, so the six items job 3173186 completed are numerically valid.
+    torch.set_grad_enabled(False)
+
     results, records, t_score = [], [], time.time()
+
+    def _flush():
+        """Persist whatever is finished. Called after EVERY item.
+
+        3173186 computed Phase 0 for six items and lost all of it, because the single
+        write at the end never ran. A diagnostic that cannot survive its own crash is not
+        a diagnostic.
+        """
+        Path(args.out).write_text(json.dumps(
+            {"summary": {"n_items": len(results), "partial": True},
+             "results": results, "captions": caps,
+             "trajectories": trajs, "records": records}, indent=2))
 
     for i, r in enumerate(rows):
         c0 = caps[i][0]
@@ -228,6 +252,12 @@ def main() -> int:
                     "fp32_frac_over_1e-2": float((d32 > 1e-2).float().mean()),
                 }
                 del padded, lg_ref
+                # Printed HERE, per item, not just in the summary. Phase 0 is the GATE --
+                # if it fails nothing else is interpretable -- and 3173186 crashed before
+                # the summary, taking the only copy of these numbers with it.
+                print(f"[t0b] {r['problem_id']} PHASE0 "
+                      f"bf16_max={c1['bf16_max']:.3e} fp32_max={c1['fp32_max']:.3e} "
+                      f"fp32_frac>1e-2={c1['fp32_frac_over_1e-2']:.3f}", flush=True)
 
             row_d, row_hb = {}, {}
             for name, br in blind_rows.items():
@@ -269,6 +299,7 @@ def main() -> int:
             "caption_words": len(caps[i][0].split()),
         }
         results.append(rec)
+        _flush()
         print(f"[t0b] {r['problem_id']}: ne={ne:.4f} m100={avg['matched_100']:.4f} "
               f"m60={avg['matched_60']:.4f} m30={avg['matched_30']:.4f} "
               f"vague={avg['vague']:.4f} mis={avg['mismatched']:.4f} "
