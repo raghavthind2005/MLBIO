@@ -1035,6 +1035,77 @@ re-running is not evidence. Two of T0a's four captions were off-task and that do
 fixing, but fixing it *now*, mixed with everything else, would let a prompt change take credit
 for a structural result. `q_cap` is S3 and changing it is a **user** decision.
 
+### 4.14 T0b run 1 (job 3173186) — **partial, gate produced no data [CC, 2026-08-24]**
+
+OOM'd at item 7 of 16. Six items completed. Read strictly against §4.13, written before it ran.
+
+**Phase 0 — NO DATA, so nothing here is certified.** The crash landed *inside* Phase 0
+(`t0b_diagnostic.py:215`, the fp32 padded forward). The six completed items' `c1` values were
+computed and then **lost**, because they existed only in a summary that never ran and a JSON
+written once at the end. Per §4.13 this is a precondition, so the Phase 1 numbers below are
+recorded as evidence, **not as a verdict**, and the estimand remains uncertified.
+
+**Phase 1, n=6.** `ne` = D(no_evidence), `m100/60/30` = matched at full/60%/30% of words.
+
+| item | ne | m100 | m60 | m30 | vague | mis |
+|---|---|---|---|---|---|---|
+| 10584 | 0.3711 | 0.2564 | 0.2514 | 0.3327 | 0.3964 | 0.4340 |
+| 11841 | 0.3027 | 0.1720 | 0.1599 | 0.1833 | 0.3894 | 0.5550 |
+| 13847 | 0.7858 | 0.5871 | 0.5586 | 0.6651 | 0.7756 | 0.7869 |
+| 16219 | 0.2205 | 0.1237 | 0.1267 | 0.1675 | 0.2715 | 0.2551 |
+| 17032 | 0.0668 | 0.0258 | 0.0235 | 0.0268 | 0.0613 | 0.0744 |
+| 17180 | 0.1511 | 0.1810 | 0.0953 | 0.1072 | 0.1558 | 0.1886 |
+
+matched < **mismatched 6/6**; matched < no_evidence 5/6; matched < vague 5/6. **Strict ladder
+1/6 — it FAILS**, and that is recorded as a failure rather than rounded up, because it was the
+pre-committed proceed condition. The failure is confined to **one rung**: `m60 ≤ m100` in 5/6,
+while `m30 > m60` 6/6, `vague > m30` 6/6, `mis > vague` 5/6. The observed order is
+**m60 ≲ m100 < m30 < vague < mismatched** — content is used monotonically, only the caption
+*tail* is inert-to-harmful. (Plausibly L1b verdict-filler; six items do not establish that.)
+
+This is §4.13's **mixed** row, whose tiebreaker is `corr(necessity, vague − matched)` =
+**+0.628, exact permutation p = 0.174 (n=6)**. Right sign, not a result at this n. Rerun as
+job 3173959 with n **left at 16** — raising it after seeing encouraging data would launder the
+pre-registration. This reverses T0a's C4 (1/4, below chance).
+
+- ⚠️ **[CC] The OOM was my harness, not the method.** `model.eval()` disables dropout, not
+  autograd; the packed forwards had no `no_grad`, so every call retained its graph (91.5 GiB
+  for a 3B model). **The production path never had this bug** — `ca21_worker.py:267` already
+  wraps both its sighted and blind forwards. Gradients do not change a forward pass, so the
+  six items' values stand. Fixed by one `torch.set_grad_enabled(False)`.
+- ⚠️ **[CC] The expensive defect was reporting, again.** Losing the gate's data repeats T0a's
+  class of mistake (recording only the max). Phase 0 now prints **per item** and results flush
+  after **every** item. *A diagnostic that cannot survive its own crash is not a diagnostic.*
+
+### 4.15 Effective λ ≠ nominal λ by 2–5% — **quantified and ACCEPTED [U, 2026-08-24]**
+
+Found while writing `fit()`. `dp_actor.py:287` takes **one optimizer step per mini-batch** and
+normalises each by *its own* `total_response_tokens`. Because `compose_batch_advantages`
+appends caption rows contiguously, ranks 0–1 are answer-only and rank 3 caption-only, so the
+divisor shifts as the straddling rank crosses the boundary. Captions being shorter,
+caption-heavy mini-batches get a smaller divisor and slightly more pull.
+
+**Magnitude [V], by direct computation over the O6 shape** (A=4096, C=3264, W=4, gbs=128):
+
+| caption/answer length | caption up-weight |
+|---|---|
+| 0.25 | +4.58% | 
+| 0.375 | +3.66% |
+| 0.50 | +2.83% |
+| 1.00 | +0.20% |
+
+It is **exactly 0 when all 512 prompts survive the gate** (A=C makes the split symmetric), and
+drifts +1.8% to +5.4% as the surviving count moves.
+
+- ⚠️ **[CC] I first stated this as 10–20%. That was wrong.** I measured the swing in the
+  divisor (~23%) and forgot that a smaller divisor lifts the *answer* rows in those same
+  mini-batches too; the effects nearly cancel and only the composition difference survives.
+- **[U] DECISION: accept it, change nothing.** Nothing in verl's gradient math was ever at
+  issue — the only lever was **row order** (interleaving instead of appending). At 2–5% that is
+  far inside the uncertainty of choosing λ=1.0 at all (D3, gated on T0, not a measured
+  optimum), and any reordering is one more deviation from upstream to justify and re-verify.
+  Recorded here as a **known, quantified, accepted bias** so it cannot resurface as a mystery.
+
 ## 5. Predicted failure modes, to instrument from day one
 
 Named in advance so a healthy-looking run cannot be mistaken for a correct one — the PAPO lesson, where every
