@@ -87,6 +87,19 @@ def main() -> int:
         sha, n_lines = None, None
         print(f"[t0e] fit() hash unavailable: {exc!r}", flush=True)
 
+    # PRODUCTION PARITY, and the reason job 3174516 reported a false alarm. verl calls this
+    # at fsdp_workers.py:195 when it builds the actor, and it does two things stock HF does
+    # not: swaps ALL_ATTENTION_FUNCTIONS["flash_attention_2"] for verl's own
+    # flash_attention_forward -- the piece that handles PACKED multi-sequence inputs -- and
+    # replaces Qwen2_5_VL{Model,ForConditionalGeneration}.forward outright.
+    #
+    # Without it this probe measures stock HF attention, which cannot do B>1 packing, and
+    # duly reported "not row-independent" (0.4375). That was the harness, not production.
+    # Applied BEFORE from_pretrained so the patched class forwards are in place.
+    from verl.models.monkey_patch import apply_ulysses_patch
+    apply_ulysses_patch("qwen2_5_vl")
+    print("[t0e] applied verl's ulysses patch (fsdp_workers.py:195 parity)", flush=True)
+
     print(f"[t0e] loading {args.model}", flush=True)
     model, processor, tokenizer = _load(args.model)
     torch.set_grad_enabled(False)
