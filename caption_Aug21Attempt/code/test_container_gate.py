@@ -145,8 +145,14 @@ class TestPinnedOriginal(unittest.TestCase):
         """Substantive check: the ROCm guard now appears in the CUDA branch too."""
         d = Path(__file__).resolve().parent.parent / "patches" / "vllm_0_11_2"
         src = (d / "layer.py").read_text()
-        self.assertEqual(src.count("attn_backend_override is None"), 2,
-                         "expected the guard in BOTH the ROCm and CUDA branches")
+        # THREE now: the ROCm branch's original, CA21 PATCH 1's mirror of it in the CUDA
+        # branch, and CA21 PATCH 2's early return. PATCH 2 was added because PATCH 1 alone
+        # was inert -- nothing in EasyR1 can send mm_encoder_attn_backend, so the override
+        # it protects was never requested and the ViT still took the flash-attn path.
+        self.assertEqual(src.count("attn_backend_override is None"), 3,
+                         "expected the ROCm guard, PATCH 1's CUDA mirror, and PATCH 2")
+        self.assertIn("return AttentionBackendEnum.TORCH_SDPA, None", src,
+                      "PATCH 2 must default the ViT to SDPA when no override is given")
         self.assertIn("CA21 PATCH", src)
 
 

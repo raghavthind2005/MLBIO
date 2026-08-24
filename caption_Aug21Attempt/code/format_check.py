@@ -78,7 +78,7 @@ MM_ENCODER_ATTN_BACKEND = "TORCH_SDPA"
 
 #: sha256 of our patched layer.py, so G-VITATTN can check identity as well as
 #: behaviour. Kept in sync with patches/vllm_0_11_2/PATCHED.sha256 by a test.
-PATCHED_LAYER_SHA256 = "d47643a080a09be7db1b1f1bbeadc9153b43912156e96d1abf588162bc51377a"
+PATCHED_LAYER_SHA256 = "735bfe4d03e38b7a6f04f89917374d08d6cbfad89e4530c576c78abb1f743bfb"
 
 THINK_OPEN = re.compile(r"<think>")
 THINK_CLOSE = re.compile(r"</think>")
