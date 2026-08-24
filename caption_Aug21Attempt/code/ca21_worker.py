@@ -164,6 +164,39 @@ def assert_forward_matches_verl(logits_packed, indices, batch_size, seqlen,
     return True
 
 
+def slice_multi_modal_inputs(mm, lo: int, hi: int, n_rows: int):
+    """Slice collated ``multi_modal_inputs`` down to sighted rows ``[lo, hi)``.
+
+    Needed because the caption pass is row-chunked (see the memory note in
+    ``compute_caption_distortion``). This is NOT a row slice: ``pixel_values`` is
+    ``[total_patches, D]`` with every image's patches concatenated end to end, so selecting
+    rows means slicing at the cumulative patch offsets implied by ``image_grid_thw``.
+
+    Getting this wrong is silent: a plain ``mm["pixel_values"][lo:hi]`` would hand the model
+    the first few patch rows of the first image instead of the images for this chunk, and the
+    forward would still return finite logits.
+    """
+    import torch
+
+    if mm is None:
+        return None
+    unexpected = set(mm) - {"pixel_values", "image_grid_thw"}
+    if unexpected:
+        raise AssertionError(
+            f"multi_modal_inputs carries {sorted(unexpected)}, which this slicer does not "
+            f"know how to chunk (video inputs would need their own offsets). Passing them "
+            f"through unsliced would pair the wrong media with each chunk.")
+    grid = mm["image_grid_thw"]
+    if grid.shape[0] != n_rows:
+        raise AssertionError(
+            f"{grid.shape[0]} images for {n_rows} sighted rows. Row-chunking assumes exactly "
+            f"ONE image per row; under any other mapping the offsets below are wrong.")
+    counts = grid.prod(dim=-1)                       # patch rows contributed per image
+    starts = torch.cat([counts.new_zeros(1), counts.cumsum(0)])
+    return {"pixel_values": mm["pixel_values"][int(starts[lo]):int(starts[hi])],
+            "image_grid_thw": grid[lo:hi]}
+
+
 def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
     """Build the worker subclass. Factored so this module imports without verl present.
 
@@ -260,51 +293,80 @@ def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
                 raise AssertionError(
                     f"{responses.shape[0]} shared trajectories for {N} sighted rows")
 
-            per_caption = {k: [] for k in
-                           ("kl", "one_sample", "entropy_p", "entropy_q", "n_positions")}
+            KEYS = ("kl", "one_sample", "entropy_p", "entropy_q", "n_positions")
+            per_chunk = {k: [] for k in KEYS}
             kl_min_witness = []
 
+            # ROW CHUNKING, and why the docstring above was not enough. `p` costs ~158 MB per
+            # prompt once GATHERED -- but forward_packed_logits materialises the FULL
+            # [total_nnz, V] logits before that gather, and V = 152k. At production size,
+            # 512 prompts / 4 ranks x m=2 = 256 rows x ~2000 tokens = 512k packed tokens
+            # -> 512k x 152064 x 2 B ~= 155 GB, against 95 GiB on a GH200. The blind pass is
+            # no better. T0a and T0b never hit it because they scored ONE row at a time.
+            # [CC] My own "nothing on a 96 GB GH200" claim measured the wrong tensor.
+            #
+            # Chunking rows preserves the property that makes this affordable: within a
+            # chunk the sighted pass still runs ONCE and is reused by all G_c captions, so
+            # S13's cancellation stays bit-exact. It costs one extra sighted forward per
+            # chunk boundary, not per caption.
+            chunk = int(data.meta_info.get("ca21_row_chunk", 16))
+            if chunk < 1:
+                raise AssertionError(f"ca21_row_chunk={chunk} must be >= 1")
+
             with torch.no_grad():
-                # ---- ONE sighted pass, reused by every caption in the group ----
-                sighted, idx_s, B_s, S_s = forward_packed_logits(
-                    module,
-                    data.batch["sighted_input_ids"],
-                    data.batch["sighted_attention_mask"],
-                    data.batch["sighted_position_ids"],
-                    multi_modal_inputs=mm_sighted,
-                    temperature=temperature, padding_free=padding_free)
-                lg_s, m_s = gather_response_logits(sighted, idx_s, B_s, S_s, T)
-                del sighted
+                for lo in range(0, N, chunk):
+                    hi = min(lo + chunk, N)
+                    resp_c = responses[lo:hi]
 
-                base_mask = m_s
-                if "response_mask" in data.batch:
-                    base_mask = base_mask * data.batch["response_mask"].to(m_s.dtype)
-
-                # ---- one blind pass per caption, scored against the SAME p ----
-                for j in range(g_c):
-                    sl = slice(j * N, (j + 1) * N)
-                    blind, idx_b, B_b, S_b = forward_packed_logits(
+                    # ---- ONE sighted pass per chunk, reused by every caption ----
+                    sighted, idx_s, B_s, S_s = forward_packed_logits(
                         module,
-                        data.batch["blind_input_ids"][sl],
-                        data.batch["blind_attention_mask"][sl],
-                        data.batch["blind_position_ids"][sl],
-                        multi_modal_inputs=None,      # G-BLIND, structurally
+                        data.batch["sighted_input_ids"][lo:hi],
+                        data.batch["sighted_attention_mask"][lo:hi],
+                        data.batch["sighted_position_ids"][lo:hi],
+                        multi_modal_inputs=slice_multi_modal_inputs(mm_sighted, lo, hi, N),
                         temperature=temperature, padding_free=padding_free)
-                    lg_b, m_b = gather_response_logits(blind, idx_b, B_b, S_b, T)
-                    del blind
+                    lg_s, m_s = gather_response_logits(sighted, idx_s, B_s, S_s, T)
+                    del sighted
 
-                    # Only positions valid under BOTH contexts are comparable.
-                    res = distortion_from_logits(
-                        lg_s, lg_b, base_mask * m_b, labels=responses, temperature=1.0)
-                    del lg_b
-                    for k in per_caption:
-                        per_caption[k].append(res[k].cpu())
-                    kl_min_witness.append(res["kl_min_position"].reshape(1).cpu())
+                    base_mask = m_s
+                    if "response_mask" in data.batch:
+                        base_mask = base_mask * data.batch[
+                            "response_mask"][lo:hi].to(m_s.dtype)
 
-                del lg_s
+                    # ---- one blind pass per caption, scored against the SAME p ----
+                    # Caption-major: caption j's rows for THIS chunk are at j*N + [lo, hi).
+                    cols = {k: [] for k in KEYS}
+                    for j in range(g_c):
+                        blind, idx_b, B_b, S_b = forward_packed_logits(
+                            module,
+                            data.batch["blind_input_ids"][j * N + lo:j * N + hi],
+                            data.batch["blind_attention_mask"][j * N + lo:j * N + hi],
+                            data.batch["blind_position_ids"][j * N + lo:j * N + hi],
+                            multi_modal_inputs=None,      # G-BLIND, structurally
+                            temperature=temperature, padding_free=padding_free)
+                        lg_b, m_b = gather_response_logits(blind, idx_b, B_b, S_b, T)
+                        del blind
+
+                        # Only positions valid under BOTH contexts are comparable.
+                        res = distortion_from_logits(
+                            lg_s, lg_b, base_mask * m_b, labels=resp_c, temperature=1.0)
+                        del lg_b
+                        for k in KEYS:
+                            cols[k].append(res[k].cpu())
+                        kl_min_witness.append(res["kl_min_position"].reshape(1).cpu())
+
+                    del lg_s
+                    for k in KEYS:
+                        per_chunk[k].append(torch.stack(cols[k], dim=1))   # [chunk, G_c]
 
             # [N, G_c] -- row = (prompt, trajectory), column = caption.
-            stacked = {k: torch.stack(v, dim=1) for k, v in per_caption.items()}
+            stacked = {k: torch.cat(v, dim=0) for k, v in per_chunk.items()}
+            if stacked["kl"].shape != (N, g_c):
+                raise AssertionError(
+                    f"chunk reassembly produced {tuple(stacked['kl'].shape)}, expected "
+                    f"{(N, g_c)}. Row order across chunks must match the sighted rows, or "
+                    f"S12 would normalise each caption against the wrong group.")
 
             # FREE ORACLE, available only because `p` is now shared. H(sighted) is computed
             # from bit-identical logits for every caption, so it can differ across columns
