@@ -187,7 +187,17 @@ def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
             """S11 for one micro-batch. Returns per-sequence scalars, never logits."""
             from verl.protocol import DataProto
 
+            # protocol.py:113, the same import dp_actor.py:29 uses.
+            from verl.protocol import batch_collate
+
             assert self._has_actor
+
+            # verl DERIVES multi_modal_inputs from multi_modal_data + uid; it is never
+            # passed in. Every other worker entry point calls this first
+            # (fsdp_workers.py:568, 650, 686, 715, 737) and so must we -- otherwise the
+            # sighted pass runs with NO pixel values, i.e. blind, and D collapses toward
+            # zero for every caption while the run looks converged.
+            self._process_multi_modal_inputs(data)
             data = data.to(torch.cuda.current_device())
             temperature = data.meta_info.get(
                 CA21_TEMPERATURE_KEY, self.config.rollout.temperature)
@@ -197,14 +207,31 @@ def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
             module = self.actor.actor_module
             padding_free = getattr(self.actor.config, "padding_free", True)
 
+            # forward_packed_logits transcribes dp_actor._forward_micro_batch:68-133, which
+            # has no ulysses branch of ours. Vision-SR1 sets ulysses_size: 1 (config.yaml:42)
+            # so this never fires -- but if it is ever raised, our transcription would skip
+            # ulysses_pad_and_slice_inputs (dp_actor.py:109-115) and silently score a
+            # differently-sharded sequence.
+            if getattr(self.actor.config, "ulysses_size", 1) > 1:
+                raise AssertionError(
+                    f"ulysses_size={self.actor.config.ulysses_size} > 1 is not transcribed "
+                    f"in forward_packed_logits; the caption distortion would be computed on "
+                    f"a differently-sharded sequence than verl's own forward.")
+
+            # dp_actor.py:82-87 -- per-row dicts collated into batched tensors. Passing the
+            # raw object array through would not raise; it would feed the model garbage.
+            mm_sighted = None
+            if "multi_modal_inputs" in data.non_tensor_batch:
+                collated = batch_collate(data.non_tensor_batch["multi_modal_inputs"])
+                mm_sighted = {k: torch.cat(v, dim=0) for k, v in collated.items()}
+
             with torch.no_grad():
                 sighted, idx_s, B, S_s = forward_packed_logits(
                     module,
                     data.batch["sighted_input_ids"],
                     data.batch["sighted_attention_mask"],
                     data.batch["sighted_position_ids"],
-                    multi_modal_inputs=data.non_tensor_batch.get(
-                        "sighted_multi_modal_inputs"),
+                    multi_modal_inputs=mm_sighted,
                     temperature=temperature, padding_free=padding_free)
                 lg_s, m_s = gather_response_logits(sighted, idx_s, B, S_s, T)
                 del sighted
