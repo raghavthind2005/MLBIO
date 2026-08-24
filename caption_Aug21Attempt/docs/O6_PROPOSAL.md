@@ -25,8 +25,10 @@ observable and the next decision cheap. That sets three rules:
 
 | knob | value | source |
 |---|---|---|
+| `data.rollout_batch_size` | **512** | `:12` — deviation proposed then **withdrawn**, see §2 |
 | `worker.rollout.n` (`G`) | **8** | `:67` |
 | `worker.actor.global_batch_size` | **128** | `:36` |
+| `algorithm.online_filtering` | **false** | `:29` — same value, **our own reason**, see §2 |
 | `optim.lr` | **1.0e-6** | `:54` |
 | `optim.weight_decay` | **1.0e-2** | `:55` |
 | `optim.lr_warmup_ratio` | **0.0** | `:57` |
@@ -52,30 +54,34 @@ seed only. Worth stating because it is the one free reduction in the variance O1
 
 ## 2. Deviations — three, each with a reason
 
-### D1 — `rollout_batch_size` **256**, not 512 `:12` **[D]**
+### ~~D1 — `rollout_batch_size` 256~~ **WITHDRAWN [U, 2026-08-24]. `rollout_batch_size` = 512 `:12` [P]**
 
-**This does not change total compute.** For a fixed data exposure the total number of optimizer
-updates is identical, because updates per step = `(rollout_batch_size × n) / global_batch_size`:
+Proposed as a deviation, then withdrawn on review. Kept in the record because the reason it was
+withdrawn is worth more than the proposal was.
 
-| | prompts/step | updates/step | steps for 47,628-prompt exposure | total updates |
-|---|---|---|---|---|
-| Vision-SR1 | 512 | 32 | 93 | 2,976 |
-| **proposed** | **256** | **16** | 186 | **2,976** |
+⚠️ **[CC] One of the three arguments for 256 was simply false.** I wrote that a 512-shaped 40-step
+run could not stay inside one epoch. **40 × 512 = 20,480 < 22,000** — 512 is *also* entirely fresh
+data at 40 steps. That was the argument which made 256 look necessary rather than merely tidier,
+and it does not survive arithmetic.
 
-What it changes is two things that both favour 256 here:
+Compared honestly at **equal compute** (512 × 40 steps ≡ 256 × 80 steps — the same 20,480 prompts
+and the same 1,280 optimizer updates, since updates = `rollout_batch_size × n / global_batch_size`):
 
-- **θ_old goes stale half as fast.** `ray_trainer.py:609-612` recomputes `old_log_probs` once per
-  generation phase, so the policy drifts 32 updates from θ_old at Vision-SR1's shape and **16** at
-  ours. Less off-policy drift is more stable training — which is the stated goal for run 1.
-- **Twice the curve resolution.** 186 logged steps instead of 93, for the same GPU-hours. Run 1
-  exists to be analysed; 2× the points is 2× the post-run signal at zero cost.
+| | 512 | 256 |
+|---|---|---|
+| θ_old staleness | 32 updates | 16 |
+| logged curve points | 40 | 80 |
+| V-1 anchor | **intact** | weakened |
+| demonstrated to work on *this* dataset + reward | **yes** | no |
 
-Third, at 22,000 it makes **1 epoch = 85 steps**, so a 40-step Tier-1 run sits at **0.47 epoch —
-entirely fresh data**. That removes O10's repetition confound from run 1 completely, which a
-512-shaped run of the same duration could not do.
+They are near-equivalent on substance; 256's remaining edge is diagnostic convenience. That does
+not outweigh the standard practice for a first run — **reproduce the reference configuration, then
+deviate on evidence.** At 256, an unstable R1 would leave "our batch-size deviation" as a live
+explanation costing a second run to eliminate.
 
-*Cost to V-1:* real but small. We already break parity on model size (3B vs their 7B config) and
-cannot match their 1-epoch exposure at any split (S5 v3). Batch shape is the least of those.
+**And the deviation is testable for free.** The PPO **clip fraction** is a direct readout of θ_old
+staleness. If it runs high at 512, that is the measured evidence that justifies 256 for run 2 —
+which is the right order: measure, then deviate. Logged per §6.
 
 ### D2 — `algorithm.online_filtering` **false** **[D in reasoning, P in value]**
 
@@ -91,17 +97,36 @@ So filtering is off, and if it is ever turned on it must filter on the *composit
 `overall`. Cost of leaving it off: the measured 25.0% dead groups (§4.11) contribute no
 accuracy gradient. That is Vision-SR1's cost too, and it is the honest baseline.
 
-### D3 — `λ` = **1.0**, fixed **[D — no Vision-SR1 analogue]**
+### D3 — `λ` = **1.0**, fixed, **confirmed by T0 before R1 commits** **[D — no Vision-SR1 analogue]**
 
 `J = J_success + λ·J_cap`. Both advantage terms are **group-standardised**: GRPO's is
 `(score − mean)/std` per uid (`core_algos.py:176-202`), and S12 applies the same normalisation to
-the caption score. Two standardised quantities make λ = 1.0 the principled "equal weight" default
-rather than an arbitrary pick — and it is why λ here is **not** comparable to PAPO's γ = 0.01,
-which multiplies an unnormalised KL.
+the caption score. Both therefore sit at roughly ±1.3, so λ = 1.0 is *literally* equal weight, not
+an aggressive one — and it is why λ here is **not** comparable to PAPO's γ = 0.01, which
+multiplies an unnormalised KL. The field norm of starting an auxiliary term at 0.01–0.1 is sound
+but does not transfer: those coefficients are absorbing a scale mismatch that standardisation has
+already removed.
 
-**λ is not tuned in run 1** (O7/O8 §8.1 forbids selecting it on eval sets). Instead run 1 logs the
-two advantage components separately so their realised magnitudes are visible, and λ for run 2 is
-chosen from that — which is exactly the "analyse post-run, then iterate" purpose.
+**Why err high rather than low, given R1 gets one shot.** The two failure directions are not
+symmetric:
+
+- **λ too small → `D̂` never moves → the run teaches nothing.** This is the expensive failure,
+  because Tier-1's entire job is mechanism health.
+- **λ too large → accuracy degrades.** This is the cheap failure: §8's "not destructive" exit
+  condition catches it, and it is still informative about the scale.
+
+**But it will not be left as an assumption.** T0 already runs both terms, so five steps yield the
+*realised* magnitudes of the two advantage components at no extra cost. If both come out ~unit
+scale, λ = 1.0 is confirmed empirically before R1 commits; if the caption advantage comes out much
+larger, that is learned for free rather than by burning the run. **T0's component magnitudes are a
+gate on R1's λ, not just a log line.**
+
+**No warmup.** A 0 → 1.0 ramp is standard for auxiliary losses, but over 40 steps it would consume
+a quarter of the run and blur the trajectory being read. It is the **first remedy if instability
+appears**, not a run-1 complication.
+
+**λ is not tuned in R1** (O7/O8 §8.1 forbids selecting it on eval sets). R1 logs both components so
+λ for run 2 is chosen from data — the "analyse post-run, then iterate" purpose.
 
 ---
 
@@ -112,8 +137,9 @@ step, after generation and before the actor update. `dp_actor.py:229-236` then s
 into `global_batch_size_per_device` minibatches and loops `ppo_epochs` (= 1) times.
 
 So there is no cadence knob. Staleness is fully determined:
-`updates per θ_old refresh = (rollout_batch_size × n) / global_batch_size = 16` at D1.
-**O5 closes as a derived quantity, not a decision.**
+`updates per θ_old refresh = (rollout_batch_size × n) / global_batch_size = (512 × 8) / 128 = **32**`.
+**O5 closes as a derived quantity, not a decision** — and the **clip fraction** is its diagnostic,
+which is what would justify moving to 256 in run 2.
 
 ---
 
@@ -142,7 +168,7 @@ seed, or a different setting.
 | stage | data | steps | what | status |
 |---|---|---|---|---|
 | **T0 smoke** | `trial_smoke` 2,000 | ~5 | correctness only — gates fire on planted violations, `assert_forward_matches_verl` passes, `uid` grouping survives a planted reorder | **not a training run**; see below |
-| **R1** | `trial` 22,000 | 40 (0.47 epoch, **all fresh**) | **Arm B only, one seed** | the one run |
+| **R1** | `trial` 22,000 | 40 × 512 = 20,480 prompts = **0.93 epoch, all fresh** | **Arm B only, one seed** | the one run |
 | — | | | *decide from R1* | |
 
 **T0 is a correctness check, not a run, and I am counting it as outside "once."** It executes 5
@@ -194,21 +220,24 @@ Non-negotiable, because the run is otherwise unreadable afterwards:
 
 ---
 
-## 7. Open — needs the user
+## 7. Open
 
-1. **D1 (256 vs 512)** — the only deviation with a real V-1 cost.
-2. **λ = 1.0** — confirmed as the run-1 constant, tuned only after R1.
-3. **Is T0 outside "once"?** — 5 steps on `trial_smoke`, correctness only. I am treating it as a
+**Closed by the user, 2026-08-24:**
+- ~~D1 (256 vs 512)~~ → **512, full parity.** Deviation withdrawn; clip fraction will decide run 2.
+- ~~λ~~ → **1.0, gated on T0's measured component magnitudes.** No warmup.
+- ~~T1b / multi-seed~~ → deferred, one run first (§5).
+
+**Still open:**
+
+1. **Is T0 outside "once"?** — 5 steps on `trial_smoke`, correctness only. I am treating it as a
    check rather than a run; say if you want it folded into R1.
-4. **Hardware shape** (`n_gpus_per_node`, `tensor_parallel_size`, `gpu_memory_utilization`) —
+2. **Hardware shape** (`n_gpus_per_node`, `tensor_parallel_size`, `gpu_memory_utilization`) —
    deliberately unproposed. Vision-SR1's values are for 7B on 8×A100; ours is 3B on GH200. These
    should be settled **by the T0 smoke**, not guessed in a document.
-5. **Wall-clock is unestimated on purpose.** The only measured throughput we have is 23 gen/s for
+3. **Wall-clock is unestimated on purpose.** The only measured throughput we have is 23 gen/s for
    inference-only generation on one GH200 (job 3169217). Training adds a caption generation pass,
    two scored forward passes, and backward — extrapolating from that number would be the kind of
    guess this project keeps getting caught by. T0 measures it.
-
-**Closed by the user, 2026-08-24:** ~~T1b / multi-seed~~ — deferred, one run first (§5).
 
 ---
 
