@@ -21,6 +21,7 @@ that module's namespace changes the one thing we need and leaves the rest untouc
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -209,8 +210,15 @@ def main():
                 "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:False",
                 "CUDA_DEVICE_MAX_CONNECTIONS": "1",
                 "VLLM_ALLREDUCE_USE_SYMM_MEM": "0",
-                # code/ is a plain cp target, not on the image's path.
-                "PYTHONPATH": str(Path(__file__).resolve().parent),
+                # code/ is a plain cp target, not on the image's path -- but this must
+                # EXTEND the inherited PYTHONPATH, not replace it. _env.sh puts
+                # EasyR1_ca21 there, and a Ray actor started with only code/ on its path
+                # dies with "No module named 'verl'" (job 3175577) -- inside the actor, so
+                # the traceback arrives wrapped in RayTaskError rather than at the point
+                # of the mistake.
+                "PYTHONPATH": os.pathsep.join(
+                    p for p in (str(Path(__file__).resolve().parent),
+                                os.environ.get("PYTHONPATH", "")) if p),
             }
         }
         ray.init(runtime_env=runtime_env)
