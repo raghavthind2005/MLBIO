@@ -28,7 +28,7 @@ have produced a running-but-wrong pipeline if guessed:
   * ``concat`` keeps only ``data[0].meta_info`` (``protocol.py:606``), so
     ``global_token_num`` goes stale on concatenation and is recomputed below.
   * ``multi_modal_inputs`` is DERIVED inside the worker from ``multi_modal_data`` + ``uid``
-    (``fsdp_workers.py:517-562``); caption rows carry those two and nothing more.
+    (``fsdp_workers.py:503-548``); caption rows carry those two and nothing more.
   * The sighted context for scoring is **already in the batch**: row ``i`` is
     ``[sighted prompt][y_i]``, exactly the sequence S11 needs. Rebuilding it would risk
     differing from the sequence the rollout actually came from.
@@ -136,7 +136,7 @@ def compose_batch_advantages(answer_batch, caption_batch, use_ref: bool):
 
     out = DataProto.concat([a, c])
     # concat keeps data[0].meta_info (protocol.py:606), so global_token_num still describes
-    # the answer half only. update_actor reads it for the FLOPs metric (fsdp_workers.py:583).
+    # the answer half only. update_actor reads it for the FLOPs metric (fsdp_workers.py:569).
     out.meta_info = dict(a.meta_info)
     out.meta_info["global_token_num"] = torch.sum(
         out.batch["attention_mask"], dim=-1).tolist()
@@ -201,9 +201,218 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
                 rows.append(cand[:m])
             return kept_uids, rows, n_dropped
 
+
+        # -- caption sampling ---------------------------------------------
+        def _generate_captions(self, batch, kept_uids, first_row, g_c):
+            """Sample ``g_c`` captions per kept prompt from pi(. | I, x, q_cap).
+
+            Captions are the ACTIONS the caption term optimises, so they must come from the
+            same rollout engine as the answers -- a caption produced by any other decoding
+            path is not a sample from the policy being differentiated.
+
+            Output rows are caption-interleaved: caption ``j`` of prompt ``pi`` is at
+            ``pi * g_c + j`` (vllm_rollout_spmd.py:235-241 repeat-interleaves by n).
+            """
+            import numpy as np
+            import torch
+            from verl.protocol import DataProto, pad_dataproto_to_divisor, unpad_dataproto
+
+            import ca21_prompts as P
+            from ca21_contexts import build_prompt_row
+            from ca21_dataset import CA21_PROBLEM_KEY
+
+            problems = batch.non_tensor_batch[CA21_PROBLEM_KEY]
+            mmdata = batch.non_tensor_batch["multi_modal_data"]
+            dcfg = self.config.data
+
+            stacks = {"input_ids": [], "attention_mask": [], "position_ids": []}
+            raw_ids, mm_out = [], []
+            for u in kept_uids:
+                i = first_row[u]
+                row = build_prompt_row(
+                    self.processor, self.tokenizer,
+                    P.build_captioner_messages(str(problems[i])),
+                    mmdata[i]["images"], dcfg.max_prompt_length,
+                    dcfg.min_pixels, dcfg.max_pixels)
+                for k in stacks:
+                    stacks[k].append(row[k])
+                raw_ids.append(row["raw_prompt_ids"])
+                mm_out.append(mmdata[i])
+
+            gen = DataProto.from_dict(
+                tensors={k: torch.stack(v, dim=0) for k, v in stacks.items()},
+                non_tensors={
+                    "raw_prompt_ids": np.array(raw_ids, dtype=object),
+                    "multi_modal_data": np.array(mm_out, dtype=object),
+                },
+                meta_info={"min_pixels": dcfg.min_pixels, "max_pixels": dcfg.max_pixels,
+                           "video_fps": dcfg.video_fps, "n": g_c},
+            )
+
+            # len(kept_uids) is whatever survived the correctness gate -- NOT a multiple of
+            # world_size. _make_batch_data gets away without this only because
+            # rollout_batch_size happens to divide evenly. _validate does exactly this
+            # (ray_trainer.py:412-414), including scaling pad_size by the repeat factor.
+            gen, pad = pad_dataproto_to_divisor(gen, self.actor_rollout_ref_wg.world_size)
+            out = self.actor_rollout_ref_wg.generate_sequences(gen)
+            out = unpad_dataproto(out, pad_size=pad * g_c)
+
+            want = len(kept_uids) * g_c
+            if len(out) != want:
+                raise AssertionError(
+                    f"caption generation returned {len(out)} rows, expected "
+                    f"{len(kept_uids)} prompts x g_c {g_c} = {want}. The caption-major "
+                    f"indexing below would silently pair captions with the wrong prompts.")
+            return out
+
+        # -- the caption block --------------------------------------------
+        def _ca21_step(self, batch, metrics):
+            """Everything between compute_advantage and update_actor.
+
+            Returns ``(caption_batch, ca21_metrics)`` where caption_batch already carries
+            signed, lambda-scaled advantages -- or ``(None, metrics)`` if no prompt survived
+            the correctness gate.
+            """
+            import numpy as np
+            import torch
+            from verl.protocol import DataProto
+
+            import ca21_prompts as P
+            from ca21_contexts import append_responses, build_prompt_row
+            from ca21_dataset import CA21_PROBLEM_KEY, assert_problems_present
+            from ca21_logging import (advantage_component_metrics, distortion_metrics,
+                                      variance_decomposition)
+
+            cfg = self._ca21_config()
+            g_c, lam = int(cfg.g_c), float(cfg.lam)
+            gate = bool(getattr(cfg, "correctness_gate", True))
+            assert_problems_present(batch.non_tensor_batch, len(batch))
+
+            uids = batch.non_tensor_batch["uid"]
+            kept_uids, rows, n_dropped = self._select_trajectories(batch, int(cfg.m), gate)
+            m_all = {"ca21/prompts_kept": len(kept_uids),
+                     "ca21/prompts_dropped_no_correct_traj": n_dropped}
+            if not kept_uids:
+                return None, m_all
+
+            first_row = {}
+            for i, u in enumerate(uids):
+                first_row.setdefault(u, i)
+
+            cap_out = self._generate_captions(batch, kept_uids, first_row, g_c)
+            cap_txt = self.tokenizer.batch_decode(
+                cap_out.batch["responses"], skip_special_tokens=True)
+
+            problems = batch.non_tensor_batch[CA21_PROBLEM_KEY]
+            dcfg = self.config.data
+            T = batch.batch["responses"].shape[-1]
+
+            # flat (prompt, trajectory) index -- p-major, matching the sighted rows below
+            flat = [(pi, ri) for pi, rs in enumerate(rows) for ri in rs]
+            N = len(flat)
+            sig_idx = torch.tensor([ri for _, ri in flat], dtype=torch.long)
+
+            # The SIGHTED context is already in the batch: row i is [prompt][y_i], exactly
+            # the sequence S11 scores. Rebuilding it could differ from the sequence the
+            # rollout actually came from.
+            sighted = {k: batch.batch[k][sig_idx] for k in
+                       ("input_ids", "attention_mask", "position_ids")}
+            responses = batch.batch["responses"][sig_idx]
+            resp_mask = batch.batch["response_mask"][sig_idx]
+
+            # BLIND, caption-major: caption j occupies blind[j*N:(j+1)*N], row-aligned with
+            # the N sighted rows. Tokenise the blind PROMPT once per (prompt, caption) --
+            # it does not depend on the trajectory -- then append each trajectory's y.
+            b_stack = {"input_ids": [], "attention_mask": [], "position_ids": []}
+            for j in range(g_c):
+                prompt_rows = []
+                for pi, u in enumerate(kept_uids):
+                    cap = cap_txt[pi * g_c + j]
+                    prompt_rows.append(build_prompt_row(
+                        self.processor, self.tokenizer,
+                        P.build_answerer_messages(cap, str(problems[first_row[u]])),
+                        None, dcfg.max_prompt_length,          # G-BLIND, structurally
+                        dcfg.min_pixels, dcfg.max_pixels))
+                for k, (pi, _ri) in enumerate(flat):
+                    r = prompt_rows[pi]
+                    ids, am, pos = append_responses(
+                        r["input_ids"].unsqueeze(0), r["attention_mask"].unsqueeze(0),
+                        r["position_ids"].unsqueeze(0),
+                        responses[k].unsqueeze(0), resp_mask[k].unsqueeze(0))
+                    b_stack["input_ids"].append(ids[0])
+                    b_stack["attention_mask"].append(am[0])
+                    b_stack["position_ids"].append(pos[0])
+
+            score_in = DataProto.from_dict(
+                tensors={
+                    "sighted_input_ids": sighted["input_ids"],
+                    "sighted_attention_mask": sighted["attention_mask"],
+                    "sighted_position_ids": sighted["position_ids"],
+                    "blind_input_ids": torch.stack(b_stack["input_ids"], dim=0),
+                    "blind_attention_mask": torch.stack(b_stack["attention_mask"], dim=0),
+                    "blind_position_ids": torch.stack(b_stack["position_ids"], dim=0),
+                    "responses": responses,
+                    "response_mask": resp_mask,
+                },
+                non_tensors={
+                    "uid": np.array([kept_uids[pi] for pi, _ in flat], dtype=object),
+                    "multi_modal_data": batch.non_tensor_batch["multi_modal_data"][
+                        sig_idx.numpy()],
+                },
+                meta_info={"ca21_g_c": g_c, "min_pixels": dcfg.min_pixels,
+                           "max_pixels": dcfg.max_pixels, "video_fps": dcfg.video_fps},
+            )
+            scored = self.actor_rollout_ref_wg.compute_caption_distortion(score_in)
+            D = scored.batch["caption_distortion"]                    # [N, g_c]
+
+            # S13: average each caption over ITS prompt's shared trajectories.
+            per_caption = torch.zeros(len(kept_uids), g_c)
+            counts = torch.zeros(len(kept_uids), 1)
+            for k, (pi, _ri) in enumerate(flat):
+                per_caption[pi] += D[k]
+                counts[pi] += 1
+            per_caption = per_caption / counts
+
+            cap_uids = np.array([u for u in kept_uids for _ in range(g_c)], dtype=object)
+            assert_uid_grouping(list(cap_uids), g_c, "caption groups")
+            adv = caption_advantage(per_caption.reshape(-1), list(cap_uids), lam)
+
+            # ---- durable records BEFORE anything can fail downstream ----
+            recs = []
+            for k, (pi, _ri) in enumerate(flat):
+                for j in range(g_c):
+                    recs.append({"uid": str(kept_uids[pi]), "caption_idx": j,
+                                 "traj_idx": k, "kl": float(D[k, j])})
+            m_all.update({f"ca21/{k}": v for k, v in
+                          variance_decomposition(recs).items()})
+            m_all.update({f"ca21/{k}": v for k, v in distortion_metrics(
+                D.reshape(-1), scored.batch["entropy_sighted"].reshape(-1),
+                scored.batch["entropy_blind"].reshape(-1),
+                scored.batch["distortion_n_positions"].reshape(-1)).items()})
+            m_all["ca21/entropy_sighted_spread_max"] = float(
+                scored.batch["entropy_sighted_spread"].max())
+            m_all["ca21/kl_min_position"] = scored.meta_info.get("ca21_kl_min_position")
+            m_all["ca21/caption_chars_mean"] = float(
+                np.mean([len(c) for c in cap_txt]))
+            self._ca21_records = recs
+
+            # ---- caption rows become training rows ----
+            cap_out.batch["advantages"] = (
+                adv.unsqueeze(-1) * cap_out.batch["response_mask"]).to(
+                    batch.batch["advantages"].dtype)
+            cap_out.non_tensor_batch["uid"] = cap_uids
+            cap_out = cap_out.union(self.actor_rollout_ref_wg.compute_log_probs(cap_out))
+            if self.use_reference_policy:
+                cap_out = cap_out.union(
+                    self.actor_rollout_ref_wg.compute_ref_log_probs(cap_out))
+
+            m_all.update({f"ca21/{k}": v for k, v in advantage_component_metrics(
+                batch.batch["advantages"][:, 0].tolist(), adv.tolist()).items()})
+            return cap_out, m_all
+
         def fit(self):
             assert_upstream_fit_unchanged(ray_ppo_trainer_cls, expected_fit_sha256)
             raise NotImplementedError(
-                "fit() body is derived in the T0 smoke against a running step.")
+                "fit() loop transcription is the last piece; _ca21_step above is complete.")
 
     return CA21Trainer

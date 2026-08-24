@@ -38,6 +38,23 @@ export HF_HOME=${HF_HOME:-/iopsstor/scratch/cscs/raghavthind/hf_cache}
 
 export CA21_POOL=${CA21_POOL:-$CA21/pool}
 
+# --- EasyR1 / verl -------------------------------------------------------
+# Vision-SR1 is built on EasyR1 (its config schema is EasyR1's exactly), so this line
+# needs EasyR1's verl -- NOT the upstream-verl layout that PAPO and DeepEyes vendor, which
+# has different module paths entirely.
+#
+# PINNED to the commit every line number in code/ was verified against. This matters more
+# than it looks: the local RL_SeeingToThinking checkout carries uncommitted edits
+# (freeze_language_model, Qwen3-VL patches) that shift fsdp_workers.py by 14 lines. Reading
+# citations off THAT tree and running against a different one is how "verified" claims
+# quietly stop being true. Kept as its own clone so no other project's edits can reach it.
+#
+# NOTE /iopsstor/.../code/EasyR1 is an EMPTY SHELL -- __pycache__ dirs, zero .py files.
+# Do not point at it; job 3172930 died on exactly that.
+export CA21_EASYR1=${CA21_EASYR1:-/iopsstor/scratch/cscs/raghavthind/EasyR1_ca21}
+export CA21_EASYR1_REV=${CA21_EASYR1_REV:-dd71bbd}
+export PYTHONPATH="$CA21_EASYR1${PYTHONPATH:+:$PYTHONPATH}"
+
 # Container. NOT ~/toml/verl_easyr1.toml: ours adds a bind-mount that overlays a patched
 # vllm/attention/layer.py, and that must not appear underneath the PAPO or DeepEyes lines,
 # which share the other file. See patches/vllm_0_11_2/README.md.
@@ -103,6 +120,24 @@ if [ "$_want" != "$_got" ]; then
     exit 1
 fi
 echo "[_env] patch   = layer.py OK ($(echo "$_got" | cut -c1-16)...)"
+
+# G-EASYR1. Checked here, before a GPU is allocated: a wrong or dirty verl means every
+# line number cited in code/ describes different code than the code that runs.
+if [ ! -f "$CA21_EASYR1/verl/workers/actor/dp_actor.py" ]; then
+    echo "[_env] FATAL: no EasyR1 verl at $CA21_EASYR1" >&2
+    echo "[_env]   git clone https://github.com/hiyouga/EasyR1.git \$CA21_EASYR1" >&2
+    echo "[_env]   git -C \$CA21_EASYR1 checkout $CA21_EASYR1_REV" >&2
+    exit 1
+fi
+_er_head=$(git -C "$CA21_EASYR1" rev-parse --short HEAD 2>/dev/null || echo unknown)
+_er_dirty=$(git -C "$CA21_EASYR1" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+if [ "$_er_head" != "$CA21_EASYR1_REV" ] || [ "$_er_dirty" != "0" ]; then
+    echo "[_env] FATAL: EasyR1 is $_er_head with $_er_dirty modified files;" >&2
+    echo "[_env]   expected $CA21_EASYR1_REV clean. Every citation in code/ was verified" >&2
+    echo "[_env]   against that commit; running another one voids them." >&2
+    exit 1
+fi
+echo "[_env] easyr1  = $_er_head (clean) -> $CA21_EASYR1"
 
 # G-WANDB. Checked HERE, before a GPU is allocated, because the failure it prevents is the
 # expensive one: a run that trains for hours and then turns out to have logged nowhere

@@ -180,7 +180,7 @@ def main() -> int:
             s_row["position_ids"].unsqueeze(0), resp, rmask)
 
         # The image MUST go through process_image(min_pixels, max_pixels) first -- exactly
-        # as the worker does (fsdp_workers.py:538-548) and as build_prompt_row did when it
+        # as the worker does (fsdp_workers.py:524-534) and as build_prompt_row did when it
         # sized the image-pad tokens now sitting in s_ids. Feeding pixel_values from the RAW
         # image would produce a grid that disagrees with those tokens.
         mm = {k: v.to(model.device) for k, v in

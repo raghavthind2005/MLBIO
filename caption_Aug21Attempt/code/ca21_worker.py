@@ -216,7 +216,7 @@ def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
 
             # verl DERIVES multi_modal_inputs from multi_modal_data + uid; it is never
             # passed in. Every other worker entry point calls this first
-            # (fsdp_workers.py:568, 650, 686, 715, 737) and so must we -- otherwise the
+            # (fsdp_workers.py:554, 636, 672, 701, 723) and so must we -- otherwise the
             # sighted pass runs with NO pixel values, i.e. blind, and D collapses toward
             # zero for every caption while the run looks converged.
             self._process_multi_modal_inputs(data)
