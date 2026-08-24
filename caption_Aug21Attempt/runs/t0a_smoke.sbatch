@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ca21_t0a
 #SBATCH --account=a0174
-#SBATCH --partition=normal
+#SBATCH --partition=debug
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:1
@@ -14,8 +14,9 @@
 # NOT the training smoke: no Ray, no FSDP, no vLLM, no fit(). One GPU is enough
 # because this is four forward passes per item, not a training step.
 #
-# `normal` and not `debug`: debug caps at 1:30 but is meant for short turnaround,
-# and this needs a model load plus generation. 40 min is generous for 4 items.
+# `debug`, not `normal`: debug caps at 1:30 and our 40 min fits inside it, and it
+# turns around far faster (format_check ran there at 00:45). Note the QOS allows
+# only 2 QUEUED debug jobs per user -- a three-job chain has to be split.
 #
 # Root hardcoded: Slurm copies this to /var/spool/slurmd/ (job 3163721 died on that).
 
