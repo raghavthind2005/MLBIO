@@ -301,24 +301,26 @@ def main() -> int:
                     help="dataset_provenance.json written by fetch_dataset.py")
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=0)
-    # Sizes revised 2026-08-24 (see DECISION_LOG S5 v3, O9, and O7/O8 3).
+    # Sizes: DECISION_LOG S5 v2, reaffirmed as v4 after O9 was reopened and reversed.
     #
     # THESE TWO ARE ZERO-SUM. The eligible population is 31,798 distinct images and the
     # splits below spend 31,300 of them, so every image given to eval_final is taken from
-    # trial. S5 v2 (trial 22,000 / eval_final 8,000) was resolved in favour of statistical
-    # power by O9:
-    #   eval_final 12,000 -- McNemar MDE 1.62pp at discordance 0.40, 1.28pp at 0.25.
-    #                    At 8,000 it was 1.98pp, LARGER than Vision-SR1's own +1.7pp
-    #                    effect -- i.e. the confirmatory run would have been pre-registered
-    #                    as unable to detect the effect it exists to detect.
-    #   trial 18,000  -- still ~101-105 steps of FRESH data at rollout_batch_size 128 once
-    #                    the measured 25.0-28.3% dead-group rate (4.11, two disjoint
-    #                    samples) is absorbed by online filtering, against Vision-SR1's
-    #                    ~93. The training side is not binding here; the eval side was.
-    #                    Pool size does NOT set run length -- `trainer.max_steps` does
-    #                    (verl config.py:101) -- so this costs iteration speed nothing.
-    ap.add_argument("--n-trial", type=int, default=18000)
-    ap.add_argument("--n-eval-final", type=int, default=12000)
+    # trial.
+    #   trial 22,000     -- 2.9 epochs to match Vision-SR1's single-epoch exposure of
+    #                    47,628 prompts (config.yaml:12,94 -- rollout_batch_size 512,
+    #                    total_epochs 1), once the measured 25.0-28.3% dead-group rate
+    #                    (4.11) is absorbed by online filtering. Repetition is unavoidable
+    #                    at ANY split: the whole eligible pool gives only 62 fresh steps
+    #                    at 512, because S5.3 collapses 42,288 rows to 31,798 images.
+    #   eval_final 8,000 -- CONFIRMATORY, read ONCE per run at the end. Not the
+    #                    checkpoint-time set; that is eval_monitor (1,000). Sits at the
+    #                    knee of the precision curve: 4,000 -> 8,000 improves the primary
+    #                    endpoint's total SE by 16%, 8,000 -> 12,000 by only 7%, because
+    #                    seed variance does not shrink with n and dominates past here.
+    #                    Costs ~6 min of one GH200 per run (measured: 2,400 generations
+    #                    in 104 s, job 3169217).
+    ap.add_argument("--n-trial", type=int, default=22000)
+    ap.add_argument("--n-eval-final", type=int, default=8000)
     ap.add_argument("--n-eval-monitor", type=int, default=1000)
     ap.add_argument("--n-dev", type=int, default=300)
     # A SUBSET of trial, not a disjoint split: used only for fast iteration, and its

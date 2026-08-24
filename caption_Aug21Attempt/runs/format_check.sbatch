@@ -33,13 +33,9 @@ source "$CA21_ROOT/runs/_env.sh"
 echo "[job] $SLURM_JOB_ID on $(hostname) at $(date -Is)"
 
 # Pinned to the manifest the parquets in $CA21/data were actually sliced from
-# (data/verl_data_provenance.json:pool_manifest_sha256).
-#
-# STALE ON PURPOSE after the O9 resize (trial 18,000 / eval_final 12,000). This
-# still names the v2 pool, so the gate below will FAIL until the v3 hash is read
-# off the rebuild and pinned here. That is the intended behaviour: it is better
-# for this job to refuse than to characterise a dev split the parquets no longer
-# come from. Update this line, do not delete the gate.
+# (data/verl_data_provenance.json:pool_manifest_sha256, job 3169110). The O9
+# resize to 18,000/12,000 was reversed before any rebuild ran, so this pool is
+# current and this pin is live.
 EXPECT_POOL_SHA=9a109667b1065bed6440dd0489ef83ce9a76d3774c29870b9a2f9d963f055465
 POOL_LOG="$CA21/logs/fmt_pool_${SLURM_JOB_ID}.log"
 

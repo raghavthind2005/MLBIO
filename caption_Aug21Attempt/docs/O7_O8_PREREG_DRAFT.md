@@ -121,12 +121,50 @@ So the real trade is **3.5 epochs vs 2.9 epochs of repetition** on the training 
 **1.62 pp vs 1.98 pp MDE** on the eval side. The first is a difference in degree; the second
 is the difference between a study that can detect its target effect and one that cannot.
 
-**O9 resolved [U, 2026-08-24]: trial 18,000 / `eval_final` 12,000.**
+**O9 closed [U, 2026-08-24]: trial 22,000 / `eval_final` 8,000** — 18,000/12,000 was proposed
+and reversed before any rebuild ran. See §3.1 for why, and DECISION_LOG S5 v3/v4.
 
-⚠️ **The ~3-epoch repetition is a real deviation from the reference run and belongs to O6.**
+⚠️ **The ~2.9-epoch repetition is a real deviation from the reference run and belongs to O6.**
 It carries overfitting risk Vision-SR1's 1-epoch schedule does not, and V-1 (the Arm A anchor)
 is the check most exposed to it: if Arm A fails to reproduce their control, this is the first
 thing to suspect.
+
+### 3.1 The table above is the wrong table — read §4 first
+
+⚠️ **[CC] Everything above prices *item* noise, and §4 of this document says the unit of
+analysis is the RUN.** Those two sections were inconsistent, and an earlier draft used the item
+table alone to argue for `eval_final` = 12,000. Seed variance does not shrink with `n`, so the
+primary endpoint's SE is `√(seed² + item²)`:
+
+| `eval_final` | item SE | total SE at σ_seed = 1.0 pp | gain over previous |
+|---|---|---|---|
+| 4,000 | 1.00 pp | 1.29 pp | — |
+| **8,000 (as built)** | 0.71 pp | **1.08 pp** | −16% |
+| 12,000 | 0.58 pp | 1.00 pp | −7% |
+
+8,000 is at the knee, and that holds at any σ: the 8,000 → 12,000 gain is 7% at σ = 1.0 pp,
+16% at σ = 0.3 pp, **18% even at σ = 0.** No assumption makes 12,000 worth 4,000 training images.
+
+**And `eval_final` was never the checkpoint-time cost.** It is read **once per run, at the end**
+(§8.2); `eval_monitor` (1,000) is what runs at every checkpoint. **[V]** One GH200 produced
+2,400 generations in **104 s** (job 3169217), so 8,000 ≈ **6 min per run**, ≈ 35 min for the
+whole 6-run study.
+
+**The number that actually binds — O11.** At 3 seeds and σ_seed = 1.0 pp the **run-level MDE is
+≈ 3.0 pp**, whatever `eval_final` is:
+
+| seeds per arm | seed term | total SE @ 8,000 | run-level MDE |
+|---|---|---|---|
+| 3 | 0.82 pp | 1.08 pp | **≈ 3.0 pp** |
+| 5 | 0.63 pp | 0.95 pp | ≈ 2.7 pp |
+| 8 | 0.50 pp | 0.87 pp | ≈ 2.4 pp |
+
+**Detecting +1.7 pp at run level would take ~16 seeds.** So the honest position is: this design
+can detect a *large* effect, and cannot resolve a Vision-SR1-sized one — and **no eval size
+changes that.** σ_seed is currently an assumption, not a measurement. **It is the most
+load-bearing unknown in this document, Tier 1 is where to measure it, and §5.1 may have to be
+restated as an effect size with a confidence interval rather than a detect/no-detect verdict.**
+This document must not be frozen until that is faced.
 
 **Evaluation is cheap; training is not.** 12,000 items × 2 arms × 3 seeds ≈ 72,000
 generations at ~200 tokens ≈ **under 20 minutes total** on one GH200. The cost of more power
@@ -265,10 +303,11 @@ programme has published nulls before (Set 2 closed on validated nulls; Set 3's H
 
 This document cannot be frozen until:
 
-- **O9 — the `trial` / `eval_final` split (§3).** Blocks §5.1's primary endpoint from being
-  meaningful: at 8,000 the study is underpowered for a Vision-SR1-sized effect under the
-  prudent discordance assumption. Freezing this document at 8,000 means pre-committing to a
-  design that can return "Inconclusive" for a real +1.7 pp effect.
+- ~~**O9** — the `trial` / `eval_final` split.~~ **CLOSED [U, 2026-08-24] at 22,000 / 8,000.**
+- **O11 — run-level power (§3.1). The blocker that matters.** σ_seed is assumed, not measured;
+  at 3 seeds the run-level MDE is ≈ 3.0 pp regardless of eval size. Freezing §5.1 as a
+  detect/no-detect verdict without measuring σ_seed would pre-commit six training runs to a
+  test that may be unable to resolve the effect it targets.
 - **O6** — steps, batch shapes, LR, seeds. §4's "3 seeds" and §7's tier split assume a step
   budget that does not exist yet. (The earlier note here — "a 5,000-item trial pool at
   `rollout_batch_size` 512 is ~10 steps per epoch" — is superseded: the pool is 22,000 and

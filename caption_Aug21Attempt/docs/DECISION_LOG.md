@@ -125,14 +125,53 @@ established criterion from this literature to the training side.
 4. Stratified proportional draw across the five `path` categories, targeting the **eligible** population.
 5. Sizes: ~~trial 5,000 · eval 1,000 · dev 300~~ → **see S5 v2**. Seed 0. Manifest hashed.
 
-#### S5 v3 — `trial` 18,000 / `eval_final` 12,000 **[U, 2026-08-24]** *(resolves O9)*
+#### S5 v3 — ~~`trial` 18,000 / `eval_final` 12,000~~ **PROPOSED, THEN REVERSED [U, 2026-08-24]**
 
-v2's split was chosen before anyone checked whether the resulting `eval_final` could detect the
-effect being chased. It could not: at 8,000 the McNemar MDE is **1.98 pp** at discordance 0.40,
-against Vision-SR1's own **+1.7 pp**. Since S5 v2 exhausted the pool, buying power costs trial
-images — so this is a real trade and it was put to the user rather than assumed.
+> **No rebuild ever ran.** The resize was staged in code and reversed before submission, so
+> the pool has been `9a109667…` throughout and no artifact is affected. Recorded in full
+> because a proposal that was withdrawn for a *reason* is part of the record — §8.4 of
+> O7/O8 requires every run be reported, and the same standard applies to decisions.
 
-**It was settled on measured data exposure, and the first version of that arithmetic was wrong.**
+**Why it was proposed:** at `eval_final` 8,000 the item-level McNemar MDE is 1.98 pp against
+Vision-SR1's +1.7 pp, so the confirmatory run looked underpowered for its own target effect.
+
+**Why it was reversed [U]:** the user challenged 12,000 as unusually large, and the challenge
+held. ⚠️ **[CC] The MDE argument was inconsistent with this document's own §4.** O7/O8 §4 states
+*"the unit of analysis is the RUN, not the item"* and makes seed spread the disqualifying rule —
+but the 12,000 recommendation was built on the item term alone. **Seed variance does not shrink
+with `n` at all.** Combining both terms (3 seed-pairs, `d` = 0.40, per-run seed SD σ):
+
+| `eval_final` | item SE | total SE at σ = 1.0 pp | gain |
+|---|---|---|---|
+| 4,000 | 1.00 pp | 1.29 pp | — |
+| **8,000** | 0.71 pp | **1.08 pp** | −16% |
+| 12,000 | 0.58 pp | 1.00 pp | −7% |
+
+8,000 sits at the knee. The conclusion is robust to σ: the 8,000 → 12,000 gain is 7% at
+σ = 1.0 pp, 16% at σ = 0.3 pp, and **18% even at σ = 0** — there is no assumption under which
+12,000 is worth 4,000 training images. **More seeds beats more items**: 3 → 5 seeds cuts the
+seed term 0.82 → 0.63 pp, beating 12,000-items-at-3-seeds while attacking the dominant term.
+
+**The reversal also removed a claimed defect that was never real.** The 12,000 case leaned on
+"we cannot detect Vision-SR1's +1.7 pp" — but §4's rule was always run-level, where **the MDE
+is ≈ 3.0 pp at 3 seeds regardless of eval size**. See **O11**: that is the actual problem, and
+no eval size solves it.
+
+#### S5 v4 — `trial` 22,000 / `eval_final` 8,000 **[U, 2026-08-24]** — v2's sizes, reaffirmed
+
+Identical to v2, so **manifest `9a109667…` and all five parquets remain valid**. What changed is
+the justification, which is now measured rather than assumed:
+
+- **`eval_final` is not the checkpoint-time set.** It is read **once per run, at the end**;
+  `eval_monitor` (1,000) is what runs at every checkpoint. **[V]** Measured cost of 8,000: one
+  GH200 produced 2,400 generations in **104 s** (job 3169217) → ≈ **6 min per run**, ≈ 35 min
+  for a whole 6-run study. Its real cost is training images, not compute.
+- **`trial` 22,000** → 2.9 epochs to match Vision-SR1's single-epoch exposure. Repetition is
+  unavoidable at any split (see below), so the marginal training image buys less than the
+  marginal eval item here.
+
+**The v3 analysis of data exposure survives the reversal and is retained** — the first version
+of *that* arithmetic was also wrong, and the correction stands:
 
 - ⚠️ **[CC] Correction.** I first argued 18,000 was safe because it "buys ~101–105 fresh steps
   vs Vision-SR1's ~93." That compared our steps at `rollout_batch_size` **128** to theirs at
@@ -149,17 +188,24 @@ images — so this is a real trade and it was put to the user rather than assume
 - **[V] Vision-SR1 uses online filtering**: `filter_key: overall, filter_low: 0.01,
   filter_high: 0.99` (`config.yaml:21-23`) — DAPO-style dead-group dropping. Closes part of O6.
 
-**So the trade was 3.5 vs 2.9 epochs of repetition against 1.62 vs 1.98 pp of MDE** — a
-difference of degree on one side, and of capability on the other. Repetition risk is carried
-forward as **O10**.
+~~**So the trade was 3.5 vs 2.9 epochs of repetition against 1.62 vs 1.98 pp of MDE** — a
+difference of degree on one side, and of capability on the other.~~ **[CC] Withdrawn**: the
+"1.62 vs 1.98 pp" side of that sentence is the item-only MDE the reversal above rejected. The
+epoch figures stand. Repetition risk is carried forward as **O10**.
 
-| split | v2 | **v3** |
+**FINAL — S5 v4 sizes (= v2, unchanged on disk):**
+
+| split | rows | role |
 |---|---|---|
-| trial | 22,000 | **18,000** |
-| `eval_final` | 8,000 | **12,000** |
-| `eval_monitor` · dev · `trial_smoke` | 1,000 · 300 · 2,000 | unchanged |
+| trial | **22,000** | training |
+| `eval_final` | **8,000** | confirmatory, read once per run at the end |
+| `eval_monitor` | 1,000 | **the checkpoint-time set**; curves only, never confirmatory |
+| dev | 300 | gates, debugging |
+| `trial_smoke` | 2,000 | stratified subset of trial; iteration only, never reported |
 
-#### S5 v2 — sizes revised **[CC, 2026-08-24]**, rules 1–4 unchanged *(superseded by v3 above)*
+Manifest **`9a109667b1065bed6440dd0489ef83ce9a76d3774c29870b9a2f9d963f055465`**, unchanged.
+
+#### S5 v2 — sizes revised **[CC, 2026-08-24]**, rules 1–4 unchanged *(= v4; v3 was reversed)*
 
 Rules 1–4 are untouched; only rule 5 moves. Built by job 3169109, materialised as parquet by 3169110,
 and the rebuild reproduced independently in job 3169217.
@@ -558,8 +604,9 @@ Ordered by dependency, not by importance. Each entry says what it blocks and why
 |---|---|
 | **O7** | **Evaluation set and success criterion.** **This is the rule the previous attempt broke** — five GPU jobs ran before anyone had written down what winning looked like. Must be frozen with a hash before a single training step. |
 | **O8** | Control-arm specification. S1 already determines its shape: accuracy-only GRPO vs accuracy + caption-KL, identical data/steps/seed — the same axis Vision-SR1 reports. Needs O6 to be written precisely. |
-| ~~**O9**~~ | ~~`trial` vs `eval_final` split of a now-exhausted pool.~~ **RESOLVED [U, 2026-08-24]: trial 18,000 / `eval_final` 12,000** → S5 v3. See below. |
-| **O10** | **Epoch count / repetition [CC, 2026-08-24].** Falls out of O9's analysis: our pool cannot reach Vision-SR1's single-epoch exposure at any split, so ~3 epochs of repetition are required to match it. That is a real deviation from the reference run with overfitting risk their schedule does not carry. Belongs to O6; **V-1 is the check most exposed to it.** |
+| ~~**O9**~~ | ~~`trial` vs `eval_final` split of a now-exhausted pool.~~ **CLOSED [U, 2026-08-24] at trial 22,000 / `eval_final` 8,000** — proposed as 18,000/12,000, reversed before any rebuild, settled at S5 v4 = v2. No artifact changed. |
+| **O10** | **Epoch count / repetition [CC, 2026-08-24].** Our pool cannot reach Vision-SR1's single-epoch exposure at any split, so ~2.9 epochs of repetition are required to match it. A real deviation from the reference run, carrying overfitting risk their 1-epoch schedule does not. Belongs to O6; **V-1 is the check most exposed to it.** |
+| **O11** | ⚠️ **Run-level power — the binding constraint, and it is not eval size [CC, 2026-08-24].** §4 of O7/O8 makes the **run** the unit of analysis, so the primary endpoint's SE combines a seed term that does **not** shrink with `n`. At 3 seeds, `eval_final` 8,000, and a per-run seed SD of 1.0 pp, the run-level MDE is **≈ 3.0 pp** — and 8 seeds only brings it to ≈ 2.4 pp. **Detecting a Vision-SR1-sized +1.7 pp at run level would need ~16 seeds, which is not affordable.** Three consequences, all open: (a) **σ_seed must be MEASURED, not assumed** — it is the single most load-bearing unknown in the design, and Tier 1 is where to get it; (b) the primary endpoint may need restating as an **effect size with a CI** rather than a detect/no-detect verdict; (c) if σ_seed proves large, **no eval size rescues the study** and that must be known before six training runs are spent. |
 
 ---
 
