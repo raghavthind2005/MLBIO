@@ -128,6 +128,60 @@ appears**, not a run-1 complication.
 **λ is not tuned in R1** (O7/O8 §8.1 forbids selecting it on eval sets). R1 logs both components so
 λ for run 2 is chosen from data — the "analyse post-run, then iterate" purpose.
 
+**[V] Scale prerequisite, checked rather than assumed.** λ = 1.0 as "equal weight" is only
+meaningful if both advantages are normalised the same way. `core_algos.py:209-214` uses
+`torch.std` (unbiased, n−1) and `(score − mean)/(std + eps)` with `eps = 1e-6`;
+`ca21_estimator.group_normalise:218` uses `(vals − vals.mean())/(vals.std() + eps)`, same
+convention, same eps. Had these differed the two terms would sit at systematically different
+scales and λ would be uninterpretable.
+
+### D4 — `G_c` = **8**, matching `rollout.n` **[D — no Vision-SR1 analogue]**
+
+`G_c` is the number of captions sampled per prompt, i.e. the group S12 normalises over. It was
+**unspecified anywhere in S11/S12/S13 or the first draft of this document**.
+
+⚠️ **[CC] The first argument I gave for 8 was overstated.** I claimed λ = 1.0 is "exactly equal
+weight" only at matched group size. True, but unquantified — and the quantity is small. With the
+n−1 convention `Σz² = G−1` exactly, so RMS advantage is `√((G−1)/G)`: **0.866 at `G_c`=4 vs 0.935
+at 8, a 7% scale difference.** That cannot carry a decision when λ itself is uncertain to a factor
+of two. `G_c` = 2 *is* excluded on this axis, though — there the z-score is always ±0.707
+regardless of how different the captions are, carrying the sign of the comparison and discarding
+all magnitude.
+
+**The argument that does carry it:** `D̂` is a continuous KL over ~200 positions, so exact ties
+across captions have measure zero and a caption group's `std` is essentially never 0. **Caption
+groups are therefore never dead, where 25.0% of answer groups are (§4.11).** The caption term
+supplies gradient on 100% of prompts — including the quarter where `J_success` supplies exactly
+none. That is a predicted mechanistic benefit of the method, testable at T0, and it favours a
+larger group precisely on the prompts where nothing else is training.
+
+**Cost, corrected.** Scoring is *not* the dominant cost: the blind context carries **no image**, so
+those sequences run ~500 tokens against a sighted context whose image alone can be 5,220 visual
+tokens. The real cost of `G_c` = 8 is the **4,096 caption generations per step**, roughly doubling
+step time versus Arm A. `G_c` = 4 is the fallback if T0 shows that is prohibitive — chosen on a
+measurement, not a guess.
+
+### ⚠️ The uncertainty that outranks `G_c`: `m`, and whether the caption advantage carries signal
+
+Each `D̂(c_j)` is estimated from only **`m` ≈ 2.6** trajectories (S13). So
+
+```
+Var(observed group scores) = σ²_between(captions) + σ²_within(trajectories) / m
+```
+
+S12 divides by the SD of the **observed** scores, noise included. **If `σ²_within/m` dominates
+`σ²_between`, the caption advantage is essentially pure noise — yet still normalised to mean 0 and
+RMS 0.93, looking healthy in every log line we plan to keep.** §4.6's pattern precisely: plausible
+output with no content. **`G_c` does not fix this; only `m` does.**
+
+At a fixed blind-forward budget `P·G_c·m`, `G_c`=8/`m`=2.6 and `G_c`=4/`m`=5.2 cost the same. Which
+is better depends entirely on `σ²_between / σ²_within` — **a ratio this project has never
+measured.** S13 already anticipated the need by building `m` as a switch.
+
+> **Therefore T0 must report the variance decomposition.** It falls out for free from scoring
+> `G_c` captions × `m` trajectories, and it does two jobs: it tells run 2 whether to move budget
+> from `G_c` to `m`, and it is the **only** thing that distinguishes R1's two flat-`D̂` outcomes.
+
 ---
 
 ## 3. O5 resolved — θ_old is not a free parameter
@@ -210,6 +264,10 @@ observe. Recorded here so it is not quietly forgotten at freezing time.
 Non-negotiable, because the run is otherwise unreadable afterwards:
 
 - `D̂` per step: mean, and the `H(p,q)` / `H(p)` split (failure-mode-2 instrument, S11)
+- **variance decomposition of `D̂`: `σ²_between`(captions) vs `σ²_within`(trajectories)** — §8.1.
+  Required, not optional: it is the only thing separating R1's two flat-`D̂` outcomes
+- caption-group `std` distribution — confirms the never-dead prediction of D4, and the fraction of
+  prompts where the caption term trains while `J_success` is dead
 - **both advantage components separately**, pre-λ — sets λ for run 2
 - dead-group fraction per step (against §4.11's 25.0% band)
 - boxed-rate per step (against §4.11's 89.1% pooled aggregate — **aggregate only**, per §4.11)
@@ -254,6 +312,20 @@ number from R1 is not evidence of the effect and will not be reported as one.**
 | **Not degenerate** | caption length stable, no collapse; boxed-rate ≥ 89.1% aggregate; dead-group fraction in the 25–28% band | rules out reward hacking through formatting or caption collapse |
 | **Not destructive** | accuracy advantage component behaves like ordinary GRPO; step-0 → step-40 validation not *falling* | λ = 1.0 has not overwhelmed `J_success` |
 
-**A flat `D̂` with everything else healthy is an informative negative**, and is the outcome that
-would send us to λ before anything else. **A rising `D̂` is a bug hypothesis first**, not a
-finding — forward KL should not increase under a term that minimises it.
+**A rising `D̂` is a bug hypothesis first**, not a finding — forward KL should not increase under a
+term that minimises it.
+
+### 8.1 A flat `D̂` has TWO explanations, and only one instrument separates them
+
+| explanation | what it means | how it is distinguished |
+|---|---|---|
+| the mechanism does not move captions | an informative negative; go to λ next | `σ²_between` is comparable to or larger than `σ²_within/m` — the advantage carried signal and the model did not follow it |
+| **the advantage was mostly estimation noise** | R1 tested nothing; go to `m` next, not λ | `σ²_within/m` dominates `σ²_between` |
+
+**Without the variance decomposition these are indistinguishable, and a flat R1 would be
+uninterpretable — the run wasted.** The decomposition is free (it falls out of the `G_c × m`
+scoring already being done) and is therefore a **required output of both T0 and R1**, not an
+optional diagnostic. Adding it to §6's log list.
+
+This is the one place where "analyse at the end and decide" could have failed silently: both
+outcomes produce a flat line and healthy-looking z-scores at mean 0, RMS 0.93.
