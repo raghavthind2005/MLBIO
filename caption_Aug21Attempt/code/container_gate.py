@@ -121,6 +121,39 @@ def assert_vit_attn_patch(expect_sha256: str | None = None, verbose: bool = True
             f"still bound ({fn}). The SDPA path must not carry one."
         )
 
+    # THE CASE THAT ACTUALLY RUNS, and which this gate did not previously cover.
+    #
+    # The check above asks for TORCH_SDPA explicitly. Nothing in EasyR1 can do that:
+    # vllm_rollout_spmd.py:120-124 builds engine_kwargs with only
+    # disable_mm_preprocessor_cache and limit_mm_per_prompt, and RolloutConfig has no
+    # passthrough. So production calls this with attn_backend_override=None and
+    # attn_backend=FLASH_ATTN -- which is how job 3177693 reached the ViT with a flash-attn
+    # build that cannot serve head_dim=80, while this gate would have reported PASS.
+    #
+    # A gate that only exercises a path production never takes is not a gate.
+    backend_default, fn_default = maybe_get_vit_flash_attn_backend(
+        AttentionBackendEnum.FLASH_ATTN,
+        False,
+        attn_backend_override=None,
+    )
+    if verbose:
+        print(f"  [G-VITATTN] no override (as production calls it) -> {backend_default}, "
+              f"varlen_fn={'None' if fn_default is None else fn_default}", flush=True)
+
+    if backend_default != AttentionBackendEnum.TORCH_SDPA or fn_default is not None:
+        raise AssertionError(
+            f"G-VITATTN FAILED: with NO override -- the way verl actually calls this -- the "
+            f"ViT resolved to {backend_default} (varlen_fn="
+            f"{'None' if fn_default is None else fn_default}), not TORCH_SDPA.\n"
+            f"CA21 PATCH 2 is not in force, so the run will die in the ViT with "
+            f"'headdim not being a multiple of 32' once vLLM initialises.\n"
+            f"  module: {module_path}\n"
+            f"  sha256: {module_sha}\n"
+            f"Check the mount in the .toml landed on {CONTAINER_LAYER_PATH} and that the "
+            f"mounted file is the CURRENT patch (PATCHED.sha256 changed when PATCH 2 was "
+            f"added; a stale mount would pass the identity check against the old pin)."
+        )
+
     patched = expect_sha256 is not None and module_sha == expect_sha256
     if expect_sha256 is not None and not patched:
         raise AssertionError(
@@ -137,3 +170,28 @@ def assert_vit_attn_patch(expect_sha256: str | None = None, verbose: bool = True
 
     return {"module_path": module_path, "module_sha256": module_sha,
             "backend": str(backend), "identity_checked": bool(expect_sha256)}
+
+
+if __name__ == "__main__":
+    # CLI so a job script can run this BEFORE the expensive step.
+    #
+    # This gate existed and tested the right property, and job 3177693 still died on exactly
+    # the failure it guards -- because nothing invoked it. It cost a four-GPU allocation
+    # through a full model load to learn something one GPU could have reported in seconds.
+    # Cheap gates have to run before expensive ones, and a gate with no entry point is not
+    # a gate.
+    #
+    #   python3 container_gate.py [expected_sha256_of_patched_layer.py]
+    #
+    # Needs CUDA: the branch under test is current_platform.is_cuda().
+    import sys
+
+    expected = sys.argv[1] if len(sys.argv) > 1 else None
+    try:
+        info = assert_vit_attn_patch(expected)
+    except AssertionError as exc:
+        print(f"\n{exc}", flush=True)
+        sys.exit(1)
+    print(f"[gate] G-VITATTN OK  backend={info['backend']}  "
+          f"identity_checked={info['identity_checked']}", flush=True)
+    sys.exit(0)

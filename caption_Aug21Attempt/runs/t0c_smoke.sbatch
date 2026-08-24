@@ -29,6 +29,20 @@ source "$CA21_ROOT/runs/_env.sh"
 echo "[job] $SLURM_JOB_ID on $(hostname) at $(date -Is)"
 echo "[job] config: $CA21/configs/ca21_smoke.yaml"
 
+# G-VITATTN FIRST, on one GPU, in seconds.
+#
+# This gate already existed and already tested the right property when job 3177693 died on
+# precisely the failure it guards -- nothing invoked it. That cost a four-GPU allocation
+# through a full model load to discover that vLLM's ViT would take the flash-attn path and
+# reject Qwen2.5-VL's head_dim=80. Cheapest checks run first, always.
+#
+# Needs CUDA (the branch under test is current_platform.is_cuda()), so it runs inside the
+# allocation but on a single task. `set -e` aborts before anything expensive.
+echo "=== gate: G-VITATTN (vLLM ViT attention backend) ==="
+srun --environment="$CA21_TOML" --ntasks=1 --gres=gpu:1 \
+    python3 "$CA21/code/container_gate.py" \
+        "$(awk '{print $1}' "$CA21/patches/vllm_0_11_2/PATCHED.sha256")"
+
 # PRE-FLIGHT. The config runs with filter_overlong_prompts=false because verl's filter
 # wedges here (see the config comment and preflight_prompt_lengths.py). That is only safe
 # while nothing is overlong, so prove it -- with verl's own predicate, single-process, no

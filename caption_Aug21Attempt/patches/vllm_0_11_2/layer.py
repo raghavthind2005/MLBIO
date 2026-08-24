@@ -114,10 +114,32 @@ def maybe_get_vit_flash_attn_backend(
             return AttentionBackendEnum.TORCH_SDPA, None
 
     elif current_platform.is_cuda():
+        # CA21 PATCH 2: with NO explicit override, resolve the ViT to TORCH_SDPA.
+        #
+        # Patch 1 below makes an explicit override survive, but nothing in EasyR1 can
+        # SEND one: vllm_rollout_spmd.py:120-124 builds engine_kwargs with only
+        # disable_mm_preprocessor_cache and limit_mm_per_prompt, and RolloutConfig has no
+        # passthrough. So the override was never requested, attn_backend stayed
+        # FLASH_ATTN, and the ViT died on Qwen2.5-VL's head_dim=80 (job 3177693):
+        # "This flash attention build does not support headdim not being a multiple of 32".
+        #
+        # This is not a preference. The FA2 build in this container cannot execute this
+        # ViT at all -- the choice is SDPA or the run does not start. TORCH_SDPA is also
+        # vLLM's own declared class default for Qwen2_5_VisionAttention (qwen2_5_vl.py:301),
+        # so this selects the library's default rather than an exotic path, and SDPA and FA2
+        # both compute EXACT softmax attention -- they differ in tiling and summation order,
+        # so outputs differ only at bf16 rounding.
+        #
+        # Scope: this file is bind-mounted only by runs/ca21_vllm.toml, which is
+        # deliberately separate from the shared toml the PAPO and DeepEyes lines use.
+        # An explicit override is still honoured, so this defaults rather than overrides.
+        if attn_backend_override is None:
+            return AttentionBackendEnum.TORCH_SDPA, None
+
         if (
             attn_backend != AttentionBackendEnum.FLASH_ATTN
             and check_upstream_fa_availability(torch.get_default_dtype())
-            # CA21 PATCH: honour an explicit override instead of silently
+            # CA21 PATCH 1: honour an explicit override instead of silently
             # reverting it to FLASH_ATTN. Mirrors the guard the ROCm branch
             # already carries 10 lines above. See patches/vllm_0_11_2/README.md.
             and attn_backend_override is None
