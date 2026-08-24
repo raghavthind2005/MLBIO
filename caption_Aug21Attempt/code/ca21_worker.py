@@ -184,7 +184,29 @@ def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
 
         @register(dispatch_mode=dispatch_mode)
         def compute_caption_distortion(self, data):
-            """S11 for one micro-batch. Returns per-sequence scalars, never logits."""
+            """S11 over a CAPTION GROUP. Returns per-pair scalars, never logits.
+
+            LAYOUT, and why it is not the obvious aligned one. Rows are
+                sighted_*  : [N, S_s]        N = prompts_in_chunk * m trajectories
+                blind_*    : [N * G_c, S_b]  caption-major: caption j occupies
+                                             blind[j*N : (j+1)*N], aligned row-for-row
+                                             with the N sighted rows
+                responses  : [N, T]          the SHARED y of S13
+            so the sighted forward runs **once per (prompt, trajectory)** and its
+            distribution `p` is reused across all `G_c` captions.
+
+            This is not tidiness, it is feasibility. Forward KL needs `p` and `q` over the
+            full vocabulary at every position simultaneously, so there is no summary of `p`
+            that could be carried between passes -- the choice is to hold it or to recompute
+            it. Recomputing means `G_c`x the sighted forwards, and sighted sequences carry
+            the image (up to 12,800 prompt tokens against ~500 for blind). At P=512, G_c=8,
+            m=2.6 that is ~10,650 image-bearing forwards per step instead of ~1,331.
+            Holding `p` instead costs ~158 MB per prompt, which is nothing on a 96 GB GH200.
+
+            It also makes S13's cancellation exact rather than nearly exact: every caption in
+            a group is scored against bit-identical sighted logits, so S12's centring removes
+            the `-H(sighted)` term precisely instead of leaving a float-level residual.
+            """
             from verl.protocol import DataProto
 
             # protocol.py:113, the same import dp_actor.py:29 uses.
@@ -225,43 +247,87 @@ def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
                 collated = batch_collate(data.non_tensor_batch["multi_modal_inputs"])
                 mm_sighted = {k: torch.cat(v, dim=0) for k, v in collated.items()}
 
+            N = data.batch["sighted_input_ids"].shape[0]
+            n_blind = data.batch["blind_input_ids"].shape[0]
+            g_c = data.meta_info["ca21_g_c"]
+            if n_blind != N * g_c:
+                raise AssertionError(
+                    f"blind rows {n_blind} != sighted rows {N} x G_c {g_c}. The caption-major "
+                    f"layout is what aligns caption j's blind row with its sighted row; a "
+                    f"mismatch here would score captions against the wrong trajectories and "
+                    f"still return finite, plausible distortions.")
+            if responses.shape[0] != N:
+                raise AssertionError(
+                    f"{responses.shape[0]} shared trajectories for {N} sighted rows")
+
+            per_caption = {k: [] for k in
+                           ("kl", "one_sample", "entropy_p", "entropy_q", "n_positions")}
+            kl_min_witness = []
+
             with torch.no_grad():
-                sighted, idx_s, B, S_s = forward_packed_logits(
+                # ---- ONE sighted pass, reused by every caption in the group ----
+                sighted, idx_s, B_s, S_s = forward_packed_logits(
                     module,
                     data.batch["sighted_input_ids"],
                     data.batch["sighted_attention_mask"],
                     data.batch["sighted_position_ids"],
                     multi_modal_inputs=mm_sighted,
                     temperature=temperature, padding_free=padding_free)
-                lg_s, m_s = gather_response_logits(sighted, idx_s, B, S_s, T)
+                lg_s, m_s = gather_response_logits(sighted, idx_s, B_s, S_s, T)
                 del sighted
 
-                blind, idx_b, _, S_b = forward_packed_logits(
-                    module,
-                    data.batch["blind_input_ids"],
-                    data.batch["blind_attention_mask"],
-                    data.batch["blind_position_ids"],
-                    multi_modal_inputs=None,          # G-BLIND, structurally
-                    temperature=temperature, padding_free=padding_free)
-                lg_b, m_b = gather_response_logits(blind, idx_b, B, S_b, T)
-                del blind
-
-                # Only positions valid under BOTH contexts are comparable.
-                mask = m_s * m_b
+                base_mask = m_s
                 if "response_mask" in data.batch:
-                    mask = mask * data.batch["response_mask"].to(mask.dtype)
+                    base_mask = base_mask * data.batch["response_mask"].to(m_s.dtype)
 
-                res = distortion_from_logits(
-                    lg_s, lg_b, mask, labels=responses, temperature=1.0)
-                del lg_s, lg_b
+                # ---- one blind pass per caption, scored against the SAME p ----
+                for j in range(g_c):
+                    sl = slice(j * N, (j + 1) * N)
+                    blind, idx_b, B_b, S_b = forward_packed_logits(
+                        module,
+                        data.batch["blind_input_ids"][sl],
+                        data.batch["blind_attention_mask"][sl],
+                        data.batch["blind_position_ids"][sl],
+                        multi_modal_inputs=None,      # G-BLIND, structurally
+                        temperature=temperature, padding_free=padding_free)
+                    lg_b, m_b = gather_response_logits(blind, idx_b, B_b, S_b, T)
+                    del blind
+
+                    # Only positions valid under BOTH contexts are comparable.
+                    res = distortion_from_logits(
+                        lg_s, lg_b, base_mask * m_b, labels=responses, temperature=1.0)
+                    del lg_b
+                    for k in per_caption:
+                        per_caption[k].append(res[k].cpu())
+                    kl_min_witness.append(res["kl_min_position"].reshape(1).cpu())
+
+                del lg_s
+
+            # [N, G_c] -- row = (prompt, trajectory), column = caption.
+            stacked = {k: torch.stack(v, dim=1) for k, v in per_caption.items()}
+
+            # FREE ORACLE, available only because `p` is now shared. H(sighted) is computed
+            # from bit-identical logits for every caption, so it can differ across columns
+            # ONLY through the mask -- i.e. if some caption's blind sequence lost response
+            # positions (a long caption pushing `y` past the context, or ragged packing).
+            # A non-zero spread means those captions were scored on different position sets
+            # and their D-hat values are not comparable, which is precisely the comparison
+            # S12 then normalises over. Reported rather than asserted because a small spread
+            # has a legitimate cause worth seeing at T0 instead of crashing on.
+            es = stacked["entropy_p"]
+            entropy_spread = (es.max(dim=1).values - es.min(dim=1).values)
 
             out = DataProto.from_dict(tensors={
-                "caption_distortion": res["kl"].cpu(),
-                "distortion_one_sample": res["one_sample"].cpu(),
-                "entropy_sighted": res["entropy_p"].cpu(),
-                "entropy_blind": res["entropy_q"].cpu(),
-                "distortion_n_positions": res["n_positions"].cpu(),
+                "caption_distortion": stacked["kl"],
+                "distortion_one_sample": stacked["one_sample"],
+                "entropy_sighted": stacked["entropy_p"],
+                "entropy_blind": stacked["entropy_q"],
+                "distortion_n_positions": stacked["n_positions"],
+                # Must be ~0: proves the sighted pass really was shared and the masks align.
+                "entropy_sighted_spread": entropy_spread,
             })
+            out.meta_info["ca21_kl_min_position"] = float(
+                torch.cat(kl_min_witness).min().item())
             return out.to("cpu")
 
     return CA21Worker
