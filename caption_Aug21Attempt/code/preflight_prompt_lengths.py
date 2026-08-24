@@ -1,25 +1,32 @@
 """Pre-flight: prove no prompt exceeds max_prompt_length, so the filter can stay OFF.
 
 WHY THIS EXISTS. verl filters overlong prompts with
-``dataset.filter(..., num_proc=filter_overlong_prompts_workers)`` (dataset.py:150-155), and
-that call WEDGES on this cluster: jobs 3175605 and 3176724 both froze with the Runner actor
-blocked in `do_wait` -- waiting on a forked child that never returns -- at 1.1% CPU, with
-the "Setting TOKENIZERS_PARALLELISM=false for forked processes" warning immediately before.
-Setting workers to 1 did not help, because verl always passes `num_proc=` and never `None`,
-so datasets takes the pool path regardless. Forking inside a Ray actor that already holds
-threads is the underlying hazard.
+``dataset.filter(..., num_proc=...)`` (dataset.py:150-155), and that call WEDGED here: jobs
+3175605 and 3176724 both froze with the Runner actor blocked in `do_wait` at 1.1% CPU.
 
-So the filter is disabled in the config, which is only safe if nothing is actually overlong:
-``RLHFDataset`` uses ``truncation="error"`` by default (dataset.py:109), so a single
-overlong row would raise from ``__getitem__`` mid-training rather than at startup.
+I first diagnosed that as "forking inside a Ray actor is hazardous" and set the worker count
+to 1. THAT WAS WRONG, and the correction is the reason this file exists. The forked children
+were dying instantly on a TypeError -- Vision-SR1-47K stores a singular image where verl does
+``len(images)`` -- and the parent then waited forever on results that would never arrive.
+`do_wait` was the symptom of dead children, not of unsafe forking. Running the same predicate
+SINGLE-PROCESS turned an 80-minute silent hang into a precise traceback in about 30 seconds,
+which is what a pre-flight is for: fail fast and legibly, before a GPU is held.
+
+That TypeError is now handled in CA21Dataset (see its ``_build_messages``), so the filter
+could in principle run -- but it stays off, because a pool-based filter that can hang is not
+worth re-enabling when an explicit check costs seconds.
+
+Disabling it is only safe if nothing is actually overlong: ``RLHFDataset`` uses
+``truncation="error"`` (dataset.py:109), so one long row would raise from ``__getitem__``
+mid-training rather than at startup.
 
 THE POINT OF THIS FILE IS THAT IT DOES NOT RE-DERIVE THE LENGTH RULE. It instantiates the
-real ``RLHFDataset`` with filtering disabled and calls verl's own
-``_filter_overlong_prompts`` on every row, single-process, no pool. Whatever verl would
-have dropped, this finds -- and if it finds any, it fails loudly here instead of letting
-training discover it at step 30. Four times in this project a probe that re-implemented
-production disagreed with production and the disagreement was read as a finding; this one
-calls production.
+dataset class PRODUCTION USES -- ``make_ca21_dataset(RLHFDataset)``, not the bare upstream
+class -- with filtering disabled, and calls verl's own ``_filter_overlong_prompts`` on every
+row. Whatever training would choke on, this finds first. Probing bare ``RLHFDataset`` here
+would measure a class that never runs and re-find an incompatibility we have already fixed.
+Repeatedly in this project a probe that diverged from production disagreed with it and the
+disagreement was read as a finding; this one calls production.
 
 Cheap: processor only, no model weights, no GPU.
 """
@@ -36,6 +43,16 @@ def main() -> int:
     from verl.utils.dataset import RLHFDataset
     from verl.utils.tokenizer import get_processor, get_tokenizer
 
+    from ca21_dataset import make_ca21_dataset
+
+    # THE ADAPTED CLASS, not the upstream one. Vision-SR1-47K stores a singular image and
+    # carries no "<image>" marker, so upstream's _filter_overlong_prompts raises TypeError
+    # on len(images) -- which is exactly what this pre-flight found. Probing RLHFDataset
+    # here would re-find that instead of measuring what production will do, and production
+    # runs CA21Dataset. Same principle as everywhere else in this project: probe the thing
+    # that runs.
+    DatasetCls = make_ca21_dataset(RLHFDataset)
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
     ap.add_argument("--parquet", required=True, nargs="+")
@@ -51,7 +68,7 @@ def main() -> int:
 
     report, failed = {}, False
     for pq in args.parquet:
-        ds = RLHFDataset(
+        ds = DatasetCls(
             data_path=pq,
             tokenizer=tokenizer,
             processor=processor,
