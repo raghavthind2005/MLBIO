@@ -1021,6 +1021,14 @@ the result. Same discipline as O7/O8 §7, applied to a diagnostic.
 | collapses to ≲1e-4 | T0a's C1 was bf16 accumulation between varlen and masked flash kernels. Proceed. |
 | stays ≳1e-2 on a non-trivial fraction | **`forward_packed_logits` is wrong.** Every distortion computed to date is void. Fix before anything else; no design conclusion may be drawn from T0a or T0b. |
 
+> ⚠️ **[CC, 2026-08-24] THIS RULE WAS MIS-SPECIFIED. See §4.17.** The Phase 0 row above names
+> `forward_packed_logits` as the culprit on failure. It cannot: the test compares our packed
+> forward against a padded reference **I also wrote**, so a disagreement localises nothing.
+> T0d showed the packed path is bit-exactly padding-invariant and the *reference* is the
+> broken side. Left as written, with this correction attached, rather than edited — a
+> pre-commitment that gets quietly rewritten after the data arrives is not a pre-commitment.
+> The lesson is the durable part: **a one-sided comparison cannot name which side failed.**
+
 **Phase 1 — the ladder.** `no_evidence → matched_100 → matched_60 → matched_30 → vague`.
 
 | outcome | reading | consequence |
@@ -1105,6 +1113,84 @@ drifts +1.8% to +5.4% as the surviving count moves.
   far inside the uncertainty of choosing λ=1.0 at all (D3, gated on T0, not a measured
   optimum), and any reordering is one more deviation from upstream to justify and re-verify.
   Recorded here as a **known, quantified, accepted bias** so it cannot resurface as a mystery.
+
+### 4.16 T0b run 2 (job 3173959) — complete, n=16 [CC, 2026-08-24]
+
+Fixed harness (`set_grad_enabled(False)`, per-item Phase 0 print, per-item flush). Generation
+628 s, total ~12 min. All 16 items completed.
+
+**Phase 0 as reported: "FAILED"** — `C1 fp32 max 4.782e-01`, `frac>1e-2 = 0.583`, and
+`bf16_max ≈ fp32_max` on every item. **§4.17 shows this was the scaffold, not the method.**
+Distribution was bimodal: 5/16 exactly `0.000e+00`, 11/16 in 0.115–0.478, nothing between.
+
+**Phase 1**
+
+| statistic | n=16 |
+|---|---|
+| matched < no_evidence | 12/16 |
+| matched < vague | 12/16 |
+| ladder monotonic (strict) | 5/16 |
+| median `D(no_evidence)` | 0.2170 |
+| **corr(necessity, vague − matched)** | **+0.755** (p≈0.0007) |
+| variance decomposition | between 0.00248 / within 0.002975, **SNR 1.67** |
+
+Still §4.13's **mixed** row (strict ladder fails), with the tiebreaker landing hard — and
+*strengthening* with n, +0.628 (n=6) → +0.755 (n=16), which is what a real effect does.
+Reading: **instrument ranks captions correctly; substrate is uneven.** SNR 1.67 says
+between-caption signal only modestly exceeds across-trajectory noise — relevant to whether
+GRPO can learn from `D`, and an argument for filtering by vision-necessity (M1).
+
+**Leak, and a correction to my own alarm.** `L1b` verdict phrasing **0/16** — clean, and T0a's
+"To solve the problem…" was unlucky sampling. `L1a` gold-in-caption **8/16** looks alarming and
+is **largely benign here**: for counting/math items a faithful caption saying "three apples"
+contains the gold "3" *by construction*, and carrying visual facts to the blind pass is the
+method working, not leaking. L1b is the instrument that separates describing from concluding.
+**[CC] I should have anticipated this when writing L1a**; flagging 8/16 as leakage without
+that caveat would have been a false alarm.
+
+### 4.17 T0d (job 3174212) — the packed forward is VINDICATED [V, 2026-08-24]
+
+§4.13's Phase 0 rule could not name a culprit (see the correction attached there), so T0d
+settled it by a property both implementations must satisfy: **padding carries no information,
+so a correct forward is invariant to it.** One row built twice with identical content —
+left-padded `P`, pads sliced off `U` — run through both paths. No third implementation, hence
+nothing to argue with.
+
+| item | n_pad | control `packed(U)` vs `padded(U)` | `packed(P)` vs `padded(P)` | **PACKED invariance** | **PADDED invariance** |
+|---|---|---|---|---|---|
+| 510 | 1459 | 0.000 | 0.822 | **0.000** | 0.822 |
+| 3301 | 1607 | 0.000 | 0.462 | **0.000** | 0.462 |
+| 3978 | 1542 | 0.000 | 0.435 | **0.000** | 0.435 |
+| 5784 | 1617 | 0.000 | 0.637 | **0.000** | 0.637 |
+| 7150 | 1644 | 0.000 | 0.440 | **0.000** | 0.440 |
+| 8536 | 949 | 0.000 | 0.000 | 0.000 | 0.000 |
+
+**`forward_packed_logits` is bit-exactly padding-invariant on every item. The whole
+discrepancy is in the padded reference.** Control 0.000 throughout, so the probe is sound.
+
+**[V] Phase 1 was never contaminated — verified in code, not assumed.** `lg_s`
+(t0b:208) and `lg_b` (t0b:237) both come from `forward_packed_logits`; `distortion_from_logits`
+consumes both. **`D` was always packed-vs-packed.** The padded reference appears *only* inside
+the `if ti == 0:` C1 block. So §4.16's Phase 1 numbers **stand**, and the "void everything"
+consequence of §4.13 does **not** fire. This also explains the bimodality: the five zero-items
+are ones where the reference happened not to misbehave.
+
+- ⚠️ **[CC] The generalisable mistake was mine and it is the point of this entry.** I built a
+  gate that validated a correct implementation against a broken yardstick, then pre-committed
+  to reading its failure as the method's. **A one-sided comparison cannot name which side
+  failed** — gates need a property (invariance), not a second opinion.
+- ⚠️ **[CC] `KeyError: 'pimage'` (job 3174189) was the good failure.** I passed the RAW image
+  to `build_prompt_row` while `image_processor` wanted the resized one. Had I written the raw
+  image in *both* places it would have run clean with a patch/token count mismatch — silently
+  wrong logits, in the very probe adjudicating which forward to trust.
+- ❗ **[CC] STILL UNVERIFIED: B>1.** T0d tested batch-of-one only. Production packs B>1
+  sequences into a single row with `attention_mask=None`, relying on `position_ids` restarting
+  per sequence for FlashAttention to infer boundaries. If that inference failed, sequence *j*
+  would attend to *j−1* and every distortion would be wrong with no gate catching it.
+  `assert_forward_matches_verl` (ca21_worker.py:136) is the check; **it must run before R1.**
+- ❓ **Unexplained:** item 8536 had 949 pads and *zero* discrepancy. Padding alone is not the
+  trigger; something else modulates it. Does not affect the verdict — recorded rather than
+  tidied away.
 
 ## 5. Predicted failure modes, to instrument from day one
 
