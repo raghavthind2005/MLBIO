@@ -104,10 +104,15 @@ def main() -> int:
     def build(messages, images):
         row = build_prompt_row(processor, tokenizer, messages, images,
                                args.max_prompt_length, args.min_pixels, args.max_pixels)
-        resp = torch.full((1, T), tokenizer.pad_token_id or 0, dtype=torch.long)
-        resp[0] = tokenizer("the answer is four apples on the table today ok fine yes no "
-                            "maybe so then", add_special_tokens=False,
-                            return_tensors="pt")["input_ids"][0][:T]
+        # Tile to EXACTLY T. The previous version assumed a fixed string tokenised to at
+        # least T ids; it produced 16 for T=24 and died. The content is irrelevant to
+        # row-independence -- only that every row carries a response of identical length,
+        # so gather_response_logits reads the same window for each.
+        base = tokenizer("the answer is four apples on the table today",
+                         add_special_tokens=False, return_tensors="pt")["input_ids"][0]
+        if base.numel() == 0:
+            raise AssertionError("tokeniser produced no ids for the probe response")
+        resp = base.repeat((T + base.numel() - 1) // base.numel())[:T].unsqueeze(0)
         ids, am, pos = append_responses(
             row["input_ids"].unsqueeze(0), row["attention_mask"].unsqueeze(0),
             row["position_ids"].unsqueeze(0), resp, torch.ones_like(resp))
