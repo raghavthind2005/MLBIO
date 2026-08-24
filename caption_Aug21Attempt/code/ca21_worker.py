@@ -281,14 +281,16 @@ def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
                 mm_sighted = {k: torch.cat(v, dim=0) for k, v in collated.items()}
 
             N = data.batch["sighted_input_ids"].shape[0]
-            n_blind = data.batch["blind_input_ids"].shape[0]
             g_c = data.meta_info["ca21_g_c"]
-            if n_blind != N * g_c:
+            # blind is [N, G_c, S_b]: the caption axis lives INSIDE the row, so DP chunking
+            # moves a row together with all of its captions. A flat [N*G_c] would be chunked
+            # independently of sighted[N] and could score caption j of prompt p against a
+            # different prompt's `p` -- finite, plausible, and wrong.
+            blind_shape = tuple(data.batch["blind_input_ids"].shape)
+            if len(blind_shape) != 3 or blind_shape[:2] != (N, g_c):
                 raise AssertionError(
-                    f"blind rows {n_blind} != sighted rows {N} x G_c {g_c}. The caption-major "
-                    f"layout is what aligns caption j's blind row with its sighted row; a "
-                    f"mismatch here would score captions against the wrong trajectories and "
-                    f"still return finite, plausible distortions.")
+                    f"blind_input_ids is {blind_shape}, expected (N={N}, G_c={g_c}, S_b). "
+                    f"This layout is what aligns caption j with its own sighted row.")
             if responses.shape[0] != N:
                 raise AssertionError(
                     f"{responses.shape[0]} shared trajectories for {N} sighted rows")
@@ -335,14 +337,14 @@ def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
                             "response_mask"][lo:hi].to(m_s.dtype)
 
                     # ---- one blind pass per caption, scored against the SAME p ----
-                    # Caption-major: caption j's rows for THIS chunk are at j*N + [lo, hi).
+                    # blind is [N, G_c, S_b], so caption j for this chunk is [lo:hi, j].
                     cols = {k: [] for k in KEYS}
                     for j in range(g_c):
                         blind, idx_b, B_b, S_b = forward_packed_logits(
                             module,
-                            data.batch["blind_input_ids"][j * N + lo:j * N + hi],
-                            data.batch["blind_attention_mask"][j * N + lo:j * N + hi],
-                            data.batch["blind_position_ids"][j * N + lo:j * N + hi],
+                            data.batch["blind_input_ids"][lo:hi, j],
+                            data.batch["blind_attention_mask"][lo:hi, j],
+                            data.batch["blind_position_ids"][lo:hi, j],
                             multi_modal_inputs=None,      # G-BLIND, structurally
                             temperature=temperature, padding_free=padding_free)
                         lg_b, m_b = gather_response_logits(blind, idx_b, B_b, S_b, T)

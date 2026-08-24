@@ -105,5 +105,64 @@ class TestCaptionAdvantageSign(unittest.TestCase):
         self.assertAlmostEqual(adv[0].item(), adv[2].item(), places=5)
 
 
+try:
+    import torch as _torch
+except ImportError:                                   # laptop has no torch; container does
+    _torch = None
+
+
+@unittest.skipUnless(_torch is not None, "needs torch")
+class TestBlindRowLayout(unittest.TestCase):
+    """The [g_c*N] -> [N, g_c] reshape in _ca21_step, and the worker's slice back out.
+
+    Tested because getting it wrong is silent. The blind rows are BUILT caption-major
+    (`for j: for k`), so index j*N + k. If the reshape does not invert exactly that order,
+    caption j of row k is scored against a different row's sighted distribution `p` --
+    the KL is still finite, the ladder still ranks, and nothing looks wrong.
+    """
+
+    @staticmethod
+    def _build(g_c, N, S):
+        """Mimic _ca21_step's build order, tagging each row with (j, k)."""
+        flat = [_torch.full((S,), float(j * 100 + k))
+                for j in range(g_c) for k in range(N)]
+        t = _torch.stack(flat, dim=0)
+        return t.reshape(g_c, N, *t.shape[1:]).transpose(0, 1).contiguous()
+
+    def test_reshape_inverts_the_build_order(self):
+        g_c, N, S = 3, 4, 5
+        by_row = self._build(g_c, N, S)
+        self.assertEqual(tuple(by_row.shape), (N, g_c, S))
+        for j in range(g_c):
+            for k in range(N):
+                self.assertEqual(by_row[k, j, 0].item(), j * 100 + k,
+                                 f"caption {j} of row {k} landed in the wrong slot")
+
+    def test_worker_slice_recovers_caption_j_for_a_chunk(self):
+        """blind[lo:hi, j] is what compute_caption_distortion forwards."""
+        g_c, N, S = 4, 6, 3
+        by_row = self._build(g_c, N, S)
+        for lo, hi in ((0, 2), (2, 5), (0, 6)):
+            for j in range(g_c):
+                got = [v.item() for v in by_row[lo:hi, j][:, 0]]
+                self.assertEqual(got, [j * 100 + k for k in range(lo, hi)])
+
+    def test_row_and_its_captions_stay_together_under_dp_chunking(self):
+        """The reason for this layout: a DP chunk must not split a caption group.
+
+        Chunking dim 0 takes whole rows, so every caption of a row travels with it. The
+        old flat [N*g_c] layout was chunked independently of sighted[N], which could put
+        caption j of prompt p on a different rank from p's own sighted row.
+        """
+        g_c, N, S, world = 4, 8, 3, 4
+        by_row = self._build(g_c, N, S)
+        for r, chunk in enumerate(by_row.chunk(world, dim=0)):
+            self.assertEqual(chunk.shape[1], g_c, "a chunk lost captions")
+            rows_here = {int(chunk[i, 0, 0].item()) % 100 for i in range(chunk.shape[0])}
+            for i in range(chunk.shape[0]):
+                for j in range(g_c):
+                    self.assertIn(int(chunk[i, j, 0].item()) % 100, rows_here)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

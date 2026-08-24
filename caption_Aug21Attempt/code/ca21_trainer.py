@@ -70,6 +70,42 @@ def assert_upstream_fit_unchanged(trainer_cls, expected_sha256: str | None):
     return got
 
 
+#: Per-row accuracy, kept on the batch for S13's gate. See capture_row_accuracy.
+CA21_ACCURACY_KEY = "ca21_accuracy"
+
+
+def capture_row_accuracy(batch, reward_metrics) -> bool:
+    """Keep the per-row `accuracy` component before ``reduce_metrics`` averages it away.
+
+    WHY THIS EXISTS. ``token_level_scores`` carries only ``score["overall"]``
+    (``reward/function.py:67,100``), and the reward is
+    ``overall = (1 - format_weight) * accuracy + format_weight * format`` — 0.9/0.1 by
+    default. So a WRONG answer that is merely well-formatted scores 0.1, and any gate of the
+    form ``score > 0`` admits it. S13 is specified over the CORRECT subset; scoring captions
+    against failed trajectories would train them to preserve reasoning that did not work,
+    while `D` stayed finite and every logged metric looked healthy.
+
+    The component we need is already computed: the reward manager appends every key of
+    ``score`` to ``reward_metrics`` per row, in row order, and ``fit`` then reduces those
+    lists to scalars for logging. This grabs the list first. Row order is safe because
+    ``_balance_batch`` (ray_trainer.py:599) runs BEFORE the reward call (:605).
+
+    Deliberately NOT thresholding ``overall > 0.5``. That happens to work for 0.9/0.1 and
+    breaks silently the moment ``format_weight`` changes, which is a config value.
+    """
+    import numpy as np
+
+    acc = reward_metrics.get("accuracy") if reward_metrics else None
+    if acc is None:
+        return False
+    if len(acc) != len(batch):
+        raise AssertionError(
+            f"reward reported {len(acc)} accuracy values for {len(batch)} rows; the gate "
+            f"would select trajectories by the wrong index.")
+    batch.non_tensor_batch[CA21_ACCURACY_KEY] = np.asarray(acc, dtype=np.float32)
+    return True
+
+
 def assert_uid_grouping(uids, n_per_group: int, label: str):
     """Every group must be complete and every row must carry a uid.
 
@@ -184,8 +220,24 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             trajectory, so they drop out here too. The caption term reaches the 4.7%, not
             the 25%.
             """
-            scores = batch.batch["token_level_scores"].sum(-1)
             uids = batch.non_tensor_batch[CAPTION_UID]
+
+            # CORRECTNESS means accuracy, not reward. token_level_scores is
+            # 0.9*accuracy + 0.1*format, so `> 0` admits any well-formatted WRONG answer --
+            # and since format is easy, that is most of them. Required rather than
+            # fallen back on: a gate that silently degrades to "was it formatted" would
+            # train captions to preserve failed reasoning with nothing looking wrong.
+            correct = None
+            if correctness_gate:
+                acc = batch.non_tensor_batch.get(CA21_ACCURACY_KEY)
+                if acc is None:
+                    raise AssertionError(
+                        f"correctness_gate is on but '{CA21_ACCURACY_KEY}' is absent. It is "
+                        f"populated by capture_row_accuracy() in fit() from the reward "
+                        f"manager's per-row components; without it the only available "
+                        f"signal is the blended reward, which cannot distinguish a wrong "
+                        f"well-formatted answer (0.1) from a right one (1.0).")
+                correct = [bool(a > 0) for a in acc]
 
             groups: dict[Any, list[int]] = {}
             for i, u in enumerate(uids):
@@ -194,7 +246,7 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             kept_uids, rows, n_dropped = [], [], 0
             for u in sorted(groups, key=str):        # deterministic, order-independent
                 idxs = groups[u]
-                cand = [i for i in idxs if scores[i] > 0] if correctness_gate else idxs
+                cand = [i for i in idxs if correct[i]] if correctness_gate else idxs
                 if not cand:
                     n_dropped += 1
                     continue
@@ -276,7 +328,8 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             """
             import numpy as np
             import torch
-            from verl.protocol import DataProto
+            from verl.protocol import (DataProto, pad_dataproto_to_divisor,
+                                       unpad_dataproto)
 
             import ca21_prompts as P
             from ca21_contexts import append_responses, build_prompt_row
@@ -321,9 +374,16 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
             responses = batch.batch["responses"][sig_idx]
             resp_mask = batch.batch["response_mask"][sig_idx]
 
-            # BLIND, caption-major: caption j occupies blind[j*N:(j+1)*N], row-aligned with
-            # the N sighted rows. Tokenise the blind PROMPT once per (prompt, caption) --
-            # it does not depend on the trajectory -- then append each trajectory's y.
+            # BLIND, shaped [N, g_c, ...] -- caption j of row k at blind[k, j].
+            #
+            # NOT the flat [N*g_c, ...] this used to be, for two reasons. (a) DataProto
+            # requires every tensor to share dim0 (protocol.py:315), and sighted_* is [N],
+            # so a flat blind of 8N asserted on construction -- this block had never run.
+            # (b) More importantly, compute_caption_distortion is DP_COMPUTE_PROTO: it
+            # chunks by world_size, and chunking a flat 8N alongside an N would put caption
+            # j of prompt p on a DIFFERENT RANK from its own sighted row, scoring it against
+            # someone else's `p`. With the caption axis inside the row, a row and all its
+            # captions move together by construction.
             b_stack = {"input_ids": [], "attention_mask": [], "position_ids": []}
             for j in range(g_c):
                 prompt_rows = []
@@ -344,14 +404,19 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
                     b_stack["attention_mask"].append(am[0])
                     b_stack["position_ids"].append(pos[0])
 
+            def _by_row(key):
+                """[g_c * N, ...] built caption-major -> [N, g_c, ...]."""
+                t = torch.stack(b_stack[key], dim=0)
+                return t.reshape(g_c, N, *t.shape[1:]).transpose(0, 1).contiguous()
+
             score_in = DataProto.from_dict(
                 tensors={
                     "sighted_input_ids": sighted["input_ids"],
                     "sighted_attention_mask": sighted["attention_mask"],
                     "sighted_position_ids": sighted["position_ids"],
-                    "blind_input_ids": torch.stack(b_stack["input_ids"], dim=0),
-                    "blind_attention_mask": torch.stack(b_stack["attention_mask"], dim=0),
-                    "blind_position_ids": torch.stack(b_stack["position_ids"], dim=0),
+                    "blind_input_ids": _by_row("input_ids"),
+                    "blind_attention_mask": _by_row("attention_mask"),
+                    "blind_position_ids": _by_row("position_ids"),
                     "responses": responses,
                     "response_mask": resp_mask,
                 },
@@ -367,8 +432,20 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
                            # would look configured while ignoring the setting.
                            "ca21_row_chunk": int(getattr(cfg, "row_chunk", 16))},
             )
+            # N is whatever survived the correctness gate, so it is NOT a multiple of
+            # world_size. DP_COMPUTE_PROTO chunks by world_size and protocol.py:555 asserts
+            # exact divisibility, so this would die on the first step with an awkward count
+            # -- the same reason _generate_captions pads.
+            ws = self.actor_rollout_ref_wg.world_size
+            score_in, score_pad = pad_dataproto_to_divisor(score_in, ws)
             scored = self.actor_rollout_ref_wg.compute_caption_distortion(score_in)
+            scored = unpad_dataproto(scored, pad_size=score_pad)
             D = scored.batch["caption_distortion"]                    # [N, g_c]
+            if D.shape != (N, g_c):
+                raise AssertionError(
+                    f"distortion came back {tuple(D.shape)}, expected {(N, g_c)}; padding "
+                    f"({score_pad} rows) was not fully removed and rows no longer align "
+                    f"with `flat`.")
 
             # S13: average each caption over ITS prompt's shared trajectories.
             per_caption = torch.zeros(len(kept_uids), g_c)
@@ -526,6 +603,14 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
                         if "token_level_scores" not in batch.batch:
                             reward_tensor, reward_metrics = ray.get(reward_ref)
                             batch.batch["token_level_scores"] = reward_tensor
+                            # BEFORE reduce_metrics: it collapses the per-row lists to
+                            # scalars, and S13's gate needs the per-row accuracy.
+                            if not capture_row_accuracy(batch, reward_metrics):
+                                raise AssertionError(
+                                    "the reward function reported no 'accuracy' component, "
+                                    "so S13's correctness gate has nothing to gate on. "
+                                    "Reward functions used here must return it alongside "
+                                    "'overall' (examples/reward_function/math.py does).")
                             reward_metrics = {f"reward/{k}": v for k, v in
                                               reduce_metrics(reward_metrics).items()}
                             metrics.update(reward_metrics)
