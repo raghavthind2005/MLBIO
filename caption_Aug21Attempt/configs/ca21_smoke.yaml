@@ -1,0 +1,159 @@
+# T0c -- the first full training smoke. Arm B (caption term ON), 2 steps.
+#
+# PURPOSE: does the loop run end to end with the caption term in it? Not a result, and
+# 2 steps cannot be one. What it proves is that rollout -> reward -> advantage ->
+# caption term -> composed batch -> update_policy survives contact with real shapes.
+#
+# Every value below is either an O6 decision (see docs/DECISION_LOG.md) or a setting
+# PAPO already proved on these exact GH200 nodes. Nothing is guessed.
+
+data:
+  # trial_smoke, 2000 rows, from the hashed pool (manifest 9a109667...). Not a subsample
+  # taken here: sampling at run time would put the pool outside the manifest.
+  train_files: /iopsstor/scratch/cscs/raghavthind/caption_aug21/data/ca21_trial_smoke.parquet
+  val_files: /iopsstor/scratch/cscs/raghavthind/caption_aug21/data/ca21_dev.parquet
+  prompt_key: problem
+  answer_key: answer
+  image_key: images
+  video_key: videos
+  image_dir: null
+  video_fps: 2.0
+  max_prompt_length: 2048
+  max_response_length: 2048
+  # Smoke-sized. R1 uses 512 (O6 D1, withdrawn in favour of Vision-SR1 parity).
+  rollout_batch_size: 32
+  mini_rollout_batch_size: null
+  val_batch_size: 64
+  # G-PARITY, ENFORCED at startup by main_ca21._assert_format_prompt_parity: this template
+  # renders `{{ content|trim }} ` + the think/boxed instruction, which is byte-identical to
+  # ca21_prompts.shared_tail. The blind context is built from shared_tail, so if these ever
+  # diverge the KL measures the prompt difference rather than the evidence difference.
+  format_prompt: /iopsstor/scratch/cscs/raghavthind/EasyR1_ca21/examples/format_prompt/math.jinja
+  override_chat_template: null
+  shuffle: true
+  seed: 1
+  # Matches what T0a/T0b/T0d/T0e scored with, so their measurements describe these pixels.
+  min_pixels: 262144
+  max_pixels: 1048576
+  filter_overlong_prompts: true
+
+algorithm:
+  adv_estimator: grpo
+  disable_kl: false
+  use_kl_loss: true
+  kl_penalty: low_var_kl
+  kl_coef: 1.0e-2
+  # O6 D2. Vision-SR1's own config has this false (vision_sr1/config.yaml:29); the filter
+  # params below it are inert. We keep it false for our own reason too: online filtering
+  # drops zero-variance groups, and which groups those are is a quantity we want to observe.
+  online_filtering: false
+  filter_key: overall
+  filter_low: 0.01
+  filter_high: 0.99
+
+worker:
+  actor:
+    global_batch_size: 128
+    # PAPO's, on these nodes: update memory is the binding constraint.
+    micro_batch_size_per_device_for_update: 1
+    micro_batch_size_per_device_for_experience: 4
+    max_grad_norm: 1.0
+    padding_free: true
+    dynamic_batching: true
+    # MUST stay 1. ca21_worker raises if ulysses_size > 1: the caption distortion would be
+    # computed on a differently-sharded sequence than verl's own forward.
+    ulysses_size: 1
+    model:
+      model_path: /capstor/store/cscs/swissai/a0174/models/Qwen2.5-VL-3B-Instruct
+      enable_gradient_checkpointing: true
+      trust_remote_code: false
+      freeze_vision_tower: false
+      lora:
+        rank: 0
+        alpha: 64
+        target_modules: all-linear
+        exclude_modules: .*visual.*
+    optim:
+      lr: 1.0e-6
+      weight_decay: 1.0e-2
+      strategy: adamw
+      lr_warmup_ratio: 0.0
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: false
+      enable_rank0_init: true
+    offload:
+      offload_params: true
+      offload_optimizer: true
+
+  rollout:
+    # G answers per prompt. S13's correctness gate operates on this group; at G=8 the
+    # measured mean was 2.62 correct, which is what m=2 caps.
+    n: 8
+    temperature: 1.0
+    top_p: 1.0
+    limit_images: 0
+    # LOWER than PAPO's 0.40. vLLM's pool is carved out permanently, and the caption pass
+    # holds the sighted distribution p across all G_c blind forwards -- headroom PAPO's
+    # masked-grad forward never needed. Expect to tune this at the smoke; that is what a
+    # smoke is for.
+    gpu_memory_utilization: 0.35
+    enforce_eager: false
+    enable_chunked_prefill: false
+    # 3B fits one GH200 with room to spare; TP>1 only adds collectives. PAPO used 1 for 2B.
+    tensor_parallel_size: 1
+    max_num_batched_tokens: 16384
+    disable_tqdm: false
+    val_override_config:
+      temperature: 0.6
+      top_p: 0.95
+      n: 1
+
+  ref:
+    fsdp:
+      enable_full_shard: true
+      enable_cpu_offload: true
+      enable_rank0_init: true
+    offload:
+      offload_params: false
+
+  reward:
+    # Extracts \boxed{} and compares, which is what SHARED_INSTRUCTION asks the model to
+    # produce. NOTE this is a J_success design choice and not yet frozen -- see the note
+    # raised alongside this config.
+    reward_function: /iopsstor/scratch/cscs/raghavthind/EasyR1_ca21/examples/reward_function/math.py:compute_score
+
+# The caption term. THIS BLOCK IS THE METHOD; _ca21_config hard-fails if it is absent,
+# because a run without it would be Arm A wearing Arm B's name.
+ca21:
+  lam: 1.0              # O6 D3, confirmed after T0b. Effective value +2-5% (4.15, accepted).
+  g_c: 8                # O6 D4. Must be a multiple of world_size; checked in main_ca21.
+  m: 2                  # S13 cap on shared trajectories.
+  correctness_gate: true
+  row_chunk: 16         # Memory dial only -- T0e proved row-independence, so it cannot
+                        # change the result beyond bf16 noise.
+
+trainer:
+  total_epochs: 1
+  # TWO STEPS. This is a smoke, not a run.
+  max_steps: 2
+  project_name: caption_aug21
+  experiment_name: t0c_smoke
+  logger: ["file", "wandb"]
+  nnodes: 1
+  n_gpus_per_node: 4
+  max_try_make_batch: 20
+  # Off for the first smoke: the question is whether the TRAINING loop survives. Validation
+  # gets its own pass once it does.
+  val_freq: -1
+  val_before_train: false
+  val_only: false
+  val_generations_to_log: 3
+  # -1, but note fit() still saves once at the end -- which is deliberate here, since
+  # checkpointing a model whose batch composition we changed is itself worth smoking.
+  save_freq: -1
+  save_limit: 3
+  save_model_only: false
+  save_checkpoint_path: /iopsstor/scratch/cscs/raghavthind/caption_aug21/checkpoints/t0c_smoke
+  load_checkpoint_path: null
+  find_last_checkpoint: true

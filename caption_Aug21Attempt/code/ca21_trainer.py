@@ -361,7 +361,11 @@ def make_ca21_trainer(ray_ppo_trainer_cls, *, expected_fit_sha256: str | None = 
                         sig_idx.numpy()],
                 },
                 meta_info={"ca21_g_c": g_c, "min_pixels": dcfg.min_pixels,
-                           "max_pixels": dcfg.max_pixels, "video_fps": dcfg.video_fps},
+                           "max_pixels": dcfg.max_pixels, "video_fps": dcfg.video_fps,
+                           # Without this the worker silently falls back to its own
+                           # default and config.ca21.row_chunk would be inert -- the run
+                           # would look configured while ignoring the setting.
+                           "ca21_row_chunk": int(getattr(cfg, "row_chunk", 16))},
             )
             scored = self.actor_rollout_ref_wg.compute_caption_distortion(score_in)
             D = scored.batch["caption_distortion"]                    # [N, g_c]
