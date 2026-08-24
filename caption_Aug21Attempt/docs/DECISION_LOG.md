@@ -1192,6 +1192,51 @@ are ones where the reference happened not to misbehave.
   trigger; something else modulates it. Does not affect the verdict — recorded rather than
   tidied away.
 
+### 4.18 T0e — B>1 packing is sound; four harness errors [V, 2026-08-24]
+
+Closes the item §4.17 left open. Also pins `expected_fit_sha256` =
+`3c884df495e3f95f6711f83311f99233389b79fbdaf1f5d379874f506102e49d` (143 lines), the
+container's own `inspect.getsource` agreeing with the local candidate, and runs the full
+suite in-container: **164 tests, 0 skipped** — the 6 torch-gated ones had been passing by
+absence on the laptop.
+
+**The question.** Production packs B>1 sequences into `(1, total_nnz)` with
+`attention_mask=None`, boundaries carried only by `position_ids` (`dp_actor.py:118-125`,
+"only pass input_ids and position_ids to enable flash_attn_varlen"). If that inference
+failed, row *j* would attend to *j−1*: every distortion wrong, finite, plausible, ungated.
+
+**Tested structurally, because the aggregate could not decide it.** Deviation from the
+alone-run was max 0.249 / median 0.051 / top-1 0.979 — too large for bf16 rounding, too
+small for catastrophic leakage. Choosing a tolerance there would have been choosing the
+answer. Leakage is a structural claim, so:
+
+| signature | leakage predicts | measured |
+|---|---|---|
+| row 0 vs later rows (row 0 has no predecessor either way) | row 0 ≈ 0, later rows worsen | **1.35** — row 0 deviates as much |
+| chunk(2) vs B=4 (3 preceding seqs → 1) | deviation shrinks | **1.00** — identical |
+
+**ROW-INDEPENDENT within bf16 accumulation noise.** Chunk-invariance follows, so the
+row-chunking of §the worker fix cannot change the answer beyond this noise — a stronger
+result than sampling chunk sizes and finding they agree.
+
+- ❗ **[CC] FOUR harness errors in this stretch, every one read initially as a finding.**
+  (1) T0b's padded reference → "the forward is broken, void everything" (§4.17).
+  (2) t0d passed the RAW image where the resized one was needed — crashed loudly, the lucky
+  one. (3) t0e loaded the model without `apply_ulysses_patch`, which verl applies at
+  `fsdp_workers.py:195`, so it measured stock HF attention that genuinely cannot pack.
+  (4) t0e then compared **raw bf16 logits against a 1e-2 threshold** — ulp at magnitude
+  16–32 is 0.0625, so 0.4375 was 7 ulps and the test could never have passed. T0d had
+  already got this right by comparing log-probs; t0e regressed.
+  **The rule this earns: a probe of production must be BUILT like production — same patches,
+  same dtype-appropriate metric — and a gate must test a property, not a tolerance.**
+- ⚠️ **NOISE FLOOR, and it is not nothing.** Comparing across batch compositions carries
+  ~0.025–0.05 nats median per-position log-prob noise. `D` is a masked mean over ~T
+  positions, so this averages down by roughly √T, and S13 scores every caption in a group
+  against **bit-identical** sighted logits within one chunk while S12 normalises within that
+  same group — so it is largely common-mode for the ranking that matters. Recorded, not
+  dismissed: it bounds how finely `D` can separate captions on low-vision-necessity items
+  and belongs in any future M1 discussion.
+
 ## 5. Predicted failure modes, to instrument from day one
 
 Named in advance so a healthy-looking run cannot be mistaken for a correct one — the PAPO lesson, where every
