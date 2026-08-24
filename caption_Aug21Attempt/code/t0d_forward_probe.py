@@ -77,12 +77,21 @@ def main() -> int:
     dev = model.device
 
     rows = _rows(args.parquet, args.n_items)
+
+    # process_image FIRST, and use the result everywhere. build_prompt_row sizes its image
+    # placeholder tokens for the RESIZED image, so handing image_processor the raw one
+    # yields a pixel_values whose patch count disagrees with the token count -- wrong
+    # logits, not an error. t0b does this at :148 and uses `pimage` at both :158 and :209.
+    from verl.utils.dataset import process_image
+    for r in rows:
+        r["pimage"] = process_image(r["image"], args.min_pixels, args.max_pixels)
+
     print(f"[t0d] {len(rows)} items", flush=True)
 
     out = []
     for r in rows:
         row = build_prompt_row(processor, tokenizer,
-                               P.build_sighted_messages(r["problem"]), [r["image"]],
+                               P.build_sighted_messages(r["problem"]), [r["pimage"]],
                                args.max_prompt_length, args.min_pixels, args.max_pixels)
         ids_p = row["input_ids"].unsqueeze(0).to(dev)
         am_p = row["attention_mask"].unsqueeze(0).to(dev)
