@@ -7,9 +7,17 @@ their own advantages. ``update_policy`` (``dp_actor.py:219-229``) reads ``advant
 ``old_log_probs`` and ``response_mask`` and does not care which rows are answers and which
 are captions. So ``J = J_success + lambda*J_cap`` is expressed entirely as **batch
 composition**, and verl's clipping, KL-to-reference and optimiser are reused byte-for-byte
-instead of reimplemented -- so they cannot be reimplemented wrong. Nothing in verl is
-modified. A useful consequence: ``lambda = 0`` recovers Arm A exactly, through no separate
-code path (tested).
+instead of reimplemented -- so they cannot be reimplemented wrong. A useful consequence:
+``lambda = 0`` recovers Arm A exactly, through no separate code path (tested).
+
+ONE CORRECTION TO A CLAIM THIS DOCSTRING USED TO MAKE. It said "nothing in verl is
+modified". That is no longer exactly true: ``make_ca21_worker`` ATTACHES
+``compute_caption_distortion`` to ``FSDPWorker`` rather than subclassing it, because
+verl's colocated-worker machinery constructs ``__base__`` with no arguments and a subclass
+of FSDPWorker therefore cannot be built (job 3177347). The attachment is additive and
+raises if the name already exists, so no upstream behaviour is replaced -- but "adds a
+method to an imported class" is a weaker claim than "modifies nothing", and the weaker
+one is the true one.
 
 WHY fit() IS FORKED RATHER THAN HOOKED. The caption block must run between
 ``compute_advantage`` and ``update_actor`` (``ray_trainer.py:640-663``).

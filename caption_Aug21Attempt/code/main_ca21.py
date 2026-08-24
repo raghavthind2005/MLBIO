@@ -108,8 +108,15 @@ class Runner:
         print(f"[ca21] dataset -> {_data_loader.RLHFDataset.__name__}", flush=True)
 
         # --- SUBSTITUTION 2: the worker can score captions ---------------------------
+        # ATTACHES the method to FSDPWorker and hands back that same class -- it is not a
+        # subclass. create_colocated_worker_cls instantiates `__base__` with no arguments
+        # (base.py:474-476), and FSDPWorker's own __init__ requires config and role, so a
+        # subclass cannot be constructed at all (job 3177347). Both roles below therefore
+        # reference one class, which is also what base.py:464-467 asserts.
         CA21Worker = make_ca21_worker(FSDPWorker, register, Dispatch.DP_COMPUTE_PROTO)
-        print(f"[ca21] worker  -> {CA21Worker.__name__}", flush=True)
+        print(f"[ca21] worker  -> {CA21Worker.__name__} "
+              f"+compute_caption_distortion "
+              f"(base {CA21Worker.__base__.__name__})", flush=True)
 
         ray_worker_group_cls = RayWorkerGroup
         role_worker_mapping = {

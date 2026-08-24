@@ -198,21 +198,42 @@ def slice_multi_modal_inputs(mm, lo: int, hi: int, n_rows: int):
 
 
 def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
-    """Build the worker subclass. Factored so this module imports without verl present.
+    """Attach ``compute_caption_distortion`` to FSDPWorker and return it.
+
+    Returns the class it was GIVEN, now carrying one extra method -- not a subclass. See
+    the comment on ``_CA21Methods`` below: verl's colocated-worker machinery instantiates
+    ``__base__`` with no arguments, so a subclass of FSDPWorker cannot be constructed.
 
     Call from the training entry point:
 
         from verl.workers.fsdp_workers import FSDPWorker
         from verl.single_controller.base.decorator import Dispatch, register
-        CA21Worker = make_ca21_worker(FSDPWorker, register, Dispatch.DP_COMPUTE_PROTO)
-        role_worker_mapping = {Role.ActorRolloutRef: ray.remote(CA21Worker), ...}
+        Worker = make_ca21_worker(FSDPWorker, register, Dispatch.DP_COMPUTE_PROTO)
+        role_worker_mapping = {Role.ActorRolloutRef: ray.remote(Worker), ...}
+
+    Idempotence is NOT provided: calling twice raises, because a second call would mean
+    something else had already defined the method and attaching would mask it.
     """
     import torch
 
     from ca21_estimator import distortion_from_logits
     from ca21_packing import gather_response_logits
 
-    class CA21Worker(fsdp_worker_cls):
+    # NOT a subclass, and that is forced by verl rather than chosen.
+    #
+    # create_colocated_worker_cls builds `class WorkerDict(worker_cls)` where
+    # `worker_cls = cls.__ray_actor_class__.__base__`, then calls `super().__init__()` with
+    # NO ARGUMENTS (base.py:463, 474-476). Upstream passes FSDPWorker, whose __base__ is the
+    # generic Worker and takes none. A subclass of FSDPWorker has __base__ == FSDPWorker,
+    # which requires `config` and `role` -- so job 3177347 died with
+    # "FSDPWorker.__init__() missing 2 required positional arguments".
+    # base.py:464-467 also asserts every colocated role shares one worker_cls, which a
+    # subclass alongside a plain FSDPWorker would break the moment a critic is enabled.
+    #
+    # So the method is ATTACHED to FSDPWorker below. This class is only a definition site
+    # -- it is never instantiated and never used as a base -- which keeps the method's body
+    # and its @register attributes exactly as written.
+    class _CA21Methods:
         """FSDPWorker + the caption-distortion pass."""
 
         @register(dispatch_mode=dispatch_mode)
@@ -394,4 +415,13 @@ def make_ca21_worker(fsdp_worker_cls, register, dispatch_mode):
                 torch.cat(kl_min_witness).min().item())
             return out.to("cpu")
 
-    return CA21Worker
+    # Additive only: FSDPWorker gains a method it did not have. No existing attribute is
+    # replaced, so verl's own behaviour is untouched -- but note this DOES mutate the
+    # imported class, which is a weaker claim than "nothing in verl is modified", and the
+    # module docstring says so.
+    if hasattr(fsdp_worker_cls, "compute_caption_distortion"):
+        raise AssertionError(
+            "FSDPWorker already defines compute_caption_distortion; attaching would "
+            "silently replace upstream behaviour rather than extend it.")
+    fsdp_worker_cls.compute_caption_distortion = _CA21Methods.compute_caption_distortion
+    return fsdp_worker_cls
